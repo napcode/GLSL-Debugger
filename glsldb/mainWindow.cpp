@@ -3184,8 +3184,8 @@ void MainWindow::cleanupDBGShader()
 void MainWindow::setRunLevel(int rl)
 {
 	QString title = QString(MAIN_WINDOW_TITLE);
-	UT_NOTIFY(LV_INFO,
-			"new level: " << rl << " " << (m_pCurrentCall ? m_pCurrentCall->getName() : NULL));
+	UT_NOTIFY(LV_INFO, "new level: " << rl);
+	UT_NOTIFY(LV_INFO, "Current call: " << (m_pCurrentCall ? m_pCurrentCall->getName() : NULL));
 
 	switch (rl) {
 	case RL_INIT:  // Program start

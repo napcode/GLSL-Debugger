@@ -285,6 +285,10 @@ void printResult(void)
 #endif
 
 #ifndef GLSLDB_WINDOWS
+/* This is probably not the best idea. Signal handlers aren't really allowed 
+ * to call most if not all of the used functions...but since we recieved a SEGFAULT
+ * we're screwed anyway. 
+ */
 void handler(int UNUSED sig)
 {
 	void *buf[MAX_BACKTRACE_DEPTH];
@@ -306,50 +310,71 @@ void handler(int UNUSED sig)
 void setNotifyLevel(int l)
 {
 	severity_t t;
+	enum DBG_LEVELS d;
 	switch (l) {
 	case 0:
 		t = LV_FATAL;
+		d = DBGLVL_ERROR;
 		break;
 	case 1:
 		t = LV_ERROR;
+		d = DBGLVL_ERROR;
 		break;
 	case 2:
 		t = LV_WARN;
+		d = DBGLVL_WARNING;
 		break;
 	case 3:
 		t = LV_INFO;
+		d = DBGLVL_INFO;
 		break;
 	case 4:
 		t = LV_DEBUG;
+		d = DBGLVL_DEBUG;
 		break;
 	case 5:
 		t = LV_TRACE;
+		d = DBGLVL_DEBUG;
 		break;
 	default:
-		t = LV_INFO;
+		t = LV_DEBUG;
+		d = DBGLVL_DEBUG;
 	}
+
 	UTILS_NOTIFY_LEVEL(&t);
+	setMaxDebugOutputLevel(d);
 }
 QStringList parseArguments(int argc, char** argv)
 {
-	int opt = getopt(argc, argv, "+hv:f");
+	int opt = getopt(argc, argv, "+hv:f:");
 	bool abort = false;
+	
+	int level = 4;			/* default log level */
+	int x = 1;				/* we might need that later */
+	
 	while (opt != -1) {
 		switch (opt) {
 		case 'h':
 			std::cout << "Usage: " << argv[0]
 					<< " [options] debuggee [debugee_options]" << std::endl;
 			std::cout << "  -h      : this help message" << std::endl;
-			std::cout << "  -v value: log level from 0 (FATAL) to 5 (LV_TRACE) "
+			std::cout << "  -v value: log level from 0 (FATAL) to 5 (TRACE) "
 					<< std::endl;
-			std::cout << "  -f value: log to file \"value\"" << std::endl;
+			std::cout << "  -l value: enable file logging & write logs to path \"value\"" << std::endl;
 			exit(EXIT_SUCCESS);
 		case 'v':
-			setNotifyLevel(atoi(optarg));
+			level = atoi(optarg);
 			break;
+		case 'f':
+			setLogDir(optarg);
+			UTILS_NOTIFY_TO_FILE(&x);
+			UTILS_NOTIFY_PATH(optarg);
+			break;
+		case '?':
+		case ':':
+			exit(EXIT_SUCCESS);
 		default:
-			std::cout << "def" << std::endl;
-			abort = true;
+			break;
 		}
 		if (abort)
 			break;
@@ -359,12 +384,16 @@ QStringList parseArguments(int argc, char** argv)
 	QStringList al;
 	while (i < argc)
 		al.push_back(argv[i++]);
+
+	setNotifyLevel(level);
 	return al;
 }
 
 int main(int argc, char **argv)
 {
 	QStringList al = parseArguments(argc, argv);
+	startLogging("glsldevil");
+	UTILS_NOTIFY_STARTUP();
 
 #ifndef GLSLDB_WINDOWS
 	// activate backtracing if log level is high enough
@@ -386,8 +415,6 @@ int main(int argc, char **argv)
 
 	// we need both for now...
 	UTILS_NOTIFY_STARTUP();
-	startLogging("glsldevil");
-	setMaxDebugOutputLevel(DBGLVL_DEBUG);
 
 	UT_NOTIFY(LV_INFO, "Application startup.");
 	// we'll need that later...

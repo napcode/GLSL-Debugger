@@ -12,8 +12,11 @@ typedef enum {
 	LV_TRACE = 5
 } severity_t;
 
+/* these are just for convenience */
+#define UTILS_NOTIFY_LOGGER(a) utils_notify_logger(a)
 #define UTILS_NOTIFY_LEVEL(a) utils_notify_level(a)
-#define UTILS_NOTIFY_FILENAME(a) utils_notify_filename(a)
+#define UTILS_NOTIFY_TO_FILE(a) utils_notify_to_file(a)
+#define UTILS_NOTIFY_PATH(a) utils_notify_path(a)
 #define UTILS_NOTIFY_STARTUP() utils_notify_startup()
 #define UTILS_NOTIFY_SHUTDOWN() utils_notify_shutdown()
 
@@ -42,10 +45,11 @@ typedef enum {
 extern "C" {
 #endif
 extern int utils_notify_to_file(const int* value);
-extern const char* utils_notify_filename(const char* filename);
+extern const char* utils_notify_logger(const char* name);
+extern const char* utils_notify_path(const char* path);
 extern severity_t utils_notify_level(const severity_t* value);
-extern void utils_notify_startup();
-extern void utils_notify_shutdown();
+extern void utils_notify_startup(void);
+extern void utils_notify_shutdown(void);
 extern void utils_notify_va(const severity_t sev, const char* filename,
 		const char* func, unsigned int line, const char *fmt, ...);
 #if defined(__cplusplus)

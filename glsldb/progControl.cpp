@@ -2193,7 +2193,7 @@ pcErrorCode ProgramControl::executeContinueOnError(void)
 pcErrorCode ProgramControl::killProgram(int hard)
 {
 	dbgPrint(DBGLVL_INFO,
-			"killing debuggee: %s", (hard ? "forced" : "termination requested"));
+			"killing debuggee: %s\n", (hard ? "forced" : "termination requested"));
 #ifdef _WIN32
 	if (_ai.hProcess != NULL) {
 		return this->detachFromProgram();
