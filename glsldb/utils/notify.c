@@ -73,8 +73,9 @@ void utils_notify_va(const severity_t sev, const char* path, const char* func,
 	static char t[22];
 	time_t timeval = time(0);
 	struct tm *tp = localtime(&timeval);
-	snprintf(t, 22, "%4d-%02d-%02d %02d:%02d:%02d", 1900 + tp->tm_year,
-			tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec);
+	//snprintf(t, 22, "%4d-%02d-%02d %02d:%02d:%02d", 1900 + tp->tm_year,
+	//		tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec);
+	snprintf(t, 22, "%02d:%02d:%02d", tp->tm_hour, tp->tm_min, tp->tm_sec);
 	switch (sev) {
 	case LV_TRACE:
 		strcpy(p, " [TRACE]::");
@@ -100,9 +101,11 @@ void utils_notify_va(const severity_t sev, const char* path, const char* func,
 	}
 
 	char *filename = strrchr(path, '/');
-
+#ifdef GLSLDB_DEBUG
 	snprintf(prefix, 128, "%s%s%s:%s()::%d: ", t, p, filename + 1, func, line);
-
+#else
+	snprintf(prefix, 128, "%s%s", t, p);
+#endif
 	va_start(list, fmt);
 	vsnprintf(msg, MAX_NOTIFY_SIZE, fmt, list);
 	va_end(list);

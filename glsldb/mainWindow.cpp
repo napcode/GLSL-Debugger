@@ -135,7 +135,8 @@ MainWindow::MainWindow(char *pname, const QStringList& args) :
 	/* per frgamnet operations */
 	m_pftDialog = new FragmentTestDialog(this);
 
-	pc = new ProgramControl(pname);
+	pc = new ProgramControl();
+	connect(pc, SIGNAL(stateChanged(State)), this, SLOT(debuggeeStateChanged(State)));
 
 	m_pCurrentCall = NULL;
 	m_pShVarModel = NULL;
@@ -197,7 +198,7 @@ MainWindow::MainWindow(char *pname, const QStringList& args) :
 
 	QSettings settings;
 	if (settings.contains("MainWinState")) {
-		this->restoreState(settings.value("MainWinState").toByteArray());
+		restoreState(settings.value("MainWinState").toByteArray());
 	}
 }
 
@@ -205,7 +206,7 @@ MainWindow::~MainWindow()
 {
 	/* Stop still running progs */
 	UT_NOTIFY(LV_TRACE, "~MainWindow kill program");
-	killProgram(1);
+	killDebuggee(true);
 
 	/* Free reachable memory */
 	UT_NOTIFY(LV_TRACE, "~MainWindow free pc");
@@ -242,23 +243,24 @@ MainWindow::~MainWindow()
 	ShFinalize();
 }
 
-void MainWindow::killProgram(int hard)
+void MainWindow::killDebuggee(bool hard)
 {
-	UT_NOTIFY(LV_TRACE, "Killing debugee");
-	pc->killProgram(hard);
+	UT_NOTIFY(LV_TRACE, "killing debugee");
+	pc->killDebuggee(hard);
 	/* status log */
-	if (hard) {
-		setStatusBarText(QString("Program termination forced!"));
-		addGlTraceWarningItem("Program termination forced!");
-	} else {
-		setStatusBarText(QString("Program terminated!"));
-		addGlTraceWarningItem("Program terminated!");
-	}
+	const char *msg;
+	if (hard) 
+		msg = "debugee termination forced!";
+	else
+		msg = "debugee terminated!";
+
+	setStatusBarText(QString(msg));
+	addGlTraceWarningItem(msg);
 }
 
 void MainWindow::on_aQuit_triggered()
 {
-	UT_NOTIFY(LV_TRACE, "Quitting application");
+	UT_NOTIFY(LV_TRACE, "quitting application");
 	close();
 }
 
@@ -266,7 +268,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
 	QSettings settings;
 	settings.setValue("MainWinState", this->saveState());
-	killProgram(1);
+	killDebuggee(true);
 	//qApp->quit();
 	event->accept();
 }
@@ -292,13 +294,13 @@ void MainWindow::on_aOpen_triggered()
 		}
 		dOpenProgram->leArguments->setText(arguments);
 
-		dOpenProgram->leWorkDir->setText(this->workDir);
+		dOpenProgram->leWorkDir->setText(workDir);
 
 	} else {
 		/* Set MRU program, if no old value was available. */
 		QString program, arguments, workDir;
 
-		if (this->loadMruProgram(program, arguments, workDir)) {
+		if (loadMruProgram(program, arguments, workDir)) {
 			dOpenProgram->leProgram->setText(program);
 			dOpenProgram->leArguments->setText(arguments);
 			dOpenProgram->leWorkDir->setText(workDir);
@@ -316,22 +318,22 @@ void MainWindow::on_aOpen_triggered()
 			/* cleanup dbg state */
 			leaveDBGState();
 			/* kill program */
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
-			setErrorStatus(PCE_NONE);
+			setErrorStatus(EC_NONE);
 			setStatusBarText(
 					QString("New program: ") + dOpenProgram->leProgram->text());
 			clearGlTraceItemList();
 		}
 
 		if (!dOpenProgram->leWorkDir->text().isEmpty()) {
-			this->workDir = dOpenProgram->leWorkDir->text();
+			workDir = dOpenProgram->leWorkDir->text();
 		} else {
-			this->workDir.clear();
+			workDir.clear();
 		}
 
 		/* Save MRU program. */
-		this->saveMruProgram(dOpenProgram->leProgram->text(),
+		saveMruProgram(dOpenProgram->leProgram->text(),
 				dOpenProgram->leArguments->text(),
 				dOpenProgram->leWorkDir->text());
 	}
@@ -342,7 +344,7 @@ void MainWindow::on_aAttach_triggered()
 {
 	UT_NOTIFY(LV_TRACE, "Quitting application");
 
-	pcErrorCode errorCode;
+	ErrorCode errorCode;
 	Dialog_AttachToProcess dlgAttach(this);
 	dlgAttach.exec();
 
@@ -350,28 +352,28 @@ void MainWindow::on_aAttach_triggered()
 		ProcessSnapshotModel::Item *process = dlgAttach.getSelectedItem();
 
 		if ((process != NULL) && process->IsAttachtable()) {
-			this->dbgProgArgs.clear();
-			this->dbgProgArgs.append(QString(process->GetExe()));
+			dbgProgArgs.clear();
+			dbgProgArgs.append(QString(process->GetExe()));
 			/* cleanup dbg state */
-			this->leaveDBGState();
+			leaveDBGState();
 			/* kill program */
-			this->killProgram(1);
-			this->setRunLevel(RL_SETUP);
-			this->setErrorStatus(PCE_NONE);
-			this->setStatusBarText(
+			killDebuggee(true);
+			setRunLevel(RL_SETUP);
+			setErrorStatus(EC_NONE);
+			setStatusBarText(
 					QString("New program: ") + QString(process->GetExe()));
-			this->clearGlTraceItemList();
+			clearGlTraceItemList();
 
 			/* Attach to programm. */
-			errorCode = this->pc->attachToProgram(process->GetPid());
-			if (errorCode != PCE_NONE) {
+			errorCode = pc->attachToProgram(process->GetPid());
+			if (errorCode != EC_NONE) {
 				QMessageBox::critical(this, "Error", "Attaching to process "
 						"failed.");
-				this->setRunLevel(RL_INIT);
-				this->setErrorStatus(errorCode);
+				setRunLevel(RL_INIT);
+				setErrorStatus(errorCode);
 			} else {
-				//this->setRunLevel(RL_SETUP);
-				this->setErrorStatus(PCE_NONE);
+				//setRunLevel(RL_SETUP);
+				setErrorStatus(EC_NONE);
 			}
 		}
 	}
@@ -442,11 +444,11 @@ void MainWindow::on_tbBVCapture_clicked()
 {
 	int width, height;
 	float *imageData;
-	pcErrorCode error;
+	ErrorCode error;
 
 	error = pc->readBackActiveRenderBuffer(3, &width, &height, &imageData);
 
-	if (error == PCE_NONE) {
+	if (error == EC_NONE) {
 		PixelBoxFloat imageBox(width, height, 3, imageData);
 		lBVLabel->setPixmap(
 				QPixmap::fromImage(imageBox.getByteImage(PixelBox::FBM_CLAMP)));
@@ -549,7 +551,7 @@ void MainWindow::on_cbGlstPfMode_currentIndexChanged(int m)
 	setGlStatisticTabs(cbGlstCallOrigin->currentIndex(), m);
 }
 
-pcErrorCode MainWindow::getNextCall()
+ErrorCode MainWindow::getNextCall()
 {
 	m_pCurrentCall = pc->getCurrentCall();
 	if (!m_bHaveValidShaderCode && m_pCurrentCall->isDebuggableDrawCall()) {
@@ -564,9 +566,9 @@ pcErrorCode MainWindow::getNextCall()
 		m_serializedUniforms.pData = NULL;
 		m_serializedUniforms.count = 0;
 
-		pcErrorCode error = pc->getShaderCode(m_pShaders, &m_dShResources,
+		ErrorCode error = pc->getShaderCode(m_pShaders, &m_dShResources,
 				&m_serializedUniforms.pData, &m_serializedUniforms.count);
-		if (error == PCE_NONE) {
+		if (error == EC_NONE) {
 			/* show shader code(s) in tabs */
 			setShaderCodeText(m_pShaders);
 			if (m_pShaders[0] != NULL || m_pShaders[1] != NULL
@@ -577,7 +579,7 @@ pcErrorCode MainWindow::getNextCall()
 			return error;
 		}
 	}
-	return PCE_NONE;
+	return EC_NONE;
 }
 
 void MainWindow::on_tbExecute_clicked()
@@ -591,8 +593,6 @@ void MainWindow::on_tbExecute_clicked()
 
 	if (currentRunLevel == RL_SETUP) {
 		int i;
-		char **args;
-		char *workDir;
 
 		/* Clear previous status */
 		setStatusBarText(QString(""));
@@ -601,27 +601,12 @@ void MainWindow::on_tbExecute_clicked()
 
 		m_bHaveValidShaderCode = false;
 
-		/* Build arguments */
-		args = new char*[dbgProgArgs.size() + 1];
-		for (i = 0; i < dbgProgArgs.size(); i++) {
-			args[i] = strdup(dbgProgArgs[i].toAscii().data());
-		}
-		//args[dbgProgArgs.size()] = (char*)malloc(sizeof(char));
-		//args[dbgProgArgs.size()] = '\0';
-		args[dbgProgArgs.size()] = 0;
-
-		if (this->workDir.isEmpty()) {
-			workDir = NULL;
-		} else {
-			workDir = strdup(this->workDir.toAscii().data());
-		}
-
 		/* Execute prog */
-		pcErrorCode error = pc->runProgram(args, workDir);
+		ErrorCode error = pc->runProgram(dbgProgArgs, workDir);
 
 		/* Error handling */
 		setErrorStatus(error);
-		if (error != PCE_NONE) {
+		if (error != EC_NONE) {
 			setRunLevel(RL_SETUP);
 		} else {
 			setStatusBarText(QString("Executing " + dbgProgArgs[0]));
@@ -631,18 +616,12 @@ void MainWindow::on_tbExecute_clicked()
 			addGlTraceItem();
 		}
 
-		/* Clean up */
-		for (i = 0; i < dbgProgArgs.size() + 1; i++) {
-			free(args[i]);
-		}
-		delete[] args;
-		free(workDir);
 	} else {
 		/* cleanup dbg state */
 		leaveDBGState();
 
 		/* Stop already running progs */
-		killProgram(1);
+		killDebuggee(true);
 
 		setRunLevel(RL_SETUP);
 	}
@@ -783,9 +762,9 @@ void MainWindow::setShaderCodeText(char *shaders[3])
 	}
 }
 
-pcErrorCode MainWindow::nextStep(const FunctionCall *fCall)
+ErrorCode MainWindow::nextStep(const FunctionCall *fCall)
 {
-	pcErrorCode error;
+	ErrorCode error;
 
 	if ((fCall && fCall->isShaderSwitch())
 			|| m_pCurrentCall->isShaderSwitch()) {
@@ -794,7 +773,7 @@ pcErrorCode MainWindow::nextStep(const FunctionCall *fCall)
 		/* call shader switch */
 		error = pc->callOrigFunc(fCall);
 
-		if (error != PCE_NONE) {
+		if (error != EC_NONE) {
 			if (isErrorCritical(error)) {
 				return error;
 			}
@@ -809,7 +788,7 @@ pcErrorCode MainWindow::nextStep(const FunctionCall *fCall)
 			m_serializedUniforms.count = 0;
 			error = pc->getShaderCode(m_pShaders, &m_dShResources,
 					&m_serializedUniforms.pData, &m_serializedUniforms.count);
-			if (error == PCE_NONE) {
+			if (error == EC_NONE) {
 				/* show shader code(s) in tabs */
 				setShaderCodeText(m_pShaders);
 				if (m_pShaders[0] != NULL || m_pShaders[1] != NULL
@@ -834,7 +813,7 @@ pcErrorCode MainWindow::nextStep(const FunctionCall *fCall)
 			&& m_pCurrentCall->isFramebufferChange()) {
 		on_tbBVCapture_clicked();
 	}
-	if (error == PCE_NONE) {
+	if (error == EC_NONE) {
 		error = pc->callDone();
 	} else {
 		/* TODO: what about the error code ??? */
@@ -880,7 +859,7 @@ void MainWindow::singleStep()
 
 	setGlTraceItemIconType(GlTraceListItem::IT_OK);
 
-	pcErrorCode error = nextStep(NULL);
+	ErrorCode error = nextStep(NULL);
 
 	delete m_pCurrentCall;
 	m_pCurrentCall = NULL;
@@ -888,7 +867,7 @@ void MainWindow::singleStep()
 	/* Error handling */
 	setErrorStatus(error);
 	if (isErrorCritical(error)) {
-		killProgram(1);
+		killDebuggee(true);
 		setRunLevel(RL_SETUP);
 		return;
 	} else {
@@ -899,7 +878,7 @@ void MainWindow::singleStep()
 		error = getNextCall();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -920,7 +899,7 @@ void MainWindow::on_tbSkip_clicked()
 
 	setGlTraceItemIconType(GlTraceListItem::IT_ERROR);
 
-	pcErrorCode error = pc->callDone();
+	ErrorCode error = pc->callDone();
 
 	delete m_pCurrentCall;
 	m_pCurrentCall = NULL;
@@ -928,13 +907,13 @@ void MainWindow::on_tbSkip_clicked()
 	/* Error handling */
 	setErrorStatus(error);
 	if (isErrorCritical(error)) {
-		killProgram(1);
+		killDebuggee(true);
 		setRunLevel(RL_SETUP);
 	} else {
 		error = getNextCall();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -981,7 +960,7 @@ void MainWindow::on_tbEdit_clicked()
 
 void MainWindow::waitForEndOfExecution()
 {
-	pcErrorCode error;
+	ErrorCode error;
 	while (currentRunLevel == RL_TRACE_EXECUTE_RUN) {
 		qApp->processEvents(QEventLoop::AllEvents);
 #ifndef _WIN32
@@ -992,7 +971,7 @@ void MainWindow::waitForEndOfExecution()
 		int state;
 		error = pc->checkExecuteState(&state);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		} else if (isOpenGLError(error)) {
@@ -1006,7 +985,7 @@ void MainWindow::waitForEndOfExecution()
 			error = getNextCall();
 			setErrorStatus(error);
 			if (isErrorCritical(error)) {
-				killProgram(1);
+				killDebuggee(true);
 				setRunLevel(RL_SETUP);
 				return;
 			} else {
@@ -1019,8 +998,8 @@ void MainWindow::waitForEndOfExecution()
 			break;
 		}
 		if (!pc->childAlive()) {
-			UT_NOTIFY(LV_INFO, "Debugee terminated!");
-			killProgram(0);
+			UT_NOTIFY(LV_INFO, "debugee terminated!");
+			killDebuggee(false);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -1031,7 +1010,7 @@ void MainWindow::waitForEndOfExecution()
 		setRunLevel(RL_TRACE_EXECUTE);
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		} else {
@@ -1061,11 +1040,11 @@ void MainWindow::on_tbJumpToDrawCall_clicked()
 
 		m_bHaveValidShaderCode = false;
 
-		pcErrorCode error = pc->executeToDrawCall(
+		ErrorCode error = pc->executeToDrawCall(
 				tbToggleHaltOnError->isChecked());
 		setErrorStatus(error);
-		if (error != PCE_NONE) {
-			killProgram(1);
+		if (error != EC_NONE) {
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -1117,11 +1096,11 @@ void MainWindow::on_tbJumpToShader_clicked()
 
 		m_bHaveValidShaderCode = false;
 
-		pcErrorCode error = pc->executeToShaderSwitch(
+		ErrorCode error = pc->executeToShaderSwitch(
 				tbToggleHaltOnError->isChecked());
 		setErrorStatus(error);
-		if (error != PCE_NONE) {
-			killProgram(1);
+		if (error != EC_NONE) {
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -1179,12 +1158,12 @@ void MainWindow::on_tbJumpToUserDef_clicked()
 
 			m_bHaveValidShaderCode = false;
 
-			pcErrorCode error = pc->executeToUserDefined(
+			ErrorCode error = pc->executeToUserDefined(
 					targetName.toAscii().data(),
 					tbToggleHaltOnError->isChecked());
 			setErrorStatus(error);
-			if (error != PCE_NONE) {
-				killProgram(1);
+			if (error != EC_NONE) {
+				killDebuggee(true);
 				setRunLevel(RL_SETUP);
 				return;
 			}
@@ -1238,10 +1217,10 @@ void MainWindow::on_tbRun_clicked()
 
 		m_bHaveValidShaderCode = false;
 
-		pcErrorCode error = pc->execute(tbToggleHaltOnError->isChecked());
+		ErrorCode error = pc->execute(tbToggleHaltOnError->isChecked());
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -1374,7 +1353,7 @@ bool MainWindow::getDebugVertexData(DbgCgOptions option, ShChangeableList *cl,
 	int target, elementsPerVertex, numVertices, numPrimitives,
 			forcePointPrimitiveMode;
 	float *data = NULL;
-	pcErrorCode error;
+	ErrorCode error;
 
 	char *shaders[] = {
 		m_pShaders[0],
@@ -1478,7 +1457,7 @@ bool MainWindow::getDebugVertexData(DbgCgOptions option, ShChangeableList *cl,
 	////////////////
 
 	free(debugCode);
-	if (error != PCE_NONE) {
+	if (error != EC_NONE) {
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
 			cleanupDBGShader();
@@ -1487,7 +1466,7 @@ bool MainWindow::getDebugVertexData(DbgCgOptions option, ShChangeableList *cl,
 					"shader. An error occured!", QMessageBox::Ok);
 			UT_NOTIFY(LV_ERROR,
 					"Critical Error in getDebugVertexData: " << getErrorDescription(error));
-			killProgram(1);
+			killDebuggee(true);
 			return false;
 		}
 		QMessageBox::critical(this, "Error", "Could not debug "
@@ -1509,7 +1488,7 @@ bool MainWindow::getDebugImage(DbgCgOptions option, ShChangeableList *cl,
 {
 	int width, height, channels;
 	void *imageData;
-	pcErrorCode error;
+	ErrorCode error;
 
 	char *shaders[] = {
 		m_pShaders[0],
@@ -1578,21 +1557,21 @@ bool MainWindow::getDebugImage(DbgCgOptions option, ShChangeableList *cl,
 		setRunLevel(RL_SETUP);
 		QMessageBox::critical(this, "Error", "Could not initialize buffers for "
 				"fragment program debugging.", QMessageBox::Ok);
-		killProgram(1);
+		killDebuggee(true);
 		return false;
 	}
 
 	error = pc->shaderStepFragment(shaders, channels, rbFormat, &width, &height,
 			&imageData);
 	free(debugCode);
-	if (error != PCE_NONE) {
+	if (error != EC_NONE) {
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
 			cleanupDBGShader();
 			setRunLevel(RL_SETUP);
 			QMessageBox::critical(this, "Error", "Could not debug fragment "
 					"shader. An error occured!", QMessageBox::Ok);
-			killProgram(1);
+			killDebuggee(true);
 			return false;
 		}
 		QMessageBox::critical(this, "Error", "Could not debug fragment "
@@ -2320,13 +2299,13 @@ void MainWindow::ShaderStep(int action, bool updateWatchData,
 	/* TODO free debug result */
 }
 
-pcErrorCode MainWindow::recordCall()
+ErrorCode MainWindow::recordCall()
 {
 	resetPerFrameStatistics();
 
 	setGlTraceItemIconType(GlTraceListItem::IT_RECORD);
 
-	pcErrorCode error = pc->recordCall();
+	ErrorCode error = pc->recordCall();
 	/* TODO: error handling!!!!!! */
 
 	error = pc->callDone();
@@ -2337,13 +2316,13 @@ pcErrorCode MainWindow::recordCall()
 	/* Error handling */
 	setErrorStatus(error);
 	if (isErrorCritical(error)) {
-		killProgram(1);
+		killDebuggee(true);
 		setRunLevel(RL_SETUP);
 	} else {
 		error = getNextCall();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 		} else {
 			addGlTraceItem();
@@ -2360,21 +2339,21 @@ void MainWindow::recordDrawCall()
 				&& (!m_pCurrentCall
 						|| (m_pCurrentCall
 								&& strcmp(m_pCurrentCall->getName(), "glEnd")))) {
-			if (recordCall() != PCE_NONE) {
+			if (recordCall() != EC_NONE) {
 				return;
 			}
 			qApp->processEvents(QEventLoop::AllEvents);
 		}
 		if (!m_pCurrentCall || strcmp(m_pCurrentCall->getName(), "glEnd")
-				|| recordCall() != PCE_NONE) {
+				|| recordCall() != EC_NONE) {
 			if (currentRunLevel == RL_DBG_RECORD_DRAWCALL) {
 				/* TODO: error handling */
 				UT_NOTIFY(LV_WARN, "recordDrawCall: begin without end????");
 				return;
 			} else {
 				/* draw call recording stopped by user interaction */
-				pcErrorCode error = pc->insertGlEnd();
-				if (error == PCE_NONE) {
+				ErrorCode error = pc->insertGlEnd();
+				if (error == EC_NONE) {
 					switch (twShader->currentIndex()) {
 					case 0:
 						error = pc->restoreRenderTarget(
@@ -2390,15 +2369,15 @@ void MainWindow::recordDrawCall()
 						break;
 					}
 				}
-				if (error == PCE_NONE) {
+				if (error == EC_NONE) {
 					error = pc->restoreActiveShader();
 				}
-				if (error == PCE_NONE) {
+				if (error == EC_NONE) {
 					error = pc->endReplay();
 				}
 				setErrorStatus(error);
 				if (isErrorCritical(error)) {
-					killProgram(1);
+					killDebuggee(true);
 					setRunLevel(RL_SETUP);
 					return;
 				}
@@ -2408,7 +2387,7 @@ void MainWindow::recordDrawCall()
 		}
 		setGlTraceItemIconType(GlTraceListItem::IT_ACTUAL);
 	} else {
-		if (recordCall() != PCE_NONE) {
+		if (recordCall() != EC_NONE) {
 			return;
 		}
 	}
@@ -2421,7 +2400,7 @@ void MainWindow::on_tbShaderExecute_clicked()
 	char *shaderCode = NULL;
 	int debugOptions = EDebugOpIntermediate;
 	EShLanguage language = EShLangFragment;
-	pcErrorCode error = PCE_NONE;
+	ErrorCode error = EC_NONE;
 
 	if (currentRunLevel == RL_DBG_VERTEX_SHADER
 			|| currentRunLevel == RL_DBG_GEOMETRY_SHADER
@@ -2438,7 +2417,7 @@ void MainWindow::on_tbShaderExecute_clicked()
 		error = pc->saveAndInterruptQueries();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -2462,9 +2441,9 @@ void MainWindow::on_tbShaderExecute_clicked()
 		break;
 	}
 	setErrorStatus(error);
-	if (error != PCE_NONE) {
+	if (error != EC_NONE) {
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		} else {
@@ -2483,7 +2462,7 @@ void MainWindow::on_tbShaderExecute_clicked()
 		error = pc->saveActiveShader();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -2526,8 +2505,8 @@ void MainWindow::on_tbShaderExecute_clicked()
 	/* start building the parse tree for this shader */
 	m_dShCompiler = ShConstructCompiler(language, debugOptions);
 	if (m_dShCompiler == 0) {
-		setErrorStatus(PCE_UNKNOWN_ERROR);
-		killProgram(1);
+		setErrorStatus(EC_UNKNOWN_ERROR);
+		killDebuggee(true);
 		setRunLevel(RL_SETUP);
 		return;
 	}
@@ -3020,7 +2999,7 @@ void MainWindow::changedActiveWindow(QWidget *w)
 
 void MainWindow::leaveDBGState()
 {
-	pcErrorCode error = PCE_NONE;
+	ErrorCode error = EC_NONE;
 
 	switch (currentRunLevel) {
 	case RL_DBG_RESTART:
@@ -3029,21 +3008,21 @@ void MainWindow::leaveDBGState()
 		error = pc->restoreActiveShader();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
 		error = pc->restartQueries();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
 		error = pc->endReplay();
 		setErrorStatus(error);
 		if (isErrorCritical(error)) {
-			killProgram(1);
+			killDebuggee(true);
 			setRunLevel(RL_SETUP);
 			return;
 		}
@@ -3061,7 +3040,7 @@ void MainWindow::cleanupDBGShader()
 	QList<ShVarItem*> watchItems;
 	int i;
 
-	pcErrorCode error = PCE_NONE;
+	ErrorCode error = EC_NONE;
 
 	/* remove debug markers from code display */
 	QTextDocument *document = NULL;
@@ -3161,15 +3140,15 @@ void MainWindow::cleanupDBGShader()
 			error = pc->restoreRenderTarget(DBG_TARGET_FRAGMENT_SHADER);
 			break;
 		default:
-			error = PCE_NONE;
+			error = EC_NONE;
 		}
 
 		setErrorStatus(error);
-		if (error != PCE_NONE) {
+		if (error != EC_NONE) {
 			if (isErrorCritical(error)) {
 				setRunLevel(RL_SETUP);
 				UT_NOTIFY(LV_ERROR, getErrorDescription(error));
-				killProgram(1);
+				killDebuggee(true);
 				return;
 			}
 			UT_NOTIFY(LV_WARN, getErrorDescription(error));
@@ -3181,16 +3160,16 @@ void MainWindow::cleanupDBGShader()
 	}
 }
 
-void MainWindow::setRunLevel(int rl)
+void MainWindow::setRunLevel(RunLevel rl)
 {
 	QString title = QString(MAIN_WINDOW_TITLE);
-	UT_NOTIFY(LV_INFO,
-			"new level: " << rl << " " << (m_pCurrentCall ? m_pCurrentCall->getName() : NULL));
+	UT_NOTIFY(LV_INFO, "new level " << rl << "(" << getRunLevelInfo(rl) << ") "
+		<< (m_pCurrentCall ? m_pCurrentCall->getName() : NULL));
 
 	switch (rl) {
 	case RL_INIT:  // Program start
 		currentRunLevel = RL_INIT;
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3240,7 +3219,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = RL_SETUP;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3299,7 +3278,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = RL_TRACE_EXECUTE_NO_DEBUGABLE;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3350,7 +3329,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = RL_TRACE_EXECUTE_IS_DEBUGABLE;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3434,7 +3413,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = RL_TRACE_EXECUTE_RUN;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(false);
 		aAttach->setEnabled(false);
 		if (!tbBVCaptureAutomatic->isChecked()) {
@@ -3487,7 +3466,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = RL_DBG_RECORD_DRAWCALL;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(false);
 		aAttach->setEnabled(false);
 		if (!tbBVCaptureAutomatic->isChecked()) {
@@ -3533,7 +3512,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = rl;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3614,7 +3593,7 @@ void MainWindow::setRunLevel(int rl)
 		currentRunLevel = rl;
 		title.append(" - ");
 		title.append(dbgProgArgs[0]);
-		this->setWindowTitle(title);
+		setWindowTitle(title);
 		aOpen->setEnabled(true);
 #ifdef _WIN32
 		//aAttach->setEnabled(true);
@@ -3697,26 +3676,26 @@ void MainWindow::setRunLevel(int rl)
 	}
 }
 
-void MainWindow::setErrorStatus(pcErrorCode error)
+void MainWindow::setErrorStatus(ErrorCode error)
 {
 	QPalette palette;
 
 	switch (error) {
 	/* no error */
-	case PCE_NONE:
+	case EC_NONE:
 		lSBErrorIcon->setVisible(false);
 		lSBErrorText->setVisible(false);
 		statusbar->showMessage("");
 		break;
 		/* gl errors and other non-critical errors */
-	case PCE_GL_INVALID_ENUM:
-	case PCE_GL_INVALID_VALUE:
-	case PCE_GL_INVALID_OPERATION:
-	case PCE_GL_STACK_OVERFLOW:
-	case PCE_GL_STACK_UNDERFLOW:
-	case PCE_GL_OUT_OF_MEMORY:
-	case PCE_GL_TABLE_TOO_LARGE:
-	case PCE_DBG_READBACK_NOT_ALLOWED:
+	case EC_GL_INVALID_ENUM:
+	case EC_GL_INVALID_VALUE:
+	case EC_GL_INVALID_OPERATION:
+	case EC_GL_STACK_OVERFLOW:
+	case EC_GL_STACK_UNDERFLOW:
+	case EC_GL_OUT_OF_MEMORY:
+	case EC_GL_TABLE_TOO_LARGE:
+	case EC_DBG_READBACK_NOT_ALLOWED:
 		lSBErrorIcon->setVisible(true);
 		lSBErrorIcon->setPixmap(
 				QPixmap(
@@ -3859,3 +3838,7 @@ bool MainWindow::saveMruProgram(const QString& program,
 	return true;
 }
 
+void MainWindow::debuggeeStateChanged(State s) 
+{
+	UT_NOTIFY(LV_INFO, "New debuggee state " << getStateInfo(s));
+}

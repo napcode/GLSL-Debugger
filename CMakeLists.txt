@@ -39,7 +39,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     add_definitions(-DGLSLDB_WIN32)
 endif()
 
-# maintainer mode
+# define maintainer mode
 set( CMAKE_CXX_FLAGS_MAINTAINER ${MNT_CXX_FLAGS} CACHE STRING
     "Flags used by the C++ compiler during maintainer builds."
     FORCE )
@@ -63,6 +63,13 @@ mark_as_advanced(
 set( CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}" CACHE STRING
     "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Maintainer."
     FORCE )
+
+# add build type flags to compilation
+if(${CMAKE_BUILD_TYPE} MATCHES "Maintainer" OR ${CMAKE_BUILD_TYPE} MATCHES "Debug")
+    add_definitions(-DGLSLDB_DEBUG)
+else()
+    add_definitions(-DGLSLDB_RELEASE)
+endif()
 
 set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
