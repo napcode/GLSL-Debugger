@@ -53,7 +53,7 @@ enum RunLevel {
 enum State {
 	ST_INVALID, 
 	ST_INIT, 
-	ST_WAITING, 
+	ST_ALIVE, 
 	ST_RUNNING, 
 	ST_STOPPED,
 	ST_EXITED, 

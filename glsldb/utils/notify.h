@@ -27,16 +27,24 @@ typedef enum {
     do {													\
         std::stringstream buf;								\
         buf << msg;											\
-        utils_notify_va(sev, __FILE__, __func__, __LINE__, buf.str().c_str());	\
+        utils_notify_va(sev, __FILE__, __func__, __LINE__, 1, buf.str().c_str());	\
+    }														\
+    while(0)
+
+#define UT_NOTIFY_NL(sev, msg)									\
+    do {													\
+        std::stringstream buf;								\
+        buf << msg;											\
+        utils_notify_va(sev, __FILE__, __func__, __LINE__, 0, buf.str().c_str());	\
     }														\
     while(0)
 
 #else   // C
 #define UT_NOTIFY(sev, ...)                                 \
-            utils_notify_va(sev, __FILE__, __func__, __LINE__, __VA_ARGS__)
+            utils_notify_va(sev, __FILE__, __func__, __LINE__, 1, __VA_ARGS__)
+#define UT_NOTIFY_NL(sev, ...)                                 \
+            utils_notify_va(sev, __FILE__, __func__, __LINE__, 0, __VA_ARGS__)
 #endif  // __cplusplus
-#define UT_NOTIFY_VA(sev, ...)                                 \
-            utils_notify_va(sev, __FILE__, __func__, __LINE__, __VA_ARGS__)
 
 #if defined(__cplusplus)
 extern "C" {
@@ -47,7 +55,7 @@ extern severity_t utils_notify_level(const severity_t* value);
 extern void utils_notify_startup();
 extern void utils_notify_shutdown();
 extern void utils_notify_va(const severity_t sev, const char* filename,
-		const char* func, unsigned int line, const char *fmt, ...);
+		const char* func, unsigned int line, unsigned int newline, const char *fmt, ...);
 #if defined(__cplusplus)
 }
 #endif

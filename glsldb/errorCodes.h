@@ -43,7 +43,6 @@ enum ErrorCode {
 	EC_EXIT,
 	EC_UNKNOWN_ERROR,
 	EC_MEMORY_ALLOCATION_FAILED,
-	EC_STOPPED, 
 
 	/* debuglib errors */
 	EC_DBG_NO_ACTIVE_SHADER,
