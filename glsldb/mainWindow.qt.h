@@ -53,6 +53,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "shVarModel.qt.h"
 #include "errorCodes.h"
 #include "runLevel.h"
+#include "debugConfig.h"
 #include "functionCall.h"
 #include "pixelBox.qt.h"
 #include "loopDialog.qt.h"
@@ -74,7 +75,7 @@ class MainWindow: public QMainWindow, public Ui::MainWindow
 	Q_OBJECT
 
 public:
-	MainWindow(char *pname, const QStringList& args);
+	MainWindow(const QStringList& args);
 	~MainWindow();
 
 public slots:
@@ -152,7 +153,7 @@ private slots:
 private:
 	void closeEvent(QCloseEvent *event);
 
-	void killDebuggee(bool hard);
+	void killDebuggee(void);
 
 	void setErrorStatus(ErrorCode);
 	void setStatusBarText(QString);
@@ -202,8 +203,8 @@ private:
 	/* per fragment tests */
 	FragmentTestDialog *m_pftDialog;
 
-	QStringList dbgProgArgs;
-	QString workDir;
+    DebugConfig _debugConfig;
+
 	ProgramControl *pc;
 
 	const FunctionCall *m_pCurrentCall;

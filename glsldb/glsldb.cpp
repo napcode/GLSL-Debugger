@@ -380,7 +380,7 @@ int main(int argc, char **argv)
 	FunctionsMap& map = FunctionsMap::instance();
 	map.initialize();
 
-	MainWindow mainWin(argv[0], al);
+	MainWindow mainWin(al);
 
 	mainWin.show();
 

@@ -131,13 +131,13 @@ const char* getErrorInfo(ErrorCode error)
 	case EC_NONE:
 		return "";
 	case EC_FORK:
-		return "FORK_FAILED";
+		return "FORK FAILED";
 	case EC_EXEC:
-		return "EXEC_FAILED";
+		return "EXEC FAILED";
 	case EC_EXIT:
-		return "CHILD_EXIT";
+		return "CHILD EXIT";
 	case EC_UNKNOWN_ERROR:
-		return "PROGRAM_ERROR";
+		return "PROGRAM ERROR";
 		/* debuglib errors */
 	case EC_MEMORY_ALLOCATION_FAILED:
 	case EC_DBG_NO_ACTIVE_SHADER:
@@ -151,9 +151,9 @@ const char* getErrorInfo(ErrorCode error)
 	case EC_DBG_OPERATION_NOT_ALLOWED:
 	case EC_DBG_INVALID_OPERATION:
 	case EC_DBG_INVALID_VALUE:
-		return "INTERNAL_ERROR";
+		return "INTERNAL ERROR";
 	case EC_DBG_READBACK_NOT_ALLOWED:
-		return "INVALID_OPERATION";
+		return "INVALID OPERATION";
 		/* gl errors */
 	case EC_GL_INVALID_ENUM:
 		return "GL_INVALID_ENUM";

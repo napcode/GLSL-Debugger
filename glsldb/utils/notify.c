@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef _WIN32
 	#include <windows.h>
@@ -69,7 +70,7 @@ void utils_notify_shutdown()
 	}
 }
 void utils_notify_va(const severity_t sev, const char* path, const char* func,
-		unsigned int line, const char *fmt, ...)
+		unsigned int line, unsigned int newline, const char *fmt, ...)
 {
 	va_list list;
 	static char p[12];
@@ -79,13 +80,10 @@ void utils_notify_va(const severity_t sev, const char* path, const char* func,
 	char *filename;
 	time_t timeval = time(0);
 	struct tm *tp = localtime(&timeval);
-
-	if (sev > utils_notify_settings.level)
-		return;
-
-	snprintf(t, 22, "%4d-%02d-%02d %02d:%02d:%02d", 1900 + tp->tm_year,
-			tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec);
-	//snprintf(t, 22, "%02d:%02d:%02d", tp->tm_hour, tp->tm_min, tp->tm_sec);
+	//snprintf(t, 22, "%4d-%02d-%02d %02d:%02d:%02d", 1900 + tp->tm_year,
+	//		tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec);
+    /* FIXME won't work on Windows */
+	snprintf(t, 22, "%02d:%02d:%02d %d", tp->tm_hour, tp->tm_min, tp->tm_sec, getpid());
 	switch (sev) {
 	case LV_TRACE:
 		strcpy(p, " [TRACE]::");
@@ -128,9 +126,10 @@ void utils_notify_va(const severity_t sev, const char* path, const char* func,
 	OutputDebugStringA(prefix);
 	OutputDebugStringA(msg);
 #else
+    const char *out = newline ? "%s%s\n" : "%s%s";
 	if (utils_notify_settings.log_to_file && check_notify_file())
-		fprintf(utils_notify_settings.file, "%s%s\n", prefix, msg);
+		fprintf(utils_notify_settings.file, out, prefix, msg);
 	else
-		fprintf(stdout, "%s%s\n", prefix, msg);
+		fprintf(stdout, out, prefix, msg);
 #endif
 }

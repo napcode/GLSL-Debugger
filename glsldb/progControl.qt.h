@@ -41,6 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 #include "errorCodes.h"
 #include "runLevel.h"
+#include "debugConfig.h"
 #include "functionCall.h"
 #include "ResourceLimits.h"
 #include "attachToProcess.qt.h"
@@ -72,14 +73,14 @@ public:
 	/* remote program control */
 #ifdef _WIN32
     // We need inherited class, not that
-    pcErrorCode runProgramWin(char **debuggedProgramArgs, char *workDir = NULL);
+    ErrorCode runProgramWin(char **debuggedProgramArgs, char *workDir = NULL);
 #endif
-	ErrorCode runProgram(const QStringList& args, const QString& workDir);
-	ErrorCode attachToProgram(const PID_T pid);
-	ErrorCode killDebuggee(bool hard = false);
-	ErrorCode detachFromProgram(void);
+	bool runProgram(const DebugConfig& config);
+	bool attachToProgram(const PID_T pid);
+	bool killDebuggee(void);
+	bool detachFromProgram(void);
 	bool childAlive(void);
-	ErrorCode checkChildStatus(void);
+	void checkChildStatus(void);
 	void queryTraceEvent(pid_t pid, int status);
 	ErrorCode old_checkChildStatus(void);
 	FunctionCall* getCurrentCall(void);
@@ -134,8 +135,12 @@ public:
 
 	State state() const { return _state; }
 	void state(State s);
+	ErrorCode error() const { return _error; }
+	void error(ErrorCode s);
 signals:
 	void stateChanged(State s);
+	void errorOccured(ErrorCode ec);
+	void errorMessage(const QString& msg);
 private:
 	unsigned int getArgumentSize(int type);
 
@@ -199,7 +204,10 @@ private:
 	void freeShmem(void);
 	DbgRec* getThreadRecord(PID_T pid);
 
+    DebugConfig _debugConfig;
 	State _state;
+	ErrorCode _error;
+
 	int shmid;
 	DbgRec *_fcalls;
 	std::string _path_dbglib;

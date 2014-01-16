@@ -65,27 +65,30 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #  define PTRACE_GETSIGINFO   0x4202
 #  define PTRACE_SETSIGINFO   0x4203
 
-/* options set using PTRACE_SETOPTIONS */
-#  define PTRACE_O_TRACESYSGOOD   0x00000001
-#  define PTRACE_O_TRACEFORK  0x00000002
-#  define PTRACE_O_TRACEVFORK 0x00000004
-#  define PTRACE_O_TRACECLONE 0x00000008
-#  define PTRACE_O_TRACEEXEC  0x00000010
-#  define PTRACE_O_TRACEVFORKDONE 0x00000020
-#  define PTRACE_O_TRACEEXIT  0x00000040
-
-#  define PTRACE_O_MASK       0x0000007f
-
 /* Wait extended result codes for the above trace options.  */
-#  define PTRACE_EVENT_FORK   1
-#  define PTRACE_EVENT_VFORK  2
-#  define PTRACE_EVENT_CLONE  3
-#  define PTRACE_EVENT_EXEC   4
-#  define PTRACE_EVENT_VFORK_DONE 5
-#  define PTRACE_EVENT_EXIT   6
-#  define PTRACE_EVENT_STOP 128
+#define PTRACE_EVENT_FORK	1
+#define PTRACE_EVENT_VFORK	2
+#define PTRACE_EVENT_CLONE	3
+#define PTRACE_EVENT_EXEC	4
+#define PTRACE_EVENT_VFORK_DONE	5
+#define PTRACE_EVENT_EXIT	6
+#define PTRACE_EVENT_SECCOMP	7
+/* Extended result codes which enabled by means other than options.  */
+#define PTRACE_EVENT_STOP	128
+
+/* Options set using PTRACE_SETOPTIONS or using PTRACE_SEIZE @data param */
+#define PTRACE_O_TRACESYSGOOD	1
+#define PTRACE_O_TRACEFORK	(1 << PTRACE_EVENT_FORK)
+#define PTRACE_O_TRACEVFORK	(1 << PTRACE_EVENT_VFORK)
+#define PTRACE_O_TRACECLONE	(1 << PTRACE_EVENT_CLONE)
+#define PTRACE_O_TRACEEXEC	(1 << PTRACE_EVENT_EXEC)
+#define PTRACE_O_TRACEVFORKDONE	(1 << PTRACE_EVENT_VFORK_DONE)
+#define PTRACE_O_TRACEEXIT	(1 << PTRACE_EVENT_EXIT)
+#define PTRACE_O_TRACESECCOMP	(1 << PTRACE_EVENT_SECCOMP)
+
+/* eventless options */
+#define PTRACE_O_EXITKILL	(1 << 20)
 #endif
-#define SYNC_SIG SIGUSR1
 
 #include "progControl.qt.h"
 
@@ -100,7 +103,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 
 ProgramControl::ProgramControl() :
-		_debuggeePID(0), _state(ST_INVALID)
+		_debuggeePID(0), 
+        _state(ST_INVALID), 
+        _error(EC_NONE)
 {
 	buildEnvVars();
 	initShmem();
@@ -115,7 +120,7 @@ ProgramControl::ProgramControl() :
 
 ProgramControl::~ProgramControl()
 {
-	dbgPrint(DBGLVL_DEBUG, "~ProgramControl freeShmem()\n");
+	UT_NOTIFY(LV_TRACE, "~ProgramControl");
 	freeShmem();
 #ifdef _WIN32
 	this->closeEvents();
@@ -132,6 +137,15 @@ void ProgramControl::state(State s)
 		_state = s;		
 	}
 }
+void ProgramControl::error(ErrorCode ec)
+{
+    _error = ec;
+    if(_error != EC_NONE) {
+	    emit errorOccured(ec);
+        emit errorMessage(QString(getErrorInfo(ec)));
+    }
+}
+
 bool ProgramControl::childAlive(void)
 {
 #ifndef _WIN32
@@ -378,211 +392,77 @@ ErrorCode ProgramControl::old_checkChildStatus(void)
 	return retval;
 #endif /* !_WIN32 */
 }
-ErrorCode ProgramControl::checkChildStatus(void)
+void ProgramControl::checkChildStatus(void)
 {
 #ifndef _WIN32
 	int status = 15;
 	pid_t pid = -1;
-	int errorStatus = EINTR;
-	ALIGNED_DATA newPid;
-	ErrorCode code;
 	int sig;
 	UT_NOTIFY(LV_DEBUG, "checking debuggee status...");
-	int end = 0;
-	do {
-		pid = waitpid(-1, &status, WNOHANG | WUNTRACED);
-		if(pid != 0) 
-			break;
+
+    pid = waitpid(_debuggeePID, &status, WUNTRACED);
+
+    /* no status available. leave unchanged */
+	if(pid == 0) { 
+        UT_NOTIFY(LV_ERROR, "This should not happen");
+        return;
+    }
+    else if(pid == -1) {
+        if(errno == EINTR) {
+		    UT_NOTIFY(LV_WARN, "waitpid got interrupted");
+        }
+        else if(errno == ECHILD) {
+		    UT_NOTIFY(LV_ERROR, "no such debuggee");
+        }
+		state(ST_INVALID);
+        return;
 	}
-	while (1);
-	
+
 	UT_NOTIFY(LV_INFO, "received status (" << status << ") from " << pid);
-	if(pid == -1) {
-		UT_NOTIFY(LV_WARN, "Negative status is bad?");
-		return EC_EXIT;
-	}
-	errorStatus = errno;
 	if(WIFEXITED(status) != 0) {
 		UT_NOTIFY(LV_INFO, "debugee terminated normally");
 		sig = WEXITSTATUS(status);
 		if(sig != 0) {
 			UT_NOTIFY(LV_INFO, "exited with status " << sig << "(" << strsignal(sig) << ")");
 		}
+        state(ST_EXITED);
+        //return;
 	}
-	if(WIFSIGNALED(status) != 0) {
+    else if(WIFSIGNALED(status) != 0) {
 		UT_NOTIFY(LV_INFO, "debugee terminated by uncaught signal");
 		sig = WTERMSIG(status);
 		if(sig != 0) {
 			UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
 		}
+        state(ST_KILLED);
+        //return;
 	}
 	if(WIFSTOPPED(status) != 0) {
 		UT_NOTIFY(LV_INFO, "debugee stopped");
 		sig = WSTOPSIG(status);
 		if(sig != 0) {
 			UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
-			if(sig == SIGTRAP)
+			if(sig == SIGTRAP || sig == SIGSTOP) {
 				queryTraceEvent(pid, status);
-		}
-		return EC_STOPPED;
+                state(ST_STOPPED);
+                return;
+            } else {
+                state(ST_KILLED);
+    		    //return;
+            }
+		} else {
+			UT_NOTIFY(LV_WARN, "debuggee stopped but no signal delivered?");
+            state(ST_INVALID);
+        }
 	}
 	if(WIFCONTINUED(status) != 0) {
 		UT_NOTIFY(LV_INFO, "debugee received CONT");
+        state(ST_ALIVE);
+		//return;
 	}
-	return EC_NONE;
-
-		//pid = waitpid(_debuggeePID, &status, WUNTRACED);
-
-		/* from gdb: Try again with __WCLONE to check cloned processes. */
-		//if (pid == -1 && errno == ECHILD) {
-#ifndef GLSLDB_OSX
-			//dbgPrint(DBGLVL_INFO, "checking clones: %i", (int)pid);
-			//pid = waitpid(_debuggeePID, &status, __WCLONE);
-#else
-			/* Ack, ugly ugly hack --
-			 wait() doesn't work, waitpid() doesn't work, and ignoring SIG_CHLD
-			 doesn't work .. and the child thread is still a zombie, so kill()
-			 doesn't work.
-			 */
-			 /*
-			char command[1024];
-
-			sprintf(command,
-					"ps ax|fgrep -v fgrep|fgrep -v '<zombie>'|fgrep %d >/dev/null",
-					_debuggeePID);
-			while ( system(command) == 0 )
-			sleep(1);
-			*/
-#endif
-
-		//}
-
-		if (pid != -1 && WIFSTOPPED (status) && WSTOPSIG (status) == SIGSTOP
-				&& pid != _debuggeePID) {
-			dbgPrint(DBGLVL_WARNING, "New pid: %i\n", (int)pid);
-			errorStatus = EINTR;
-		}
-		/* handle extended wait status for trace events */
-		switch (status >> 16) {
-		case PTRACE_EVENT_CLONE:
-	#if 0
-			ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &newPid);
-			dbgPrint(DBGLVL_INFO, "extended wait status: PTRACE_EVENT_CLONE new pid: %i FIXME!!!!!!!!!!!\n", newPid);
-	#else
-			dbgPrint(DBGLVL_WARNING,
-					"extended wait status: PTRACE_EVENT_CLONE ... FIXME!!!!!!!!!!!\n");
-	#endif
-			break;
-		case PTRACE_EVENT_FORK:
-		case PTRACE_EVENT_VFORK:
-	#ifndef GLSLDB_OSX
-			ptrace((__ptrace_request ) PTRACE_GETEVENTMSG, pid, 0, &newPid);
-			dbgPrint(DBGLVL_INFO, "extended wait status: PTRACE_EVENT_FORK or "
-			"PTRACE_EVENT_VFORKi with pid %i\n", (int)newPid);
-	#endif
-			break;
-		case PTRACE_EVENT_EXEC:
-			dbgPrint(DBGLVL_INFO, "extended wait status: PTRACE_EVENT_EXEC\n");
-			break;
-		default:
-			break;
-		}
-
-		if (WIFEXITED(status)) {
-			dbgPrint(DBGLVL_INFO,
-					"debuggee terminated normally with status %i\n", WEXITSTATUS(status));
-			code = EC_EXIT;
-			//break;
-		} else if (WIFSIGNALED(status)) {
-			dbgPrint(DBGLVL_INFO,
-					"debuggee terminated by signal %i\n", WTERMSIG(status));
-			switch (WTERMSIG(status)) {
-			case SIGHUP:
-			case SIGINT:
-			case SIGQUIT:
-			case SIGILL:
-			case SIGABRT:
-			case SIGFPE:
-			case SIGKILL:
-			case SIGSEGV:
-			case SIGPIPE:
-			case SIGALRM:
-			case SIGTERM:
-			case SIGUSR1:
-			case SIGUSR2:
-			case SIGBUS:
-	#ifndef GLSLDB_OSX
-			case SIGPOLL:
-	#endif
-			case SIGPROF:
-			case SIGSYS:
-			case SIGXFSZ:
-			case SIGXCPU:
-			case SIGVTALRM:
-				code = EC_EXIT;
-				break;
-			default:
-				dbgPrint(DBGLVL_WARNING, "Unhandled signal %i\n", WTERMSIG(status));
-				code = EC_EXIT;
-
-			}
-			code = EC_NONE;
-		} else if (WIFSTOPPED(status)) {
-			switch (WSTOPSIG(status)) {
-			case SIGSTOP:
-				dbgPrint(DBGLVL_DEBUG,
-						"debuggee process was stopped by SIGSTOP %i\n", WSTOPSIG(status));
-				code = EC_NONE;
-				break;
-			case SIGTRAP:
-				dbgPrint(DBGLVL_DEBUG,
-						"debuggee process was stopped by SIGTRAP %i\n", WSTOPSIG(status));
-				code = EC_NONE;
-				break;
-			case SIGHUP:
-			case SIGINT:
-			case SIGQUIT:
-			case SIGILL:
-			case SIGABRT:
-			case SIGFPE:
-			case SIGKILL:
-			case SIGSEGV:
-			case SIGPIPE:
-			case SIGALRM:
-			case SIGTERM:
-			case SIGUSR1:
-			case SIGUSR2:
-			case SIGBUS:
-	#ifndef GLSLDB_OSX
-			case SIGPOLL:
-	#endif
-			case SIGPROF:
-			case SIGSYS:
-			case SIGXFSZ:
-			case SIGXCPU:
-			case SIGVTALRM:
-			default:
-				dbgPrint(DBGLVL_INFO,
-						"debuggee process was stopped by signal %i\n", strsignal(status));
-				code = EC_EXIT;
-			}
-	#ifdef WIFCONTINUED
-		} else if (WIFCONTINUED(status)) {
-			dbgPrint(DBGLVL_INFO,
-					"debuggee process was resumed by delivery of SIGCONT\n");
-			code = EC_NONE;		
-	#endif
-		} else {
-			dbgPrint(DBGLVL_WARNING, "debuggee terminated with unknown reason\n");
-			code = EC_EXIT;
-		}
-	//} /* end while */
-
-	//if (pid == -1) {
-		//dbgPrint(DBGLVL_WARNING, "no more debuggees!\n");
-		return EC_EXIT;
-	//}
-
+    UT_NOTIFY(LV_DEBUG, "REACHED END");
+    state(ST_INVALID);
+    return;
 	
 #else /* !_WIN32 */
 	DWORD exitCode = STILL_ACTIVE;
@@ -632,8 +512,8 @@ ErrorCode ProgramControl::executeDbgCommand(void)
 #else /* _WIN32 */
 	ptrace(PTRACE_CONT, _debuggeePID, 0, 0);
 #endif /* _WIN32 */
-	return checkChildStatus();
-
+	checkChildStatus();
+    return error();
 }
 
 void ProgramControl::queryTraceEvent(pid_t pid, int status)
@@ -641,7 +521,8 @@ void ProgramControl::queryTraceEvent(pid_t pid, int status)
 	//ALIGNED_DATA addr, data;
 	//ptrace(PTRACE_GETEVENTMSG, pid, 0, &addr);
 	pid_t newpid;
-	status = status >> 16;
+    UT_NOTIFY(LV_INFO, SIGTRAP);
+    status = (status >> 16);
 	switch(status) {
 	case PTRACE_EVENT_FORK: 
 	case PTRACE_EVENT_VFORK: 
@@ -664,6 +545,11 @@ void ProgramControl::queryTraceEvent(pid_t pid, int status)
 	case PTRACE_EVENT_STOP: 
 		UT_NOTIFY(LV_INFO, "debuggee calls stop()");
 		break;
+	case PTRACE_EVENT_SECCOMP: 
+		UT_NOTIFY(LV_INFO, "seccomp");
+		break;
+    default:
+        UT_NOTIFY(LV_INFO, "unknown ptrace event " << status);
 	}
 }
 void ProgramControl::setDebugEnvVars(void)
@@ -844,21 +730,15 @@ void ProgramControl::buildEnvVars()
 DbgRec* ProgramControl::getThreadRecord(PID_T pid)
 {
 	int i;
-	for (i = 0; i < SHM_MAX_THREADS; i++) {
-#ifndef _WIN32
-		if (_fcalls[i].threadId == 0 || (pid_t) _fcalls[i].threadId == pid) {
-#else /* _WIN32 */
-			if (_fcalls[i].threadId == 0 || (DWORD)_fcalls[i].threadId == pid) {
-#endif /* _WIN32 */
-			break;
+	for (i = 0; i < SHM_MAX_THREADS; ++i) {
+		if (_fcalls[i].threadId == 0 || (PID_T) _fcalls[i].threadId == pid) {
+	        return &_fcalls[i];
 		}
 	}
-	if (i == SHM_MAX_THREADS) {
-		dbgPrint(DBGLVL_ERROR,
-				"Error: max. number of debuggable threads exceeded!\n");
-		exit(1);
-	}
-	return &_fcalls[i];
+	UT_NOTIFY(LV_ERROR, "max. number of debuggable threads exceeded!");
+    exit(1);
+    /* dummy */
+    return NULL;
 }
 
 unsigned int ProgramControl::getArgumentSize(int type)
@@ -1029,20 +909,19 @@ void ProgramControl::printCall()
 	int i;
 	DbgRec *rec = getThreadRecord(_debuggeePID);
 	if (!rec) {
-		dbgPrint(DBGLVL_ERROR, "no rec\n");
+		UT_NOTIFY(LV_ERROR, "no thread record");
 		exit(1);
 	}
 
-	dbgPrint(DBGLVL_INFO, "call: %s(", rec->fname);
+    std::stringstream ss;
+    ss << "call: " << rec->fname << "(";
 
 	for (i = 0; i < (int) rec->numItems; i++) {
-		dbgPrintNoPrefix(DBGLVL_INFO,
-				"(%p,%li)", (void*)rec->items[2*i], (long)rec->items[2*i+1]);
-		if (i != (int) rec->numItems - 1) {
-			dbgPrintNoPrefix(DBGLVL_INFO, ", ");
-		}
+		ss << "(" << (void*)rec->items[2*i] << (long)rec->items[2*i+1] << ")";
+		if (i < ((int) rec->numItems - 1)) 
+			ss << ", ";
 	}
-	dbgPrintNoPrefix(DBGLVL_INFO, ")\n");
+	UT_NOTIFY(LV_DEBUG, ss.str());
 }
 
 /* TODO: obsolete, only for debugging */
@@ -1127,7 +1006,7 @@ ErrorCode ProgramControl::dbgCommandStopExecution(void)
 	DbgRec *rec = getThreadRecord(_debuggeePID);
 	dbgPrint(DBGLVL_INFO, "send: DBG_STOP_EXECUTION\n");
 	rec->operation = DBG_STOP_EXECUTION;
-	return EC_NONE;
+	return executeDbgCommand();
 }
 
 ErrorCode ProgramControl::dbgCommandExecute(bool stopOnGLError)
@@ -1671,16 +1550,16 @@ ErrorCode ProgramControl::dbgCommandShaderStepVertex(void *shaders[3],
 }
 
 #ifndef _WIN32
-ErrorCode ProgramControl::runProgram(const QStringList& args, const QString& workDir)
+bool ProgramControl::runProgram(const DebugConfig& cfg)
 {
-	ErrorCode error;
 	clearShmem();
 	state(ST_INIT);
 	_debuggeePID = fork();
 	if (_debuggeePID == -1) {
 		_debuggeePID = 0;
-		UT_NOTIFY(LV_ERROR, "forking failed. debugee not started.");
-		return EC_FORK;
+		UT_NOTIFY(LV_ERROR, "forking failed. debuggee not started.");
+        error(EC_FORK);
+		return false;
 	}
 
 	if (_debuggeePID == 0) {
@@ -1689,20 +1568,20 @@ ErrorCode ProgramControl::runProgram(const QStringList& args, const QString& wor
 		ptrace(PTRACE_TRACEME, 0, 0, 0);
 		setDebugEnvVars();
 
-		if(chdir(workDir.toLatin1().data()) != 0) {
+		if(!cfg.workDir.isEmpty() && chdir(cfg.workDir.toLatin1().data()) != 0) {
 			UT_NOTIFY(LV_WARN, "changing to working directory failed (" << strerror(errno) << ")");
 			UT_NOTIFY(LV_WARN, "debuggee execution might fail now");
 		}
-		UT_NOTIFY(LV_INFO, "debuggee executes " << args[0].toLatin1().data());
+		UT_NOTIFY(LV_INFO, "debuggee executes " << cfg.programArgs[0].toLatin1().data());
 		setpgid(0, 0);
 
-		char **pargs = static_cast<char**>(malloc((args.size() + 1) * sizeof(char*)));
+		char **pargs = static_cast<char**>(malloc((cfg.programArgs.size() + 1) * sizeof(char*)));
 		int i = 0;
-		for(auto &j : args) {
+		for(auto &j : cfg.programArgs) {
 			pargs[i] = static_cast<char*>(malloc((j.size() + 1) * sizeof(char)));
 			strcpy(pargs[i], j.toLatin1().data());
 		}
-		pargs[args.size()] = NULL;
+		pargs[cfg.programArgs.size()] = NULL;
 		// stop here so parent can set trace options
 		raise(SIGSTOP);
 		execv(pargs[0], pargs);
@@ -1721,52 +1600,43 @@ ErrorCode ProgramControl::runProgram(const QStringList& args, const QString& wor
 
 	// parent path
 	UT_NOTIFY(LV_INFO, "debuggee process pid: " << _debuggeePID);
-	error = checkChildStatus();
-	if(!EC_STOPPED) {
+    checkChildStatus();
+	if(state() != ST_STOPPED) {
 		UT_NOTIFY(LV_ERROR, "child should have stopped...");
 		kill(_debuggeePID, SIGKILL);
 		_debuggeePID = 0;
 		state(ST_INVALID);
-		return EC_FORK;
+		error(EC_EXEC);
+		return false;
 	}
 	// set options, child needs to be in SIGSTOP
-	ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _debuggeePID, 0,
-			PTRACE_O_TRACEFORK
-			| PTRACE_O_TRACEVFORK
-			| PTRACE_O_TRACEEXEC
-			| PTRACE_O_TRACEVFORKDONE
-			| PTRACE_O_TRACECLONE
+    int data = 0;
+    if(cfg.traceFork) {
+        data |= PTRACE_O_TRACEFORK;
+        data |= PTRACE_O_TRACEVFORK;
+		data |= PTRACE_O_TRACEVFORKDONE;
+    }
+    if(cfg.traceExec) 
+		data |= PTRACE_O_TRACEEXEC;
+    if(cfg.traceClone) 
+		data |= PTRACE_O_TRACECLONE;
 #ifdef PTRACE_O_EXITKILL
-			| PTRACE_O_EXITKILL
+		data |= PTRACE_O_EXITKILL;
 #endif
-			);
+	ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _debuggeePID, 0, data);
 
 	//checkChildStatus();
 	//sleep(1);
-	UT_NOTIFY(LV_INFO, "Continuing child");
+	UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child");
 	ptrace(PTRACE_CONT, _debuggeePID, 0, 0);
+    /* FIXME is this correct? */
 	checkChildStatus();
-	state(ST_RUNNING);
-/*
-	UT_NOTIFY(LV_INFO, "waiting for debuggee to respond...");
-	error = checkChildStatus();
-	if (error != EC_NONE) {
-		kill(_debuggeePID, SIGKILL);
-		_debuggeePID = 0;
-		return error;
-	}
-	dbgPrint(DBGLVL_INFO, "sending continue\n");
-	error = executeDbgCommand();
-	if (error != EC_NONE) {
-		kill(_debuggeePID, SIGKILL);
-		_debuggeePID = 0;
-		return error;
-	}
-	*/
-#ifdef DEBUG
-	printCall();
-#endif
-	return EC_NONE;
+	//state(ST_RUNNING);
+
+    /* everything's fine. store the configuration */
+    _debugConfig = cfg;
+    UT_NOTIFY(LV_INFO, "Leaving run");
+	return true;
 #else /* _WIN32 */
 	STARTUPINFOA startupInfo;
 	PROCESS_INFORMATION processInfo;
@@ -2498,9 +2368,9 @@ ErrorCode ProgramControl::executeContinueOnError(void)
 	return EC_NONE;
 }
 
-ErrorCode ProgramControl::killDebuggee(bool hard)
+bool ProgramControl::killDebuggee()
 {
-	UT_NOTIFY(LV_INFO, "killing debuggee: " << (hard ? "forced" : "termination requested"));
+	UT_NOTIFY(LV_INFO, "killing debuggee");
 #ifdef _WIN32
 	if (_ai.hProcess != NULL) {
 		return this->detachFromProgram();
@@ -2514,19 +2384,62 @@ ErrorCode ProgramControl::killDebuggee(bool hard)
 	return EC_NONE;
 #else /* _WIN32 */
 	if (_debuggeePID) {
-		if (hard) {
-			kill(_debuggeePID, SIGKILL);
-		} else {
-			ptrace(PTRACE_KILL, _debuggeePID, 0, 0);
-		}
+		if(kill(_debuggeePID, SIGKILL) == -1) {
+            UT_NOTIFY(LV_ERROR, "attempt to kill debuggee failed");
+            return false;
+        }
 		_debuggeePID = 0;
-		return checkChildStatus();
+        /* FIXME why? is this useful? */
+		checkChildStatus();
 	}
-	return EC_NONE;
+	return true;
 #endif /* _WIN32 */
 }
 
-ErrorCode ProgramControl::detachFromProgram(void)
+#ifdef _WIN32
+bool ProgramControl::attachToProgram(const PID_T pid) {
+	char dllPath[_MAX_PATH];// Path to debugger preload DLL.
+	char smName[_MAX_PATH];// Name of shared memory.
+
+	HMODULE hThis = GetModuleHandleW(NULL);
+	GetModuleFileNameA(hThis, dllPath, _MAX_PATH);
+	char *insPos = strrchr(dllPath, '\\');
+	if (insPos != NULL) {
+		strcpy(insPos + 1, DEBUGLIB);
+	} else {
+		strcpy(dllPath, DEBUGLIB);
+	}
+
+	this->createEvents(pid);
+	::SetEvent(_hEvtDebuggee);
+
+	this->setDebugEnvVars();	// TODO dirty hack.
+	::GetEnvironmentVariableA("GLSL_DEBUGGER_SHMID", smName, _MAX_PATH);
+	if (!::AttachToProcess(_ai, pid, PROCESS_ALL_ACCESS, dllPath, smName,
+					_path_dbgfuncs)) {
+        error(EC_UNKNOWN_ERROR);
+        return false;
+	}
+
+	_hDebuggedProgram = _ai.hProcess;
+	_debuggeePID = pid;  // TODO: Do we need this information?
+
+	checkChildStatus();
+    if(state() < ST_ALIVE)
+        return false;
+
+	return true;
+}
+#else /* _WIN32 */
+bool ProgramControl::attachToProgram(const PID_T pid)
+{
+	UNUSED_ARG(pid)
+    UT_NOTIFY(LV_INFO, "not yet implemented");
+	return false;
+}
+#endif /* _WIN32 */
+
+bool ProgramControl::detachFromProgram(void)
 {
 	ErrorCode retval = EC_UNKNOWN_ERROR;
 
@@ -2539,20 +2452,22 @@ ErrorCode ProgramControl::detachFromProgram(void)
 			_hDebuggedProgram = NULL;
 			_debuggeePID = 0;
 		} else {
-			retval = EC_EXIT;
+			error(EC_EXIT);
+            return false;
 		}
 
 		//::SetEvent(_hEvtDebuggee);
 		//this->closeEvents();
 		this->stop();// Ensure consistent state.
-		this->checkChildStatus();
-	} else {
-		/* Nothing to detach from. */
-		retval = EC_NONE;
-	}
+		checkChildStatus();
+	} 
+	/* Nothing to detach from. */
+	return true;
 #else /* _WIN32 */
 	// TODO
-	return retval;
+    UT_NOTIFY(LV_INFO, "not yet implemented");
+	return false;
+#endif /* _WIN32 */
 }
 
 
