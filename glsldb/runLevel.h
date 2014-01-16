@@ -32,9 +32,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
 #ifndef RUNLEVEL_H
-#define RUNLEVEL
+#define RUNLEVEL_H
 
-enum runLevel {
+/* Reminder: change getRunLevelInfo() if enum changes */
+enum RunLevel {
 	RL_INIT,
 	RL_SETUP,
 	RL_TRACE_EXECUTE,
@@ -48,4 +49,17 @@ enum runLevel {
 	RL_DBG_RESTART
 };
 
-#endif
+/* Reminder: change getStateInfo() if enum changes */
+enum State {
+	ST_INVALID, 
+	ST_INIT, 
+	ST_WAITING, 
+	ST_RUNNING, 
+	ST_STOPPED,
+	ST_EXITED, 
+	ST_KILLED
+};
+const char* getRunLevelInfo(RunLevel rl);
+const char* getStateInfo(State s);
+
+#endif // RUNLEVEL_H

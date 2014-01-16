@@ -52,6 +52,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "progControl.qt.h"
 #include "shVarModel.qt.h"
 #include "errorCodes.h"
+#include "runLevel.h"
 #include "functionCall.h"
 #include "pixelBox.qt.h"
 #include "loopDialog.qt.h"
@@ -68,15 +69,16 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class QWorkspace;
 
-class MainWindow: public QMainWindow, public Ui::MainWindow {
-Q_OBJECT
+class MainWindow: public QMainWindow, public Ui::MainWindow 
+{
+	Q_OBJECT
 
 public:
 	MainWindow(char *pname, const QStringList& args);
 	~MainWindow();
 
-signals:
-	void changeRunLevel(int);
+public slots:
+	void debuggeeStateChanged(State s);
 
 private slots:
 	/****************
@@ -133,7 +135,7 @@ private slots:
 	 * self connect *
 	 ****************/
 
-	void setRunLevel(int);
+	void setRunLevel(RunLevel);
 	void updateWatchItemData(ShVarItem*);
 	void watchSelectionChanged(const QItemSelection&, const QItemSelection&);
 	void setMouseOverValues(int x, int y, const bool *active,
@@ -150,9 +152,9 @@ private slots:
 private:
 	void closeEvent(QCloseEvent *event);
 
-	void killProgram(int hard);
+	void killDebuggee(bool hard);
 
-	void setErrorStatus(pcErrorCode);
+	void setErrorStatus(ErrorCode);
 	void setStatusBarText(QString);
 	void setShaderCodeText(char *shaders[3]);
 	void leaveDBGState();
@@ -173,9 +175,9 @@ private:
 	void setGlTraceItemIconType(const GlTraceListItem::IconType type);
 	void clearGlTraceItemList(void);
 
-	pcErrorCode getNextCall();
-	pcErrorCode nextStep(const FunctionCall *fCall);
-	pcErrorCode recordCall();
+	ErrorCode getNextCall();
+	ErrorCode nextStep(const FunctionCall *fCall);
+	ErrorCode recordCall();
 	void recordDrawCall();
 	void waitForEndOfExecution();
 

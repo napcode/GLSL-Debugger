@@ -40,9 +40,12 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/wait.h>
 #endif /* _WIN32 */
 #include "errorCodes.h"
+#include "runLevel.h"
 #include "functionCall.h"
 #include "ResourceLimits.h"
 #include "attachToProcess.qt.h"
+
+#include <QtCore/QStringList>
 
 extern "C" {
 #include "GL/gl.h"
@@ -52,126 +55,134 @@ extern "C" {
 #include "utils/p2pcopy.h"
 }
 
-#ifdef _WIN32
-typedef DWORD PID_T;
-#else /* _WIN32 */
-typedef pid_t PID_T;
-#endif /* _WIN32 */
+#ifdef GLSLDB_WIN32
+	typedef DWORD PID_T;
+#else
+	typedef pid_t PID_T;
+#endif
 
-class ProgramControl {
+class ProgramControl :public QObject 
+{
+	Q_OBJECT
 
 public:
-	ProgramControl(const char *pname);
+	ProgramControl();
 	~ProgramControl();
 
 	/* remote program control */
-	pcErrorCode runProgram(char **debuggedProgramArgs, char *workDir = NULL);
-    pcErrorCode attachToProgram(const PID_T pid);
 #ifdef _WIN32
     // We need inherited class, not that
     pcErrorCode runProgramWin(char **debuggedProgramArgs, char *workDir = NULL);
 #endif
-	pcErrorCode killProgram(int hard = 0);
-	pcErrorCode detachFromProgram(void);
+	ErrorCode runProgram(const QStringList& args, const QString& workDir);
+	ErrorCode attachToProgram(const PID_T pid);
+	ErrorCode killDebuggee(bool hard = false);
+	ErrorCode detachFromProgram(void);
 	bool childAlive(void);
-	pcErrorCode checkChildStatus(void);
+	ErrorCode checkChildStatus(void);
+	void queryTraceEvent(pid_t pid, int status);
+	ErrorCode old_checkChildStatus(void);
 	FunctionCall* getCurrentCall(void);
 
-	pcErrorCode execute(bool stopOnGLError);
-	pcErrorCode executeToShaderSwitch(bool stopOnGLError);
-	pcErrorCode executeToDrawCall(bool stopOnGLError);
-	pcErrorCode executeToUserDefined(const char *fname, bool stopOnGLError);
-	pcErrorCode checkExecuteState(int *state);
-	pcErrorCode executeContinueOnError(void);
-	pcErrorCode stop(void);
+	ErrorCode execute(bool stopOnGLError);
+	ErrorCode executeToShaderSwitch(bool stopOnGLError);
+	ErrorCode executeToDrawCall(bool stopOnGLError);
+	ErrorCode executeToUserDefined(const char *fname, bool stopOnGLError);
+	ErrorCode checkExecuteState(int *state);
+	ErrorCode executeContinueOnError(void);
+	ErrorCode stop(void);
 
-	pcErrorCode callOrigFunc(const FunctionCall *fCall = 0);
-	pcErrorCode callDone(void);
-	pcErrorCode overwriteFuncArguments(const FunctionCall *fCall);
+	ErrorCode callOrigFunc(const FunctionCall *fCall = 0);
+	ErrorCode callDone(void);
+	ErrorCode overwriteFuncArguments(const FunctionCall *fCall);
 
-	pcErrorCode restoreRenderTarget(int target);
-	pcErrorCode setDbgTarget(int target, int alphaTestOption,
+	ErrorCode restoreRenderTarget(int target);
+	ErrorCode setDbgTarget(int target, int alphaTestOption,
 			int depthTestOption, int stencilTestOption, int blendingOption);
 
-	pcErrorCode saveAndInterruptQueries(void);
-	pcErrorCode restartQueries(void);
+	ErrorCode saveAndInterruptQueries(void);
+	ErrorCode restartQueries(void);
 
-	pcErrorCode initRecording(void);
-	pcErrorCode recordCall(void);
-	pcErrorCode replay(int target);
-	pcErrorCode endReplay(void);
+	ErrorCode initRecording(void);
+	ErrorCode recordCall(void);
+	ErrorCode replay(int target);
+	ErrorCode endReplay(void);
 
-	pcErrorCode getShaderCode(char *shaders[3], TBuiltInResource *resource,
+	ErrorCode getShaderCode(char *shaders[3], TBuiltInResource *resource,
 			char **serializedUniforms, int *numUniforms);
 
-	pcErrorCode saveActiveShader(void);
-	pcErrorCode restoreActiveShader(void);
+	ErrorCode saveActiveShader(void);
+	ErrorCode restoreActiveShader(void);
 
-	pcErrorCode shaderStepFragment(char *shaders[3], int numComponents,
+	ErrorCode shaderStepFragment(char *shaders[3], int numComponents,
 			int format, int *width, int *heigh, void **image);
-	pcErrorCode shaderStepVertex(char *shaders[3], int target,
+	ErrorCode shaderStepVertex(char *shaders[3], int target,
 			int primitiveMode, int forcePointPrimitiveMode,
 			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
 			float **vertexData);
 
 	/* obsolete? */
-	pcErrorCode setDbgShaderCode(char *shaders[3], int target);
+	ErrorCode setDbgShaderCode(char *shaders[3], int target);
 
-	pcErrorCode initializeRenderBuffer(bool copyRGB, bool copyAlpha,
+	ErrorCode initializeRenderBuffer(bool copyRGB, bool copyAlpha,
 			bool copyDepth, bool copyStencil, float red, float green,
 			float blue, float alpha, float depth, int stencil);
-	pcErrorCode readBackActiveRenderBuffer(int numComponents, int *width,
+	ErrorCode readBackActiveRenderBuffer(int numComponents, int *width,
 			int *heigh, float **image);
 
-	pcErrorCode insertGlEnd(void);
+	ErrorCode insertGlEnd(void);
 
+	State state() const { return _state; }
+	void state(State s);
+signals:
+	void stateChanged(State s);
 private:
 	unsigned int getArgumentSize(int type);
 
 	/* process environment communication */
-	void buildEnvVars(const char *pname);
+	void buildEnvVars();
 	void setDebugEnvVars(void);
 
 	/* remote program control */
-    PID_T _debuggeePID;
-	pcErrorCode dbgCommandExecute(void);
-	pcErrorCode dbgCommandExecuteToDrawCall(void);
-	pcErrorCode dbgCommandExecuteToShaderSwitch(void);
-	pcErrorCode dbgCommandExecuteToUserDefined(const char *fname);
-	pcErrorCode dbgCommandExecute(bool stopOnGLError);
-	pcErrorCode dbgCommandExecuteToDrawCall(bool stopOnGLError);
-	pcErrorCode dbgCommandExecuteToShaderSwitch(bool stopOnGLError);
-	pcErrorCode dbgCommandExecuteToUserDefined(const char *fname,
+	PID_T _debuggeePID;
+	ErrorCode dbgCommandExecute(void);
+	ErrorCode dbgCommandExecuteToDrawCall(void);
+	ErrorCode dbgCommandExecuteToShaderSwitch(void);
+	ErrorCode dbgCommandExecuteToUserDefined(const char *fname);
+	ErrorCode dbgCommandExecute(bool stopOnGLError);
+	ErrorCode dbgCommandExecuteToDrawCall(bool stopOnGLError);
+	ErrorCode dbgCommandExecuteToShaderSwitch(bool stopOnGLError);
+	ErrorCode dbgCommandExecuteToUserDefined(const char *fname,
 			bool stopOnGLError);
-	pcErrorCode dbgCommandStopExecution(void);
-	pcErrorCode dbgCommandCallOrig(void);
-	pcErrorCode dbgCommandCallOrig(const FunctionCall *fCall);
-	pcErrorCode dbgCommandCallDBGFunction(const char* = 0);
-	pcErrorCode dbgCommandAllocMem(unsigned int numBlocks, unsigned int *sizes,
+	ErrorCode dbgCommandStopExecution(void);
+	ErrorCode dbgCommandCallOrig(void);
+	ErrorCode dbgCommandCallOrig(const FunctionCall *fCall);
+	ErrorCode dbgCommandCallDBGFunction(const char* = 0);
+	ErrorCode dbgCommandAllocMem(unsigned int numBlocks, unsigned int *sizes,
 			void **addresses);
-	pcErrorCode dbgCommandFreeMem(unsigned int numBlocks, void **addresses);
-	pcErrorCode dbgCommandStartRecording(void);
-	pcErrorCode dbgCommandRecord(void);
-	pcErrorCode dbgCommandReplay(int target);
-	pcErrorCode dbgCommandEndReplay(void);
-	pcErrorCode dbgCommandSetDbgTarget(int target, int alphaTestOption,
+	ErrorCode dbgCommandFreeMem(unsigned int numBlocks, void **addresses);
+	ErrorCode dbgCommandStartRecording(void);
+	ErrorCode dbgCommandRecord(void);
+	ErrorCode dbgCommandReplay(int target);
+	ErrorCode dbgCommandEndReplay(void);
+	ErrorCode dbgCommandSetDbgTarget(int target, int alphaTestOption,
 			int depthTestOption, int stencilTestOption, int blendingOption);
-	pcErrorCode dbgCommandRestoreRenderTarget(int target);
-	pcErrorCode dbgCommandCopyToRenderBuffer(void);
-	pcErrorCode dbgCommandClearRenderBuffer(int mode, float r, float g, float b,
+	ErrorCode dbgCommandRestoreRenderTarget(int target);
+	ErrorCode dbgCommandCopyToRenderBuffer(void);
+	ErrorCode dbgCommandClearRenderBuffer(int mode, float r, float g, float b,
 			float a, float f, int s);
-	pcErrorCode dbgCommandSaveAndInterruptQueries(void);
-	pcErrorCode dbgCommandRestartQueries(void);
-	pcErrorCode dbgCommandShaderStepFragment(void *shaders[3],
+	ErrorCode dbgCommandSaveAndInterruptQueries(void);
+	ErrorCode dbgCommandRestartQueries(void);
+	ErrorCode dbgCommandShaderStepFragment(void *shaders[3],
 			int numComponents, int format, int *width, int *height,
 			void **image);
-	pcErrorCode dbgCommandShaderStepVertex(void *shaders[3], int target,
+	ErrorCode dbgCommandShaderStepVertex(void *shaders[3], int target,
 			int primitiveMode, int forcePointPrimitiveMode,
 			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
 			float **vertexData);
-	pcErrorCode dbgCommandReadRenderBuffer(int numComponents, int *width,
+	ErrorCode dbgCommandReadRenderBuffer(int numComponents, int *width,
 			int *height, float **image);
-	pcErrorCode dbgCommandDone(void);
+	ErrorCode dbgCommandDone(void);
 	void* copyArgumentFromProcess(void *addr, int type);
 	void copyArgumentToProcess(void *dst, void *src, int type);
 	char* printArgument(void *addr, int type);
@@ -179,16 +190,17 @@ private:
 	void printResult(void);
 
 	/* dbg command execution and error checking */
-	pcErrorCode executeDbgCommand(void);
-	pcErrorCode checkError(void);
+	ErrorCode executeDbgCommand(void);
+	ErrorCode checkError(void);
 
 	/* Shared memory handling */
 	void initShmem(void);
 	void clearShmem(void);
 	void freeShmem(void);
-    DbgRec* getThreadRecord(PID_T pid);
+	DbgRec* getThreadRecord(PID_T pid);
 
-    int shmid;
+	State _state;
+	int shmid;
 	DbgRec *_fcalls;
 	std::string _path_dbglib;
 	std::string _path_dbgfuncs;

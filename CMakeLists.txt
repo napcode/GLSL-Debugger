@@ -71,7 +71,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	add_definitions(/DGLSLDB_WIN /W3 /D_CRT_SECURE_NO_WARNINGS /wd4005 /wd4996 /nologo)
 endif()
 
-# maintainer mode
+# define maintainer mode
 set( CMAKE_CXX_FLAGS_MAINTAINER ${MNT_CXX_FLAGS} CACHE STRING
 	"Flags used by the C++ compiler during maintainer builds."
 	FORCE )
@@ -99,7 +99,6 @@ endif()
 set(CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}" CACHE STRING
 	"Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel Maintainer."
 	FORCE)
-
 
 set(DISTRIBUTION_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/Dist")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BINARY_DIR}")
