@@ -151,6 +151,7 @@ private slots:
 	void singleStep();
 
 private:
+	void run();
 	void closeEvent(QCloseEvent *event);
 
 	void killDebuggee(void);

@@ -377,7 +377,7 @@ int main(int argc, char **argv)
 #ifdef _WIN32
 	app.setStyle("windowsxp");
 #else /* _WIN32 */
-	app.setStyle("cleanlooks");
+	//app.setStyle("cleanlooks");
 #endif /* _WIN32 */
 
 	QCoreApplication::setOrganizationName("VIS");

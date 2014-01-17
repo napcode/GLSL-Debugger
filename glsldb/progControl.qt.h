@@ -78,7 +78,6 @@ public:
 	bool childAlive(void);
 	void checkChildStatus(void);
 	void queryTraceEvent(pid_t pid, int status);
-	ErrorCode old_checkChildStatus(void);
 	FunctionCall* getCurrentCall(void);
 
 	ErrorCode execute(bool stopOnGLError);

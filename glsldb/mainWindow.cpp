@@ -613,7 +613,6 @@ void MainWindow::addGlTraceItem()
 	if (!m_pCurrentCall)
 		return;
 
-	char *callString = m_pCurrentCall->getCallString();
 	QIcon icon;
 	QString iconText;
 	GlTraceListItem::IconType iconType;
@@ -652,10 +651,11 @@ void MainWindow::addGlTraceItem()
 	}
 
 	if (m_pGlTraceModel) {
+		char *callString = m_pCurrentCall->getCallString();
 		m_pGlTraceModel->addGlTraceItem(iconType, callString);
+		free(callString);
 	}
 	lvGlTrace->scrollToBottom();
-	free(callString);
 }
 
 void MainWindow::addGlTraceErrorItem(const char *text)
@@ -747,6 +747,7 @@ ErrorCode MainWindow::nextStep(const FunctionCall *fCall)
 {
 	ErrorCode error;
 
+	/* FIXME is this useful? apparently nextStep() is always called with fCall == NULL */
 	if ((fCall && fCall->isShaderSwitch())
 			|| m_pCurrentCall->isShaderSwitch()) {
 		/* current call is a glsl shader switch */
@@ -868,7 +869,6 @@ void MainWindow::singleStep()
 		}
 		addGlTraceItem();
 	}
-
 }
 
 void MainWindow::on_tbSkip_clicked()

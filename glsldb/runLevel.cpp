@@ -36,8 +36,6 @@ const char* getStateInfo(State s)
 			return "INVALID";
 		case ST_INIT:
 			return "INIT";
-		case ST_ALIVE:
-			return "ALIVE";
 		case ST_RUNNING:
 			return "RUNNING";
 		case ST_STOPPED:
