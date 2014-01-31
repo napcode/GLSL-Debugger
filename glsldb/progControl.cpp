@@ -264,9 +264,9 @@ void ProgramControl::checkChildStatus(void)
 	int status = 15;
 	pid_t pid = -1;
 	int sig;
-	UT_NOTIFY(LV_DEBUG, "checking debuggee status...");
+	UT_NOTIFY(LV_DEBUG, "checking debuggee(" << _debuggeePID <<  ") status...");
 
-    pid = waitpid(_debuggeePID, &status, __WALL);
+    pid = waitpid(_debuggeePID, &status, 0);
 
     /* no status available. leave unchanged */
 	if(pid == 0) {
@@ -308,18 +308,24 @@ void ProgramControl::checkChildStatus(void)
 		/* debuggee stopped due to signal-delivery-stops, group-stops, PTRACE_EVENT stops
 		 * or syscall-stops.
 		 */
-		UT_NOTIFY(LV_INFO, "debugee stopped");
 		sig = WSTOPSIG(status);
 		//UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
-		if(sig == SIGTRAP)
+		if(sig == SIGTRAP) {
+		    UT_NOTIFY(LV_INFO, "debugee trapped");
 			queryTraceEvent(pid, status);
+        }
+        else
+		    UT_NOTIFY(LV_INFO, "debugee stopped");
 		state(ST_STOPPED);
 	}
-	if(WIFCONTINUED(status) != 0) {
+    else if(WIFCONTINUED(status) != 0) {
 		UT_NOTIFY(LV_INFO, "debugee received CONT");
         state(ST_RUNNING);
 		//return;
 	}
+    else {
+		UT_NOTIFY(LV_INFO, "debugee in unknown state");
+    }
     //UT_NOTIFY(LV_DEBUG, "REACHED END");
     //state(ST_INVALID);
     return;
@@ -378,47 +384,77 @@ ErrorCode ProgramControl::executeDbgCommand(void)
 
 void ProgramControl::queryTraceEvent(pid_t pid, int status)
 {
-	//ALIGNED_DATA addr, data;
-	siginfo_t sig;
-	memset(&sig, 0, sizeof(sig));
-	UT_NOTIFY(LV_INFO, "looking for extended signal info");
-
-	if(ptrace((__ptrace_request)PTRACE_GETSIGINFO, pid, NULL, &sig) == -1) {
-		UT_NOTIFY(LV_ERROR, "unable to retrieve extended signal info");
-		return;
-	}
-	UT_NOTIFY(LV_DEBUG, strsignal(sig.si_signo) << " code " << strsigcode(sig.si_signo, sig.si_code) );
-	pid_t newpid;
-	//status = sig.si_code;
-    status = status >> 8;
-	switch(status) {
-	case PTRACE_EVENT_FORK: 
-	case PTRACE_EVENT_VFORK: 
-		UT_NOTIFY(LV_INFO, "debuggee calls (v)fork()");
-		ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &newpid);
-		UT_NOTIFY(LV_INFO, "new child has pid " << newpid);
-		break;
-	case PTRACE_EVENT_CLONE: 
-		UT_NOTIFY(LV_INFO, "debuggee calls clone()");
-		break;
-	case PTRACE_EVENT_VFORK_DONE: 
-		UT_NOTIFY(LV_INFO, "debuggee signals vfork() done");
-		break;
-	case PTRACE_EVENT_EXEC: 
-		UT_NOTIFY(LV_INFO, "debuggee calls exec()");
-		break;
-	case PTRACE_EVENT_EXIT: 
-		UT_NOTIFY(LV_INFO, "debuggee calls exit()");
-		break;
-	case PTRACE_EVENT_STOP: 
-		UT_NOTIFY(LV_INFO, "debuggee calls stop()");
-		break;
-	case PTRACE_EVENT_SECCOMP: 
-		UT_NOTIFY(LV_INFO, "seccomp");
-		break;
-    default:
+    pid_t newpid;
+    if ((status & (PTRACE_EVENT_FORK << 8)) || (status & (PTRACE_EVENT_VFORK))) {
+        UT_NOTIFY(LV_INFO, "debuggee calls (v)fork()");
+    }
+    else if (status & (PTRACE_EVENT_CLONE << 8)) {
+        UT_NOTIFY(LV_INFO, "debuggee calls clone()");
+    }
+    else if (status & (PTRACE_EVENT_VFORK_DONE << 8)) {
+        UT_NOTIFY(LV_INFO, "debuggee signals vfork() done");
+        return;
+    }
+    else if (status & (PTRACE_EVENT_EXEC << 8)) {
+        UT_NOTIFY(LV_INFO, "debuggee calls exec()");
+        return;
+    }
+    else if (status & (PTRACE_EVENT_EXIT << 8)) {
+        UT_NOTIFY(LV_INFO, "debuggee calls exit()");
+        return;
+    }
+    else if (status & (PTRACE_EVENT_STOP << 8)) {
+        UT_NOTIFY(LV_INFO, "debuggee calls stop()");
+        return;
+    }
+    else if (status & (PTRACE_EVENT_SECCOMP << 8)) {
+        UT_NOTIFY(LV_INFO, "seccomp");
+        return;
+    }
+    else {
         UT_NOTIFY(LV_INFO, "unknown ptrace event " << status);
+        return;
+    }
+    ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &newpid);
+    UT_NOTIFY(LV_INFO, "new child has pid " << newpid);
+    if(pid == newpid)
+        return;
+   // if(ptrace(PTRACE_ATTACH, newpid, 0, 0) == -1) {
+   //     UT_NOTIFY(LV_ERROR, "unable to attach " << newpid);
+   // }
+    int opts = 0;
+    if(_debugConfig.traceFork) {
+        opts |= PTRACE_O_TRACEFORK;
+        opts |= PTRACE_O_TRACEVFORK;
+		opts |= PTRACE_O_TRACEVFORKDONE;
+        UT_NOTIFY(LV_INFO, "Tracing fork()");
+    }
+    if(_debugConfig.traceExec) {
+		opts |= PTRACE_O_TRACEEXEC;
+        UT_NOTIFY(LV_INFO, "Tracing exec()");
+    }
+    if(_debugConfig.traceClone) {
+		opts |= PTRACE_O_TRACECLONE;
+        UT_NOTIFY(LV_INFO, "Tracing clone()");
+    }
+#ifdef PTRACE_O_EXITKILL
+    opts |= PTRACE_O_EXITKILL;
+#endif
+
+	if(ptrace((__ptrace_request ) PTRACE_SETOPTIONS, newpid, 0, opts) == -1) {
+		UT_NOTIFY(LV_ERROR, "unable to set PTRACE options: " << strerror(errno));		
 	}
+    
+    _debuggeePID = newpid;
+    if(ptrace(PTRACE_DETACH, pid, 0, 0) == -1) {
+        UT_NOTIFY(LV_ERROR, "unable to detach from " << pid);
+    }
+	if(ptrace(PTRACE_CONT, newpid, 0, 0) == -1) {
+        UT_NOTIFY(LV_ERROR, "unable to msg " << newpid);
+    }
+	if(ptrace(PTRACE_CONT, pid, 0, 0) == -1) {
+        UT_NOTIFY(LV_ERROR, "unable to msg " << _debuggeePID);
+    }
 }
 void ProgramControl::setDebugEnvVars(void)
 {
@@ -1432,10 +1468,11 @@ bool ProgramControl::runProgram(const DebugConfig& cfg)
 	if (_debuggeePID == 0) {
 		/**
 		 * debuggee path
-		 * tell parent to trace the child (triggers SIGTRAP @ execv())
-		 * alternative: parent uses PTRACE_ATTACH and sends SIGSTOP
+		 * tell parent to trace the child 
+		 * alternative: parent uses PTRACE_ATTACH but that might be racy
 		 */
 		ptrace(PTRACE_TRACEME, 0, 0, 0);
+        raise(SIGSTOP);
 		setDebugEnvVars();
 
 		if(!cfg.workDir.isEmpty() && chdir(cfg.workDir.toLatin1().data()) != 0) {
@@ -1468,6 +1505,9 @@ bool ProgramControl::runProgram(const DebugConfig& cfg)
 		free(pargs);
 		_exit(73);
 	}
+    /* attaching might be racy. we might miss a fork/execv if we 
+     * don't get a chance to set options prior to that */
+    //ptrace(PTRACE_ATTACH, _debuggeePID, 0, 0);
 
 	// parent path
 	UT_NOTIFY(LV_INFO, "debuggee process pid: " << _debuggeePID);
@@ -1481,26 +1521,29 @@ bool ProgramControl::runProgram(const DebugConfig& cfg)
 		return false;
 	}
 	// set options, child needs to be in STOPPED
-    int data = 0;
+    int opts = 0;
     if(cfg.traceFork) {
-        data |= PTRACE_O_TRACEFORK;
-        data |= PTRACE_O_TRACEVFORK;
-		data |= PTRACE_O_TRACEVFORKDONE;
+        opts |= PTRACE_O_TRACEFORK;
+        opts |= PTRACE_O_TRACEVFORK;
+		opts |= PTRACE_O_TRACEVFORKDONE;
+        UT_NOTIFY(LV_INFO, "Tracing fork()");
     }
-    if(cfg.traceExec) 
-		data |= PTRACE_O_TRACEEXEC;
-    if(cfg.traceClone) 
-		data |= PTRACE_O_TRACECLONE;
+    if(cfg.traceExec) {
+		opts |= PTRACE_O_TRACEEXEC;
+        UT_NOTIFY(LV_INFO, "Tracing exec()");
+    }
+    if(cfg.traceClone) {
+		opts |= PTRACE_O_TRACECLONE;
+        UT_NOTIFY(LV_INFO, "Tracing clone()");
+    }
 #ifdef PTRACE_O_EXITKILL
-		data |= PTRACE_O_EXITKILL;
+    opts |= PTRACE_O_EXITKILL;
 #endif
 
-	if(ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _debuggeePID, 0, data) == -1) {
-		UT_NOTIFY(LV_ERROR, "unable to set PTRACE options");		
+	if(ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _debuggeePID, 0, opts) == -1) {
+		UT_NOTIFY(LV_ERROR, "unable to set PTRACE options: " << strerror(errno));		
 	}
 
-	//checkChildStatus();
-	//sleep(1);
 	UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child ");
 	if(ptrace(PTRACE_CONT, _debuggeePID, 0, 0) == -1) {
 		UT_NOTIFY(LV_ERROR, "unable to send PTRACE_CONT");
