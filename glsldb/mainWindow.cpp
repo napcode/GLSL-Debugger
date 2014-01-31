@@ -297,6 +297,9 @@ void MainWindow::on_aOpen_triggered()
 			_debugConfig.programArgs.append(dOpenProgram->leProgram->text());
 			_debugConfig.programArgs += dOpenProgram->leArguments->text().split(
 					QRegExp("\\s+"), QString::SkipEmptyParts);
+            _debugConfig.traceFork = dOpenProgram->cbFork->isChecked();
+            _debugConfig.traceExec = dOpenProgram->cbExec->isChecked();
+            _debugConfig.traceClone = dOpenProgram->cbClone->isChecked();
 			/* cleanup dbg state */
 			leaveDBGState();
 			/* kill program */
