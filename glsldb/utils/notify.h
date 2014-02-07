@@ -23,15 +23,23 @@ typedef enum {
 #include <sstream>
 #include <iostream>
 
-#define UT_NOTIFY(sev, msg)									\
-    do {													\
-        std::stringstream buf;								\
-        buf << msg;											\
-        utils_notify_va(sev, __FILE__, __func__, __LINE__, 1, buf.str().c_str());	\
-    }														\
+#define UT_NOTIFY(sev, msg)                                 \
+    do {                                                    \
+        std::stringstream buf;                              \
+        buf << msg;                                         \
+        utils_notify_va(sev, __FILE__, __func__, __LINE__, 1, buf.str().c_str());   \
+    }                                                       \
     while(0)
 
-#define UT_NOTIFY_NL(sev, msg)									\
+#define UT_NOTIFY_NO_PRFX(msg)							\
+    do {										\
+        std::stringstream buf;					\
+        buf << msg;								\
+        utils_notify_out(buf.str().c_str());	\
+    }											\
+    while(0)
+
+#define UT_NOTIFY_NL(sev, msg)								\
     do {													\
         std::stringstream buf;								\
         buf << msg;											\
@@ -42,8 +50,10 @@ typedef enum {
 #else   // C
 #define UT_NOTIFY(sev, ...)                                 \
             utils_notify_va(sev, __FILE__, __func__, __LINE__, 1, __VA_ARGS__)
-#define UT_NOTIFY_NL(sev, ...)                                 \
+#define UT_NOTIFY_NL(sev, ...)                              \
             utils_notify_va(sev, __FILE__, __func__, __LINE__, 0, __VA_ARGS__)
+#define UT_NOTIFY_NO_PRFX(...)                         \
+            utils_notify_out(__VA_ARGS__)
 #endif  // __cplusplus
 
 #if defined(__cplusplus)
@@ -56,6 +66,8 @@ extern void utils_notify_startup();
 extern void utils_notify_shutdown();
 extern void utils_notify_va(const severity_t sev, const char* filename,
 		const char* func, unsigned int line, unsigned int newline, const char *fmt, ...);
+void utils_notify_out(const char* fmt, ...);
+
 #if defined(__cplusplus)
 }
 #endif

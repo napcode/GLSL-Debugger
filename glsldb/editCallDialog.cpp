@@ -89,32 +89,32 @@ QValidator::State GLEnumValidator::validate(QString &input, int &pos) const
 	return state;
 }
 
-EditCallDialog::EditCallDialog(const FunctionCall *fn)
+EditCallDialog::EditCallDialog(const FunctionCall& fn)
+	: _call(new FunctionCall(fn))
 {
-	int i;
-
 	setupUi(this);
 
-	m_pChangedCall = new FunctionCall(fn);
-	m_qObjects.clear();
+	_qobjects.clear();
 
-	setWindowTitle(QString("Edit ") + QString(fn->getName()));
+	setWindowTitle(QString("Edit ") + _call->name());
 
 	QLabel *n = new QLabel(this);
-	n->setText(QString(fn->getName() + QString("(")));
+	n->setText(_call->name() + QString("("));
 	hboxLayout->addWidget(n);
 
-	for (i = 0; i < fn->getNumArguments(); i++) {
+	ArgumentVector::const_iterator it = _call->arguments().begin();
+	while(it != _call->arguments().end()) {
 		/* Manipulator */
-		QWidget *w = getManipulator(fn->getArgument(i));
+		QWidget *w = getManipulator(*(it->data()));
 		if (w) {
 			hboxLayout->addWidget(w);
 		}
-		m_qObjects.append(w);
+		_qobjects.append(w);
 
+		++it;
 		/* Labels */
 		QLabel *l = new QLabel(this);
-		if (i < fn->getNumArguments() - 1) {
+		if (it != _call->arguments().end()) {
 			l->setText(", ");
 		} else {
 			l->setText(")");
@@ -132,12 +132,11 @@ void EditCallDialog::checkValidity(void)
 {
 	QValidator::State state = QValidator::Acceptable;
 
-	int i;
-	for (i = 0; i < m_qObjects.size(); i++) {
-		const FunctionCall::Argument *arg = m_pChangedCall->getArgument(i);
-		switch (arg->iType) {
+	ArgumentVector::const_iterator it = _call->arguments().begin();
+	for (int i = 0; i < _qobjects.size(); ++i) {
+		switch ((*it)->type()) {
 		case DBG_TYPE_ENUM: {
-			QComboBox *cb = (QComboBox*) m_qObjects[i];
+			QComboBox *cb = (QComboBox*) _qobjects[i];
 			const QValidator *vldr = cb->validator();
 			QString s = cb->currentText();
 			int pos = 0;
@@ -149,13 +148,14 @@ void EditCallDialog::checkValidity(void)
 		default:
 			break;
 		}
+		++it;
 	}
 
 	/* Find OK button */
 	QAbstractButton *okButton = NULL;
 	QList<QAbstractButton*> buttonList;
 	buttonList = buttonBox->buttons();
-	for (i = 0; i < buttonList.size(); i++) {
+	for (int i = 0; i < buttonList.size(); ++i) {
 		if (buttonBox->buttonRole(buttonList[i])
 				== QDialogButtonBox::AcceptRole) {
 			okButton = buttonList[i];
@@ -173,83 +173,81 @@ void EditCallDialog::checkValidity(void)
 	}
 }
 
-const FunctionCall* EditCallDialog::getChangedFunction(void)
+FunctionCallPtr EditCallDialog::editedFunctionCall(void)
 {
-	int i;
-
-	for (i = 0; i < m_qObjects.size(); i++) {
-		const FunctionCall::Argument *arg = m_pChangedCall->getArgument(i);
-		switch (arg->iType) {
+	ArgumentVector::const_iterator it = _call->arguments().begin();
+	for (int i = 0; i < _qobjects.size(); ++i) {
+		switch ((*it)->type()) {
 		case DBG_TYPE_CHAR: {
 			char v;
-			v = (char) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (char) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_UNSIGNED_CHAR: {
 			unsigned char v;
-			v = (unsigned char) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (unsigned char) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_SHORT_INT: {
 			short v;
-			v = (short) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (short) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_UNSIGNED_SHORT_INT: {
 			unsigned short v;
-			v = (unsigned short) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (unsigned short) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_INT: {
 			int v;
-			v = (int) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (int) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_UNSIGNED_INT: {
 			unsigned int v;
-			v = (unsigned int) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (unsigned int) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_LONG_INT: {
 			long v;
-			v = (long) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (long) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_UNSIGNED_LONG_INT: {
 			unsigned long v;
-			v = (unsigned long) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (unsigned long) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_LONG_LONG_INT: {
 			long long v;
-			v = (long long) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (long long) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_UNSIGNED_LONG_LONG_INT: {
 			unsigned long long v;
-			v = (unsigned long long) ((QSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (unsigned long long) ((QSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_FLOAT: {
 			float v;
-			v = (float) ((QDoubleSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (float) ((QDoubleSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_DOUBLE: {
 			double v;
-			v = (double) ((QDoubleSpinBox*) m_qObjects[i])->value();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (double) ((QDoubleSpinBox*) _qobjects[i])->value();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_POINTER:
@@ -257,32 +255,32 @@ const FunctionCall* EditCallDialog::getChangedFunction(void)
 			break;
 		case DBG_TYPE_BOOLEAN: {
 			bool v;
-			v = (bool) ((QComboBox*) m_qObjects[i])->currentIndex();
-			m_pChangedCall->editArgument(i, (void*) &v);
+			v = (bool) ((QComboBox*) _qobjects[i])->currentIndex();
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_BITFIELD: {
 			GLbitfield v = 0;
 			int eIdx = 0;
-			QListWidget* list = (QListWidget*) m_qObjects[i];
+			QListWidget* list = (QListWidget*) _qobjects[i];
 
 			for (eIdx = 0; eIdx < list->count(); eIdx++) {
 				if (list->item(eIdx)->isSelected()) {
 					v |= list->item(eIdx)->data(Qt::UserRole).toInt();
 				}
 			}
-			m_pChangedCall->editArgument(i, (void*) &v);
+			(*it)->data((void*) &v);
 			break;
 		}
 		case DBG_TYPE_ENUM: {
 			GLenum v;
 			int eIdx = 0;
-			QString s = ((QComboBox*) m_qObjects[i])->currentText();
+			QString s = ((QComboBox*) _qobjects[i])->currentText();
 
 			while (glEnumerantsMap[i].string != NULL) {
 				if (!(s.compare(QString(glEnumerantsMap[eIdx].string)))) {
 					v = (GLenum) glEnumerantsMap[eIdx].value;
-					m_pChangedCall->editArgument(i, (void*) &v);
+					(*it)->data((void*) &v);
 					break;
 				}
 				eIdx++;
@@ -295,87 +293,88 @@ const FunctionCall* EditCallDialog::getChangedFunction(void)
 		default:
 			break;
 		}
+		++it;
 	}
 
-	return m_pChangedCall;
+	return _call;
 }
 
-QWidget* EditCallDialog::getManipulator(const FunctionCall::Argument *arg)
+QWidget* EditCallDialog::getManipulator(const FunctionArgument& arg)
 {
 	QWidget *w;
-	switch (arg->iType) {
+	switch (arg.type()) {
 	case DBG_TYPE_CHAR:
 		w = new QSpinBox(this);
 		((QSpinBox*) w)->setRange(CHAR_MIN, CHAR_MAX);
-		((QSpinBox*) w)->setValue(*(char*) arg->pData);
+		((QSpinBox*) w)->setValue(*(char*) arg.data());
 		break;
 	case DBG_TYPE_UNSIGNED_CHAR:
 		w = new QSpinBox(this);
 		((QSpinBox*) w)->setRange(0, UCHAR_MAX);
-		((QSpinBox*) w)->setValue(*(unsigned char*) arg->pData);
+		((QSpinBox*) w)->setValue(*(unsigned char*) arg.data());
 		break;
 	case DBG_TYPE_SHORT_INT:
 		w = new QSpinBox(this);
 		((QSpinBox*) w)->setRange(SHRT_MIN, SHRT_MAX);
-		((QSpinBox*) w)->setValue(*(short*) arg->pData);
+		((QSpinBox*) w)->setValue(*(short*) arg.data());
 		break;
 	case DBG_TYPE_UNSIGNED_SHORT_INT:
 		w = new QSpinBox(this);
 		((QSpinBox*) w)->setRange(0, USHRT_MAX);
-		((QSpinBox*) w)->setValue(*(unsigned short*) arg->pData);
+		((QSpinBox*) w)->setValue(*(unsigned short*) arg.data());
 		break;
 	case DBG_TYPE_INT:
 		w = new QSpinBox(this);
 		((QSpinBox*) w)->setRange(INT_MIN, INT_MAX);
-		((QSpinBox*) w)->setValue(*(int*) arg->pData);
+		((QSpinBox*) w)->setValue(*(int*) arg.data());
 		break;
 	case DBG_TYPE_UNSIGNED_INT:
 		w = new QSpinBox(this);
 		//((QSpinBox*)w)->setRange(0, UINT_MAX);
 		((QSpinBox*) w)->setRange(0, INT_MAX);
-		((QSpinBox*) w)->setValue(*(unsigned int*) arg->pData);
+		((QSpinBox*) w)->setValue(*(unsigned int*) arg.data());
 		break;
 	case DBG_TYPE_LONG_INT:
 		w = new QSpinBox(this);
 		//((QSpinBox*)w)->setRange(LONG_MIN, LONG_MAX);
 		((QSpinBox*) w)->setRange(INT_MIN, INT_MAX);
-		((QSpinBox*) w)->setValue(*(long*) arg->pData);
+		((QSpinBox*) w)->setValue(*(long*) arg.data());
 		break;
 	case DBG_TYPE_UNSIGNED_LONG_INT:
 		w = new QSpinBox(this);
 		//((QSpinBox*)w)->setRange(0, ULONG_MAX);
 		((QSpinBox*) w)->setRange(0, INT_MAX);
-		((QSpinBox*) w)->setValue(*(unsigned long*) arg->pData);
+		((QSpinBox*) w)->setValue(*(unsigned long*) arg.data());
 		break;
 	case DBG_TYPE_LONG_LONG_INT:
 		w = new QSpinBox(this);
 		//((QSpinBox*)w)->setRange(LLONG_MIN, LLONG_MAX);
 		((QSpinBox*) w)->setRange(INT_MIN, INT_MAX);
-		((QSpinBox*) w)->setValue(*(long long*) arg->pData);
+		((QSpinBox*) w)->setValue(*(long long*) arg.data());
 		break;
 	case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
 		w = new QSpinBox(this);
 		//((QSpinBox*)w)->setRange(0, ULLONG_MAX);
 		((QSpinBox*) w)->setRange(0, INT_MAX);
-		((QSpinBox*) w)->setValue(*(unsigned long long*) arg->pData);
+		((QSpinBox*) w)->setValue(*(unsigned long long*) arg.data());
 		break;
 	case DBG_TYPE_FLOAT:
 		w = new QDoubleSpinBox(this);
 		((QDoubleSpinBox*) w)->setRange(-FLT_MAX, FLT_MAX);
 		((QDoubleSpinBox*) w)->setDecimals(6);
-		((QDoubleSpinBox*) w)->setValue(*(float*) arg->pData);
+		((QDoubleSpinBox*) w)->setValue(*(float*) arg.data());
 		break;
 	case DBG_TYPE_DOUBLE:
 		w = new QDoubleSpinBox(this);
 		((QDoubleSpinBox*) w)->setRange(-DBL_MAX, DBL_MAX);
 		((QDoubleSpinBox*) w)->setDecimals(6);
-		((QDoubleSpinBox*) w)->setValue(*(float*) arg->pData);
+		((QDoubleSpinBox*) w)->setValue(*(float*) arg.data());
 		break;
 	case DBG_TYPE_POINTER: {
 		char *s;
 		w = new QLineEdit(this);
 		((QLineEdit*) w)->setEnabled(false);
-		asprintf(&s, "%p", *(void**) arg->pData);
+		asprintf(&s, "%p", *(void**) arg.data());
 		((QLineEdit*) w)->setText(s);
 		break;
 	}
@@ -383,11 +382,11 @@ QWidget* EditCallDialog::getManipulator(const FunctionCall::Argument *arg)
 		w = new QComboBox(this);
 		((QComboBox*) w)->addItem("false");
 		((QComboBox*) w)->addItem("true");
-		((QComboBox*) w)->setCurrentIndex(*(bool*) arg->pData);
+		((QComboBox*) w)->setCurrentIndex(*(bool*) arg.data());
 		break;
 	case DBG_TYPE_BITFIELD: {
 		int i = 0;
-		GLbitfield b = *(GLbitfield*) arg->pData;
+		GLbitfield b = *(GLbitfield*) arg.data();
 		w = new QListWidget(this);
 		((QListWidget*) w)->setSortingEnabled(true);
 		((QListWidget*) w)->setSelectionMode(QAbstractItemView::MultiSelection);
@@ -414,7 +413,7 @@ QWidget* EditCallDialog::getManipulator(const FunctionCall::Argument *arg)
 		((QComboBox*) w)->setValidator(v);
 		while (glEnumerantsMap[i].string != NULL) {
 			((QComboBox*) w)->addItem(glEnumerantsMap[i].string);
-			if (*(GLenum*) arg->pData == glEnumerantsMap[i].value
+			if (*(GLenum*) arg.data() == glEnumerantsMap[i].value
 					&& !initialized) {
 				((QComboBox*) w)->setCurrentIndex(i);
 				initialized = 1;

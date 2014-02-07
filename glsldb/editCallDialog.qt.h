@@ -43,19 +43,19 @@ class EditCallDialog: public QDialog, public Ui::dEditCall {
 Q_OBJECT
 
 public:
-	EditCallDialog(const FunctionCall *fc);
+	EditCallDialog(const FunctionCall& fc);
 	~EditCallDialog();
 
-	const FunctionCall* getChangedFunction(void);
+	FunctionCallPtr editedFunctionCall(void);
 
 private slots:
 	void checkValidity(void);
 
 private:
-	QWidget* getManipulator(const FunctionCall::Argument *arg);
+	QWidget* getManipulator(const FunctionArgument& arg);
 
-	QVector<QWidget*> m_qObjects;
-	FunctionCall *m_pChangedCall;
+	QVector<QWidget*> _qobjects;
+	FunctionCallPtr _call;
 };
 
 #endif

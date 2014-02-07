@@ -41,12 +41,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 #include "errorCodes.h"
 #include "runLevel.h"
-#include "debugConfig.h"
+#include "DebugConfig.h"
 #include "functionCall.h"
 #include "../GLSLCompiler/glslang/Public/ResourceLimits.h"
 #include "attachToProcess.qt.h"
 
-#include <QtCore/QStringList>
 
 extern "C" {
 #include "GL/gl.h"
@@ -56,179 +55,173 @@ extern "C" {
 #include "utils/p2pcopy.h"
 }
 
-#ifdef GLSLDB_WIN32
-	typedef DWORD PID_T;
-#else
-	typedef pid_t PID_T;
-#endif
 
-class ProgramControl :public QObject 
-{
-	Q_OBJECT
 
-public:
-	ProgramControl();
-	~ProgramControl();
+// class ProgramControl :public QObject 
+// {
+// 	Q_OBJECT
 
-	/* remote program control */
-	bool runProgram(const DebugConfig& config);
-	bool attachToProgram(const PID_T pid);
-	bool killDebuggee(void);
-	bool detachFromProgram(void);
-	bool childAlive(void);
-	void checkChildStatus(void);
-	void queryTraceEvent(pid_t pid, int status);
-	FunctionCall* getCurrentCall(void);
+// public:
+// 	ProgramControl();
+// 	~ProgramControl();
 
-	ErrorCode execute(bool stopOnGLError);
-	ErrorCode executeToShaderSwitch(bool stopOnGLError);
-	ErrorCode executeToDrawCall(bool stopOnGLError);
-	ErrorCode executeToUserDefined(const char *fname, bool stopOnGLError);
-	ErrorCode checkExecuteState(int *state);
-	ErrorCode executeContinueOnError(void);
-	ErrorCode stop(void);
+// 	/* remote program control */
+// 	bool runProgram(const DebugConfig& config);
+// 	bool attachToProgram(const PID_T pid);
+// 	bool killDebuggee(void);
+// 	bool detachFromProgram(void);
+// 	bool childAlive(void);
+// 	void waitForChildStatus(void);
+// 	void queryTraceEvent(pid_t pid, int status);
+// 	FunctionCallPtr getCurrentCall(void);
 
-	ErrorCode callOrigFunc(const FunctionCall *fCall = 0);
-	ErrorCode callDone(void);
-	ErrorCode overwriteFuncArguments(const FunctionCall *fCall);
+// 	ErrorCode execute(bool stopOnGLError);
+// 	ErrorCode executeToShaderSwitch(bool stopOnGLError);
+// 	ErrorCode executeToDrawCall(bool stopOnGLError);
+// 	ErrorCode executeToUserDefined(const char *fname, bool stopOnGLError);
+// 	ErrorCode checkExecuteState(int *state);
+// 	ErrorCode executeContinueOnError(void);
+// 	ErrorCode stop(void);
 
-	ErrorCode restoreRenderTarget(int target);
-	ErrorCode setDbgTarget(int target, int alphaTestOption,
-			int depthTestOption, int stencilTestOption, int blendingOption);
+// 	ErrorCode callOrigFunc(FunctionCallPtr call);
+// 	ErrorCode callDone(void);
+// 	ErrorCode overwriteFuncArguments(FunctionCallPtr call);
 
-	ErrorCode saveAndInterruptQueries(void);
-	ErrorCode restartQueries(void);
+// 	ErrorCode restoreRenderTarget(int target);
+// 	ErrorCode setDbgTarget(int target, int alphaTestOption,
+// 			int depthTestOption, int stencilTestOption, int blendingOption);
 
-	ErrorCode initRecording(void);
-	ErrorCode recordCall(void);
-	ErrorCode replay(int target);
-	ErrorCode endReplay(void);
+// 	ErrorCode saveAndInterruptQueries(void);
+// 	ErrorCode restartQueries(void);
 
-	ErrorCode getShaderCode(char *shaders[3], TBuiltInResource *resource,
-			char **serializedUniforms, int *numUniforms);
+// 	ErrorCode initRecording(void);
+// 	ErrorCode recordCall(void);
+// 	ErrorCode replay(int target);
+// 	ErrorCode endReplay(void);
 
-	ErrorCode saveActiveShader(void);
-	ErrorCode restoreActiveShader(void);
+// 	ErrorCode getShaderCode(char *shaders[3], TBuiltInResource *resource,
+// 			char **serializedUniforms, int *numUniforms);
 
-	ErrorCode shaderStepFragment(char *shaders[3], int numComponents,
-			int format, int *width, int *heigh, void **image);
-	ErrorCode shaderStepVertex(char *shaders[3], int target,
-			int primitiveMode, int forcePointPrimitiveMode,
-			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
-			float **vertexData);
+// 	ErrorCode saveActiveShader(void);
+// 	ErrorCode restoreActiveShader(void);
 
-	/* obsolete? */
-	ErrorCode setDbgShaderCode(char *shaders[3], int target);
+// 	ErrorCode shaderStepFragment(char *shaders[3], int numComponents,
+// 			int format, int *width, int *heigh, void **image);
+// 	ErrorCode shaderStepVertex(char *shaders[3], int target,
+// 			int primitiveMode, int forcePointPrimitiveMode,
+// 			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
+// 			float **vertexData);
 
-	ErrorCode initializeRenderBuffer(bool copyRGB, bool copyAlpha,
-			bool copyDepth, bool copyStencil, float red, float green,
-			float blue, float alpha, float depth, int stencil);
-	ErrorCode readBackActiveRenderBuffer(int numComponents, int *width,
-			int *heigh, float **image);
+// 	/* obsolete? */
+// 	ErrorCode setDbgShaderCode(char *shaders[3], int target);
 
-	ErrorCode insertGlEnd(void);
+// 	ErrorCode initializeRenderBuffer(bool copyRGB, bool copyAlpha,
+// 			bool copyDepth, bool copyStencil, float red, float green,
+// 			float blue, float alpha, float depth, int stencil);
+// 	ErrorCode readBackActiveRenderBuffer(int numComponents, int *width,
+// 			int *heigh, float **image);
 
-	State state() const { return _state; }
-	void state(State s);
-	ErrorCode error() const { return _error; }
-	void error(ErrorCode s);
-signals:
-	void stateChanged(State s);
-	void errorOccured(ErrorCode ec);
-	void errorMessage(const QString& msg);
-private:
-	unsigned int getArgumentSize(int type);
+// 	ErrorCode insertGlEnd(void);
 
-	/* process environment communication */
-	void buildEnvVars();
-	void setDebugEnvVars(void);
+// 	State state() const { return _state; }
+// 	void state(State s);
+// 	ErrorCode error() const { return _error; }
+// 	void error(ErrorCode s);
+// signals:
+// 	void stateChanged(State s);
+// 	void errorOccured(ErrorCode ec);
+// 	void errorMessage(const QString& msg);
+// private:
+// 	unsigned int getArgumentSize(int type);
 
-	/* remote program control */
-	PID_T _debuggeePID;
-	ErrorCode dbgCommandExecute(void);
-	ErrorCode dbgCommandExecuteToDrawCall(void);
-	ErrorCode dbgCommandExecuteToShaderSwitch(void);
-	ErrorCode dbgCommandExecuteToUserDefined(const char *fname);
-	ErrorCode dbgCommandExecute(bool stopOnGLError);
-	ErrorCode dbgCommandExecuteToDrawCall(bool stopOnGLError);
-	ErrorCode dbgCommandExecuteToShaderSwitch(bool stopOnGLError);
-	ErrorCode dbgCommandExecuteToUserDefined(const char *fname,
-			bool stopOnGLError);
-	ErrorCode dbgCommandStopExecution(void);
-	ErrorCode dbgCommandCallOrig(void);
-	ErrorCode dbgCommandCallOrig(const FunctionCall *fCall);
-	ErrorCode dbgCommandCallDBGFunction(const char* = 0);
-	ErrorCode dbgCommandAllocMem(unsigned int numBlocks, unsigned int *sizes,
-			void **addresses);
-	ErrorCode dbgCommandFreeMem(unsigned int numBlocks, void **addresses);
-	ErrorCode dbgCommandStartRecording(void);
-	ErrorCode dbgCommandRecord(void);
-	ErrorCode dbgCommandReplay(int target);
-	ErrorCode dbgCommandEndReplay(void);
-	ErrorCode dbgCommandSetDbgTarget(int target, int alphaTestOption,
-			int depthTestOption, int stencilTestOption, int blendingOption);
-	ErrorCode dbgCommandRestoreRenderTarget(int target);
-	ErrorCode dbgCommandCopyToRenderBuffer(void);
-	ErrorCode dbgCommandClearRenderBuffer(int mode, float r, float g, float b,
-			float a, float f, int s);
-	ErrorCode dbgCommandSaveAndInterruptQueries(void);
-	ErrorCode dbgCommandRestartQueries(void);
-	ErrorCode dbgCommandShaderStepFragment(void *shaders[3],
-			int numComponents, int format, int *width, int *height,
-			void **image);
-	ErrorCode dbgCommandShaderStepVertex(void *shaders[3], int target,
-			int primitiveMode, int forcePointPrimitiveMode,
-			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
-			float **vertexData);
-	ErrorCode dbgCommandReadRenderBuffer(int numComponents, int *width,
-			int *height, float **image);
-	ErrorCode dbgCommandDone(void);
-	void* copyArgumentFromProcess(void *addr, int type);
-	void copyArgumentToProcess(void *dst, void *src, int type);
-	char* printArgument(void *addr, int type);
-	void printCall(void);
-	void printResult(void);
+// 	/* process environment communication */
+// 	void buildEnvVars();
+// 	void setDebugEnvVars(void);
 
-	/* dbg command execution and error checking */
-	ErrorCode executeDbgCommand(void);
-	ErrorCode checkError(void);
+// 	/* remote program control */
+// 	ErrorCode dbgCommandExecute(void);
+// 	ErrorCode dbgCommandExecuteToDrawCall(void);
+// 	ErrorCode dbgCommandExecuteToShaderSwitch(void);
+// 	ErrorCode dbgCommandExecuteToUserDefined(const char *fname);
+// 	ErrorCode dbgCommandExecute(bool stopOnGLError);
+// 	ErrorCode dbgCommandExecuteToDrawCall(bool stopOnGLError);
+// 	ErrorCode dbgCommandExecuteToShaderSwitch(bool stopOnGLError);
+// 	ErrorCode dbgCommandExecuteToUserDefined(const char *fname,
+// 			bool stopOnGLError);
+// 	ErrorCode dbgCommandStopExecution(void);
+// 	ErrorCode dbgCommandCallOrig(FunctionCallPtr call);
+// 	ErrorCode dbgCommandCallDBGFunction(const char* = 0);
+// 	ErrorCode dbgCommandAllocMem(unsigned int numBlocks, unsigned int *sizes,
+// 			void **addresses);
+// 	ErrorCode dbgCommandFreeMem(unsigned int numBlocks, void **addresses);
+// 	ErrorCode dbgCommandStartRecording(void);
+// 	ErrorCode dbgCommandRecord(void);
+// 	ErrorCode dbgCommandReplay(int target);
+// 	ErrorCode dbgCommandEndReplay(void);
+// 	ErrorCode dbgCommandSetDbgTarget(int target, int alphaTestOption,
+// 			int depthTestOption, int stencilTestOption, int blendingOption);
+// 	ErrorCode dbgCommandRestoreRenderTarget(int target);
+// 	ErrorCode dbgCommandCopyToRenderBuffer(void);
+// 	ErrorCode dbgCommandClearRenderBuffer(int mode, float r, float g, float b,
+// 			float a, float f, int s);
+// 	ErrorCode dbgCommandSaveAndInterruptQueries(void);
+// 	ErrorCode dbgCommandRestartQueries(void);
+// 	ErrorCode dbgCommandShaderStepFragment(void *shaders[3],
+// 			int numComponents, int format, int *width, int *height,
+// 			void **image);
+// 	ErrorCode dbgCommandShaderStepVertex(void *shaders[3], int target,
+// 			int primitiveMode, int forcePointPrimitiveMode,
+// 			int numFloatsPerVertex, int *numPrimitives, int *numVertices,
+// 			float **vertexData);
+// 	ErrorCode dbgCommandReadRenderBuffer(int numComponents, int *width,
+// 			int *height, float **image);
+// 	ErrorCode dbgCommandDone(void);
+// 	void* copyArgumentFromProcess(void *addr, DBG_TYPE type);
+// 	void copyArgumentToProcess(void *dst, void *src, DBG_TYPE type);
+// 	void printArgument(void *addr, DBG_TYPE type);
+// 	void printCall(void);
+// 	void printResult(void);
 
-	/* Shared memory handling */
-	void initShmem(void);
-	void clearShmem(void);
-	void freeShmem(void);
-	DbgRec* getThreadRecord(PID_T pid);
+// 	/* dbg command execution and error checking */
+// 	ErrorCode executeDbgCommand(void);
+// 	/* queries thread record and retrieves error code */
+// 	ErrorCode checkError(void);
 
-    DebugConfig _debugConfig;
-	State _state;
-	ErrorCode _error;
+// 	/* Shared memory handling */
+// 	void initShmem(void);
+// 	void clearShmem(void);
+// 	void freeShmem(void);
+// 	debug_record_t* getThreadRecord(PID_T pid);
 
-	int shmid;
-	DbgRec *_fcalls;
-	std::string _path_dbglib;
-	std::string _path_dbgfuncs;
-	std::string _path_libdlsym;
-	std::string _path_log;
+// 	State _state;
+// 	ErrorCode _error;
 
-#ifdef _WIN32
-	void createEvents(const DWORD processId);
-	void closeEvents(void);
+// 	int shmid;
+// 	debug_record_t *_fcalls;
+// 	std::string _path_dbglib;
+// 	std::string _path_dbgfuncs;
+// 	std::string _path_libdlsym;
+// 	std::string _path_log;
 
-	/* Signal debugee. */
-	HANDLE _hEvtDebuggee;
+// #ifdef _WIN32
+// 	void createEvents(const DWORD processId);
+// 	void closeEvents(void);
 
-	/* Wait for debugee signaling me. */
-	HANDLE _hEvtDebugger;
+// 	/* Signal debugee. */
+// 	HANDLE _hEvtDebuggee;
 
-	/* Process handle of the debugged program. */
-	HANDLE _hDebuggedProgram;
+// 	/* Wait for debugee signaling me. */
+// 	HANDLE _hEvtDebugger;
 
-	/** Handles for process we attached to, but did not create ourself. */
-	ATTACHMENT_INFORMATION _ai;
+// 	/* Process handle of the debugged program. */
+// 	HANDLE _hDebuggedProgram;
 
-	HANDLE _hShMem;
+// 	/** Handles for process we attached to, but did not create ourself. */
+// 	ATTACHMENT_INFORMATION _ai;
 
-#endif /* _WIN32 */
-};
+// 	HANDLE _hShMem;
+
+// #endif /* _WIN32 */
+// };
 
 #endif

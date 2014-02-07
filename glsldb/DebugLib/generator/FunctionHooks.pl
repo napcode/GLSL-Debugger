@@ -131,11 +131,11 @@ sub thread_statement
         $check_allowed = "G.errorCheckAllowed = 1;\n" if $fname eq "glEnd";
         $check_allowed = "G.errorCheckAllowed = 0;\n" if $fname eq "glBegin";
 
-        $lockStatement = "DbgRec *rec;
-    dbgPrint(DBGLVL_DEBUG, \"entering $fname\\n\");
+        $lockStatement = "debug_record_t *rec;
+    UT_NOTIFY(LV_DEBUG, \"entering $fname\\n\");
     rec = getThreadRecord(GetCurrentProcessId());
     ${check_allowed}if(rec->isRecursing) {
-        dbgPrint(DBGLVL_DEBUG, \"stopping recursion\\n\");
+        UT_NOTIFY(LV_DEBUG, \"stopping recursion\\n\");
         ${preexec}${retval_assign}ORIG_GL($fname)($argstring);
         /* no way to check errors in recursive calls! */
         error = GL_NO_ERROR;

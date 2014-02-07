@@ -48,6 +48,9 @@ extern "C" {
 
 #define EPS 1e-5f
 
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+
 typedef struct {
 	float x, y, z;
 } Vector3;

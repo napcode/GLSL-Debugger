@@ -45,7 +45,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class GlTraceFilterModel: public QAbstractItemModel {
 public:
-	GlTraceFilterModel(GLFunctionList *functions, QObject *parent = 0);
+	GlTraceFilterModel(gl_func_t *functions, QObject *parent = 0);
 	~GlTraceFilterModel();
 
 	QModelIndex index(int row, int column, const QModelIndex &parent =
@@ -78,7 +78,7 @@ public:
 private:
 	class GlTraceFilterItem {
 	public:
-		GlTraceFilterItem(GLFunctionList *theFunction, int show,
+		GlTraceFilterItem(gl_func_t *theFunction, int show,
 				GlTraceFilterItem *parent = 0);
 		~GlTraceFilterItem();
 
@@ -102,7 +102,7 @@ private:
 
 		int showInTrace;
 		bool isSupported;
-		GLFunctionList *function;
+		gl_func_t *function;
 
 	private:
 		QList<GlTraceFilterItem*> childItems;

@@ -34,32 +34,31 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _FUNCTION_CALL_H_
 #define _FUNCTION_CALL_H_
 
+#include <QString>
+
+#include "FunctionArgument.h"
+#include <QSharedPointer>
+
 class FunctionCall {
 public:
-	FunctionCall();
-	FunctionCall(const FunctionCall *copyOf);
+	FunctionCall(const QString& name = QString());
+	FunctionCall(const FunctionCall& rhs);
 	~FunctionCall();
 
-	struct Argument {
-		int iType;
-		void *pData;
-		void *pAddress;
-	};
+	const QString& name(void) const { return _name; }
+	void name(const QString& name);
 
-	const char* getName(void) const;
-	void setName(const char*);
+	QString extension(void) const { return _extension; }
 
-	const char* getExtension(void) const;
+	int numArguments(void) const { return _arguments.size(); }
+	ArgumentVector& arguments() { return _arguments; }
+	const ArgumentVector& arguments() const { return _arguments; }
 
-	int getNumArguments(void) const;
-	const Argument* getArgument(int) const;
-	void addArgument(int, void*, void*);
-	void editArgument(int, void*);
+	void addArgument(DBG_TYPE, void*, void*);
+	void addArgument(FunctionArgumentPtr arg);
 
 	bool operator==(const FunctionCall&);
 	bool operator!=(const FunctionCall&);
-
-	char* getCallString(void) const;
 
 	bool isDebuggable(void) const;
 	bool isDebuggable(int *primitiveMode) const;
@@ -73,15 +72,18 @@ public:
 	bool isFrameEnd(void) const;
 	bool isFramebufferChange(void) const;
 
-private:
-	char* getArgumentString(Argument arg) const;
-	void* copyArgument(int type, void *addr);
+	/* check wether the function call has been modified since creation */
+	bool isDirty() const;
 
-	char *m_pName;
-	char *m_pExtension;
-	int m_iNumArgs;
-	Argument *m_pArguments;
+	QString asString() const;
+private:
+
+	QString _name;
+	QString _extension;
+	ArgumentVector _arguments;
 
 };
+
+typedef QSharedPointer<FunctionCall> FunctionCallPtr;
 
 #endif

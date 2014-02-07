@@ -36,9 +36,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtGui/QComboBox>
 
 #include "jumpToDialog.qt.h"
+
 #include "debuglib.h"
 
-extern "C" GLFunctionList glFunctions[];
 
 class GlFuncValidator: public QValidator {
 public:

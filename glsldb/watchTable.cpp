@@ -38,9 +38,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "dbgprint.h"
 
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
-
 static void clearData(float *data, int count, int dataStride, float clearValue)
 {
 	for (int i = 0; i < count; i++) {

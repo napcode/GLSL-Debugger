@@ -95,7 +95,7 @@ void GlTraceFilterModel::GlTraceFilterItem::setChildsToggleStateRecursive(
 }
 
 GlTraceFilterModel::GlTraceFilterItem::GlTraceFilterItem(
-		GLFunctionList *theFunction, int show, GlTraceFilterItem *parent)
+		gl_func_t *theFunction, int show, GlTraceFilterItem *parent)
 {
 	showInTrace = show;
 	function = theFunction;
@@ -157,7 +157,7 @@ int GlTraceFilterModel::GlTraceFilterItem::row() const
 	return 0;
 }
 
-GlTraceFilterModel::GlTraceFilterModel(GLFunctionList *functions,
+GlTraceFilterModel::GlTraceFilterModel(gl_func_t *functions,
 		QObject *parent) :
 		QAbstractItemModel(parent)
 {

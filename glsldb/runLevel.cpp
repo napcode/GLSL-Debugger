@@ -1,6 +1,6 @@
 #include "runLevel.h"
 
-const char* getRunLevelInfo(RunLevel rl)
+const char* getRunLevelString(RunLevel rl)
 {
 	switch(rl) {
 		case RL_INIT:
@@ -29,22 +29,4 @@ const char* getRunLevelInfo(RunLevel rl)
 			return "unknown runlevel";
 	}
 }
-const char* getStateInfo(State s)
-{
-	switch(s) {
-		case ST_INVALID:
-			return "INVALID";
-		case ST_INIT:
-			return "INIT";
-		case ST_RUNNING:
-			return "RUNNING";
-		case ST_STOPPED:
-			return "STOPPED";
-		case ST_EXITED:
-			return "EXITED";
-		case ST_KILLED:
-			return "KILLED";
-		default:
-			return "UNDEFINED";
-	}
-}
+

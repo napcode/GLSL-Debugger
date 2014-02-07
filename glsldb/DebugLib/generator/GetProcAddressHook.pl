@@ -102,12 +102,12 @@ sub createFunctionHook
         if (Orig$fname == NULL) {
             /* Orig$fname = (PFN${fname}PROC)OrigwglGetProcAddress(\"$fname\"); */
             /* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-            DbgRec *rec = getThreadRecord(GetCurrentProcessId());
+            debug_record_t *rec = getThreadRecord(GetCurrentProcessId());
             rec->isRecursing = 1;
             initExtensionTrampolines();
             rec->isRecursing = 0;
             if (Orig$fname == NULL) {
-                dbgPrint(DBGLVL_DEBUG, \"Could not get $fname address\\n\");
+                UT_NOTIFY(LV_DEBUG, \"Could not get $fname address\\n\");
             }
         }
         return (PROC) Detoured$fname;

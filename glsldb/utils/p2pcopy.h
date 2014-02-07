@@ -43,23 +43,16 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 #include "common.h"
+#include "../os/os.h"
 
 /* copy <size> bytes from address <src> in context of process <pid> to local
  * address <dst>
  */
-#ifdef _WIN32
-void cpyFromProcess(DWORD pid, void *dst, void *src, size_t size);
-#else /* _WIN32 */
-UTILSLOCAL void cpyFromProcess(pid_t pid, void *dst, void *src, size_t size);
-#endif /* _WIN32 */
+UTILSLOCAL void cpyFromProcess(pid_t pid, void *dst, const void *src, size_t size);
 
 /* copy <size> bytes from local address <src> to address <dst> in context of
  * process <pid>
  */
-#ifdef _WIN32
-void cpyToProcess(DWORD pid, void *dst, void *src, size_t size);
-#else /* _WIN32 */
-UTILSLOCAL void cpyToProcess(pid_t pid, void *dst, void *src, size_t size);
-#endif /* _WIN32 */
+UTILSLOCAL void cpyToProcess(pid_t pid, void *dst, const void *src, size_t size);
 
 #endif

@@ -1,7 +1,6 @@
 #include "FunctionsMap.h"
 #include "notify.h"
 FunctionsMap* FunctionsMap::_instance = 0;
-extern "C" GLFunctionList glFunctions[];
 
 FunctionsMap& FunctionsMap::instance()
 {
@@ -20,11 +19,11 @@ void FunctionsMap::initialize()
 	}
 	UT_NOTIFY(LV_INFO, _map.size() << " registered GL-Functions");
 }
-GLFunctionList* FunctionsMap::operator[](const std::string& name)
+gl_func_t* FunctionsMap::operator[](const QString& name)
 {
-	GLFunctionList* func = 0;
+	gl_func_t* func = nullptr;
 	GLFunctionsMap::const_iterator it = _map.find(name);
 	if (it != _map.end())
-		func = it->second;
+		func = it.value();
 	return func;
 }
