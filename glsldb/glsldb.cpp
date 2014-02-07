@@ -374,6 +374,9 @@ int main(int argc, char **argv)
 	// we need both for now...
 	UTILS_NOTIFY_STARTUP();
 	startLogging("glsldevil");
+	setMaxDebugOutputLevel(DBGLVL_DEBUG);
+	/* force TRACe for now */
+	setNotifyLevel(5);
 
 	UT_NOTIFY(LV_INFO, "Application startup.");
 	// we'll need that later...

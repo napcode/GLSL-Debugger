@@ -43,8 +43,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 
 #include <stdint.h>
+#include "os/os.h"
 
-enum DBG_ERROR_CODES {
+enum DBG_ERROR_CODE {
 	DBG_NO_ERROR = 0,
 	DBG_ERROR_NO_ACTIVE_SHADER,
 	DBG_ERROR_NO_SUCH_DBG_FUNC,
@@ -62,7 +63,7 @@ enum DBG_ERROR_CODES {
 	DBG_ERROR_VARYING_INACTIVE
 };
 
-enum DBG_RETURNS {
+enum DBG_RETURN {
 	DBG_FUNCTION_CALL = 0,
 	/*
 	 Returned when a new call is reached and the command loop has been
@@ -107,13 +108,14 @@ enum DBG_RETURNS {
 	 Returned by a successful call to a debug function
 	 */
 
+	DBG_READBACK_RENDERBUFFER, 
 	DBG_EXECUTE_IN_PROGRESS
 /*
  Returned if a DBG_EXECUTE is in progress
  */
 };
 
-enum DBG_OPERATIONS {
+enum DBG_OPERATION {
 	DBG_NONE = 0,
 	/*
 	 No operation; ignored
@@ -390,34 +392,14 @@ enum DBG_OPERATIONS {
  */
 };
 
-enum DBG_TYPES {
-	DBG_TYPE_CHAR = 0,
-	DBG_TYPE_UNSIGNED_CHAR,
-	DBG_TYPE_SHORT_INT,
-	DBG_TYPE_UNSIGNED_SHORT_INT,
-	DBG_TYPE_INT,
-	DBG_TYPE_UNSIGNED_INT,
-	DBG_TYPE_LONG_INT,
-	DBG_TYPE_UNSIGNED_LONG_INT,
-	DBG_TYPE_LONG_LONG_INT,
-	DBG_TYPE_UNSIGNED_LONG_LONG_INT,
-	DBG_TYPE_FLOAT,
-	DBG_TYPE_DOUBLE,
-	DBG_TYPE_LONG_DOUBLE,
-	DBG_TYPE_POINTER,
-	DBG_TYPE_STRUCT,
-	DBG_TYPE_BITFIELD,
-	DBG_TYPE_ENUM,
-	DBG_TYPE_BOOLEAN
-};
 
-enum DBG_TARGETS {
+enum DBG_TARGET {
 	DBG_TARGET_VERTEX_SHADER,
 	DBG_TARGET_GEOMETRY_SHADER,
 	DBG_TARGET_FRAGMENT_SHADER
 };
 
-enum DBG_CLEAR_MODES {
+enum DBG_CLEAR_MODE {
 	DBG_CLEAR_NONE = 0,
 	DBG_CLEAR_RGB = 1,
 	DBG_CLEAR_ALPHA = 2,
@@ -425,14 +407,14 @@ enum DBG_CLEAR_MODES {
 	DBG_CLEAR_STENCIL = 8
 };
 
-enum DBG_EXECUTE_MODES {
+enum DBG_EXECUTE_MODE {
 	DBG_EXECUTE_RUN,
 	DBG_JUMP_TO_SHADER_SWITCH,
 	DBG_JUMP_TO_DRAW_CALL,
 	DBG_JUMP_TO_USER_DEFINED
 };
 
-enum DBG_PFT_OPTIONS {
+enum DBG_PFT_OPTION {
 	DBG_PFT_KEEP,
 	DBG_PFT_FORCE_ENABLED,
 	DBG_PFT_FORCE_DISABLED
@@ -453,17 +435,19 @@ typedef intptr_t ALIGNED_DATA;
 #define SHM_MAX_ITEMS ((SHM_SIZE/SHM_MAX_THREADS - SHM_MAX_FUNCNAME - 4*sizeof(ALIGNED_DATA))/sizeof(ALIGNED_DATA))
 #endif /* _WIN32 */
 
+#pragma pack(4)
 typedef struct {
-	ALIGNED_DATA threadId;
-	ALIGNED_DATA operation;
-	ALIGNED_DATA result;
+	PID_T threadId;
+	enum DBG_OPERATION operation;
+	enum DBG_RETURN result;
 	char fname[SHM_MAX_FUNCNAME];
-	ALIGNED_DATA numItems;
+	unsigned int numItems;
 	ALIGNED_DATA items[SHM_MAX_ITEMS];
 #ifdef _WIN32
 	ALIGNED_DATA isRecursing;
 #endif /* _WIN32 */
-} DbgRec;
+} debug_record_t;
+#pragma pack()
 
 typedef struct {
 	const char *prefix;
@@ -474,6 +458,8 @@ typedef struct {
 	int isShaderSwitch;
 	int isFrameEnd;
 	int isFramebufferChange;
-} GLFunctionList;
+} gl_func_t;
+
+extern gl_func_t glFunctions[];
 
 #endif

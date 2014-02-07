@@ -160,7 +160,7 @@ sub thread_statement
     dbgPrint(DBGLVL_DEBUG, \"entering $fname\\n\");
     rec = getThreadRecord(GetCurrentProcessId());
     ${check_allowed}if(rec->isRecursing) {
-        dbgPrint(DBGLVL_DEBUG, \"stopping recursion\\n\");
+        UT_NOTIFY(LV_DEBUG, \"stopping recursion\\n\");
         ${preexec}${retval_assign}ORIG_GL($fname)($argstring);
         /* no way to check errors in recursive calls! */
         error = GL_NO_ERROR;

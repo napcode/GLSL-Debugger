@@ -43,17 +43,14 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "globaldefines.h"
 #include "ui_mainWindow.h"
 #include "openProgramDialog.qt.h"
-#include "glCallStatistics.qt.h"
 #include "jumpToDialog.qt.h"
 
 //#include "ShHandle.h"
 #include "ShaderLang.h"
 
-#include "progControl.qt.h"
 #include "shVarModel.qt.h"
 #include "errorCodes.h"
 #include "runLevel.h"
-#include "debugConfig.h"
 #include "functionCall.h"
 #include "pixelBox.qt.h"
 #include "loopDialog.qt.h"
@@ -65,12 +62,20 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "glTraceListModel.qt.h"
 #include "glTraceSettingsDialog.qt.h"
 
+#include "DebugConfig.h"
+#include "Process.qt.h"
+
 #include <QtGui/QScrollArea>
 #include <QtCore/QStack>
 
 class QWorkspace;
+class TraceStatsDockWidget;
 
-class MainWindow: public QMainWindow, public Ui::MainWindow 
+namespace Ui {
+	class MainWindow;
+}
+ 
+class MainWindow: public QMainWindow
 {
 	Q_OBJECT
 
@@ -79,9 +84,13 @@ public:
 	~MainWindow();
 
 public slots:
-	void debuggeeStateChanged(State s);
+	void debuggeeStateChanged(Process::State s);
+	void debugMessage(const QString& msg);
+	void updateGuiToRunLevel(RunLevel);
+	void debugError(ErrorCode);
 
 private slots:
+
 	/****************
 	 * auto connect *
 	 ****************/
@@ -97,10 +106,6 @@ private slots:
 	void on_tbBVCapture_clicked();
 	void on_tbBVCaptureAutomatic_toggled(bool);
 	void on_tbBVSave_clicked();
-
-	/* statistics */
-	void on_cbGlstCallOrigin_currentIndexChanged(int);
-	void on_cbGlstPfMode_currentIndexChanged(int);
 
 	/* glTrace */
 	void on_tbExecute_clicked();
@@ -136,7 +141,6 @@ private slots:
 	 * self connect *
 	 ****************/
 
-	void setRunLevel(RunLevel);
 	void updateWatchItemData(ShVarItem*);
 	void watchSelectionChanged(const QItemSelection&, const QItemSelection&);
 	void setMouseOverValues(int x, int y, const bool *active,
@@ -145,19 +149,24 @@ private slots:
 	void newSelectedVertex(int n);
 	void newSelectedPrimitive(int dataIdx);
 	void changedActiveWindow(QWidget *w);
-	void ShaderStep(int action, bool updateData = true, bool updateCovermap =
+	void shaderStep(int action, bool updateData = true, bool updateCovermap =
 			true);
 
 	void singleStep();
 
-private:
+private: /* types */
+	enum CoverageMapStatus {
+		COVERAGEMAP_UNCHANGED,
+		COVERAGEMAP_GROWN,
+		COVERAGEMAP_SHRINKED
+	};
+
+
+private: /* methods */
 	void run();
 	void closeEvent(QCloseEvent *event);
 
-	void killDebuggee(void);
 
-	void setErrorStatus(ErrorCode);
-	void setStatusBarText(QString);
 	void setShaderCodeText(char *shaders[3]);
 	void leaveDBGState();
 	void cleanupDBGShader();
@@ -170,65 +179,70 @@ private:
 	void setGuiUpdates(bool);
 	void updateWatchGui(int s);
 
-	void addGlTraceItem();
-	void addGlTraceErrorItem(const char *text);
-	void addGlTraceWarningItem(const char *text);
-	void setGlTraceItemText(const char *text);
+	void addGlTraceItem(ProcessPtr p);
+	void addGlTraceErrorItem(const QString& text);
+	void addGlTraceWarningItem(const QString& text);
+	void setGlTraceItemText(const QString& text);
 	void setGlTraceItemIconType(const GlTraceListItem::IconType type);
 	void clearGlTraceItemList(void);
 
 	ErrorCode getNextCall();
-	ErrorCode nextStep(const FunctionCall *fCall);
+	ErrorCode nextStep();
 	ErrorCode recordCall();
 	void recordDrawCall();
-	void waitForEndOfExecution();
+	void updateWatchListData(CoverageMapStatus cmstatus, bool forceUpdate);
+	void updateWatchItemsCoverage(bool *coverage);
+	void resetWatchListData(void);
+	void updateSelectedPixelValues(void);
+	QModelIndexList cleanupSelectionList(QModelIndexList input);
+
+	WatchView* newWatchWindowGeoDataTree(QModelIndexList &list);
+	WatchView* newWatchWindowVertexTable(QModelIndexList &list);
+	WatchView* newWatchWindowFragment(QModelIndexList &list);
+	void addToWatchWindowGeoDataTree(WatchView *watchView,
+			QModelIndexList &list);
+	void addToWatchWindowVertexTable(WatchView *watchView,
+			QModelIndexList &list);
+	void addToWatchWindowFragment(WatchView *watchView, QModelIndexList &list);
+
+	/* MRU program. */
+	bool loadMruProgram(QString& outProgram, QString& outArguments,
+			QString& outWorkDir);
+	bool saveMruProgram(const QString& program, const QString& arguments,
+			const QString& workDir);
+
+private: /* variables */
+	Ui::MainWindow *_ui;
 
 	/* Workspace */
-	QWorkspace *workspace;
-	int currentRunLevel;
+	QWorkspace *_workspace;
 
 	/* GLTrace Model */
-	GlTraceListModel *m_pGlTraceModel;
-	GlTraceFilterModel *m_pGlTraceFilterModel;
+	GlTraceListModel *_glTraceModel;
+	GlTraceFilterModel *_glTraceFilterModel;
 
 	/* watch window controls */
-	QActionGroup *agWatchControl;
+	QActionGroup *_agWatchControl;
 
 	/* Dock Widget: GL Buffer View */
-	QScrollArea *sBVArea;
-	QLabel *lBVLabel;
+	QScrollArea *_sBVArea;
+	QLabel *_lBVLabel;
 
 	/* glTrace settings dialog */
-	GlTraceSettingsDialog *m_pgtDialog;
+	GlTraceSettingsDialog *_traceSettingsDialog;
 
 	/* per fragment tests */
-	FragmentTestDialog *m_pftDialog;
+	FragmentTestDialog *_fragmentTestDialog;
 
     DebugConfig _debugConfig;
+    ProcessPtr _proc;
 
-	ProgramControl *pc;
-
-	const FunctionCall *m_pCurrentCall;
+	FunctionCallPtr _currentCall;
 
 	/* == 1 if we are inside a glNewList-glEndList block */
-	bool m_bInDLCompilation;
+	bool _inDLCompilation;
 
-	void setGlStatisticTabs(int n, int m);
-	void resetPerFrameStatistics(void);
-	void resetAllStatistics(void);
-
-	GlCallStatistics *m_pGlCallSt;
-	GlCallStatistics *m_pGlExtSt;
-	GlCallStatistics *m_pGlCallPfst;
-	GlCallStatistics *m_pGlExtPfst;
-	GlCallStatistics *m_pGlxCallSt;
-	GlCallStatistics *m_pGlxExtSt;
-	GlCallStatistics *m_pGlxCallPfst;
-	GlCallStatistics *m_pGlxExtPfst;
-	GlCallStatistics *m_pWglCallSt;
-	GlCallStatistics *m_pWglExtSt;
-	GlCallStatistics *m_pWglCallPfst;
-	GlCallStatistics *m_pWglExtPfst;
+	TraceStatsDockWidget *_traceStatsWidget;
 
 	ShHandle m_dShCompiler;
 	TBuiltInResource m_dShResources;
@@ -252,33 +266,7 @@ private:
 
 	bool *m_pCoverage;
 
-	enum CoverageMapStatus {
-		COVERAGEMAP_UNCHANGED,
-		COVERAGEMAP_GROWN,
-		COVERAGEMAP_SHRINKED
-	};
-	void updateWatchListData(CoverageMapStatus cmstatus, bool forceUpdate);
-	void updateWatchItemsCoverage(bool *coverage);
-	void resetWatchListData(void);
-	void updateSelectedPixelValues(void);
-	QModelIndexList cleanupSelectionList(QModelIndexList input);
-
-	WatchView* newWatchWindowGeoDataTree(QModelIndexList &list);
-	WatchView* newWatchWindowVertexTable(QModelIndexList &list);
-	WatchView* newWatchWindowFragment(QModelIndexList &list);
-	void addToWatchWindowGeoDataTree(WatchView *watchView,
-			QModelIndexList &list);
-	void addToWatchWindowVertexTable(WatchView *watchView,
-			QModelIndexList &list);
-	void addToWatchWindowFragment(WatchView *watchView, QModelIndexList &list);
-
-	int m_selectedPixel[2];
-
-	/* MRU program. */
-	bool loadMruProgram(QString& outProgram, QString& outArguments,
-			QString& outWorkDir);
-	bool saveMruProgram(const QString& program, const QString& arguments,
-			const QString& workDir);
+	QPoint _selectedPixel;
 };
 
 #endif

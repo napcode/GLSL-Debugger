@@ -49,16 +49,7 @@ enum RunLevel {
 	RL_DBG_RESTART
 };
 
-/* Reminder: change getStateInfo() if enum changes */
-enum State {
-	ST_INVALID, 	/* no debuggee attached */
-	ST_INIT,  		/* initialized but not yet executing */
-	ST_RUNNING, 	/* running */
-	ST_STOPPED,		/* stopped (by SIG***) */
-	ST_EXITED, 		/* exited normally */
-	ST_KILLED		/* killed explicitely or by signal */
-};
-const char* getRunLevelInfo(RunLevel rl);
-const char* getStateInfo(State s);
+
+const char* getRunLevelString(RunLevel rl);
 
 #endif // RUNLEVEL_H

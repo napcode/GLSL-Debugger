@@ -52,7 +52,7 @@ void allocMem(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	for (i = 0; i < rec->numItems; i++) {
 		rec->items[i] = (ALIGNED_DATA) malloc(rec->items[i] * sizeof(char));
@@ -78,7 +78,7 @@ void freeMem(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	for (i = 0; i < rec->numItems; i++) {
 		free((void*) rec->items[i]);

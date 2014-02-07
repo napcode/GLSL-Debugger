@@ -45,7 +45,7 @@ public:
 	~GlCallStatistics();
 
 	void resetStatistic(void);
-	void incCallStatistic(QString i_qFName);
+	void incCallStatistic(const QString& i_qFName);
 
 private:
 	QStandardItemModel *m_pModel;

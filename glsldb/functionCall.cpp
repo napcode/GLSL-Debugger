@@ -42,7 +42,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "GL/gl.h"
 #include "GL/glext.h"
-#include "../utils/dbgprint.h"
+#include "utils/notify.h"
 #include "errno.h"
 #include "debuglib.h"
 #include "functionCall.h"
@@ -50,379 +50,88 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extern "C" {
 #include "DebugLib/glenumerants.h"
+#include "utils/types.h"
 }
 
-//extern "C" GLFunctionList glFunctions[];
-
-FunctionCall::FunctionCall()
+FunctionCall::FunctionCall(const QString& name)
 {
-	m_pName = NULL;
-	m_iNumArgs = 0;
-	m_pArguments = NULL;
+	FunctionCall::name(name);
 }
 
-FunctionCall::FunctionCall(const FunctionCall *copyOf)
+FunctionCall::FunctionCall(const FunctionCall& rhs)
 {
-	int i;
-	m_pName = strdup(copyOf->getName());
-	m_iNumArgs = 0;
-	m_pArguments = NULL;
-	for (i = 0; i < copyOf->getNumArguments(); i++) {
-		const Argument *arg = copyOf->getArgument(i);
-		addArgument(arg->iType, copyArgument(arg->iType, arg->pData),
-				arg->pAddress);
+	name(rhs._name);
+	for(auto &arg : rhs._arguments) {
+		FunctionArgumentPtr p(new FunctionArgument(*arg));
+		_arguments.push_back(p);
 	}
 }
 
 FunctionCall::~FunctionCall()
 {
-	int i;
-	for (i = 0; i < m_iNumArgs; i++) {
-		free(m_pArguments[i].pData);
-	}
-	free(m_pArguments);
-	free(m_pName);
+	_arguments.clear();
 }
 
-const char* FunctionCall::getName(void) const
+void FunctionCall::name(const QString& name)
 {
-	return m_pName;
+	_name = name;
+	/* reload extension since name has changed */
+	gl_func_t *f = FunctionsMap::instance()[_name];
+	if(f)
+		_extension = f->extname;
 }
 
-void FunctionCall::setName(const char *i_pName)
+void FunctionCall::addArgument(DBG_TYPE type, void *data, void *address)
 {
-	if (m_pName) {
-		free(m_pName);
-	}
-	m_pName = strdup(i_pName);
+	FunctionArgumentPtr arg(new FunctionArgument(type, data, address));
+	_arguments.push_back(arg);
 }
 
-const char* FunctionCall::getExtension(void) const
+void FunctionCall::addArgument(FunctionArgumentPtr arg)
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
-	return f ? f->extname : 0;
+	_arguments.push_back(arg);
 }
 
-int FunctionCall::getNumArguments(void) const
+bool FunctionCall::operator==(const FunctionCall &rhs)
 {
-	return m_iNumArgs;
-}
-
-const FunctionCall::Argument* FunctionCall::getArgument(int i_iIdx) const
-{
-	if (0 <= i_iIdx && i_iIdx < m_iNumArgs) {
-		return &(m_pArguments[i_iIdx]);
-	}
-	return NULL;
-}
-
-void FunctionCall::addArgument(int i_iType, void *i_pData, void *i_pAddress)
-{
-	void *tmpAlloc;
-
-	m_iNumArgs++;
-	tmpAlloc = realloc(m_pArguments, m_iNumArgs * sizeof(Argument));
-	if (!tmpAlloc) {
-		dbgPrint(DBGLVL_ERROR,
-				"Failed to allocate memory for function argument: %s\n", strerror(errno));
-	}
-	m_pArguments = (Argument*) tmpAlloc;
-	m_pArguments[m_iNumArgs - 1].iType = i_iType;
-	m_pArguments[m_iNumArgs - 1].pData = i_pData;
-	m_pArguments[m_iNumArgs - 1].pAddress = i_pAddress;
-}
-
-void FunctionCall::editArgument(int i_iIdx, void *i_pData)
-{
-	if (0 <= i_iIdx && i_iIdx < m_iNumArgs) {
-		free(m_pArguments[i_iIdx].pData);
-		m_pArguments[i_iIdx].pData = copyArgument(m_pArguments[i_iIdx].iType,
-				i_pData);
-	}
-}
-
-void* FunctionCall::copyArgument(int type, void *addr)
-{
-	void *r;
-
-	switch (type) {
-	case DBG_TYPE_CHAR:
-		r = malloc(sizeof(char));
-		memcpy(r, addr, sizeof(char));
-		break;
-	case DBG_TYPE_UNSIGNED_CHAR:
-		r = malloc(sizeof(unsigned char));
-		memcpy(r, addr, sizeof(unsigned char));
-		break;
-	case DBG_TYPE_SHORT_INT:
-		r = malloc(sizeof(short));
-		memcpy(r, addr, sizeof(short));
-		break;
-	case DBG_TYPE_UNSIGNED_SHORT_INT:
-		r = malloc(sizeof(unsigned short));
-		memcpy(r, addr, sizeof(unsigned short));
-		break;
-	case DBG_TYPE_INT:
-		r = malloc(sizeof(int));
-		memcpy(r, addr, sizeof(int));
-		break;
-	case DBG_TYPE_UNSIGNED_INT:
-		r = malloc(sizeof(unsigned int));
-		memcpy(r, addr, sizeof(unsigned int));
-		break;
-	case DBG_TYPE_LONG_INT:
-		r = malloc(sizeof(long));
-		memcpy(r, addr, sizeof(long));
-		break;
-	case DBG_TYPE_UNSIGNED_LONG_INT:
-		r = malloc(sizeof(unsigned long));
-		memcpy(r, addr, sizeof(unsigned long));
-		break;
-	case DBG_TYPE_LONG_LONG_INT:
-		r = malloc(sizeof(long long));
-		memcpy(r, addr, sizeof(long long));
-		break;
-	case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
-		r = malloc(sizeof(unsigned long long));
-		memcpy(r, addr, sizeof(unsigned long long));
-		break;
-	case DBG_TYPE_FLOAT:
-		r = malloc(sizeof(float));
-		memcpy(r, addr, sizeof(float));
-		break;
-	case DBG_TYPE_DOUBLE:
-		r = malloc(sizeof(double));
-		memcpy(r, addr, sizeof(double));
-		break;
-	case DBG_TYPE_POINTER:
-		r = malloc(sizeof(void*));
-		memcpy(r, addr, sizeof(void*));
-		break;
-	case DBG_TYPE_BOOLEAN:
-		r = malloc(sizeof(GLboolean));
-		memcpy(r, addr, sizeof(GLboolean));
-		break;
-	case DBG_TYPE_BITFIELD:
-		r = malloc(sizeof(GLbitfield));
-		memcpy(r, addr, sizeof(GLbitfield));
-		break;
-	case DBG_TYPE_ENUM:
-		r = malloc(sizeof(GLbitfield));
-		memcpy(r, addr, sizeof(GLbitfield));
-		break;
-	case DBG_TYPE_STRUCT:
-		r = NULL; /* FIXME */
-		break;
-	default:
-		r = NULL;
-		break;
-	}
-	return r;
-}
-
-bool FunctionCall::operator==(const FunctionCall &right)
-{
-	int i;
-
-	if (strcmp(m_pName, right.getName()) != 0) {
+	if (_arguments.size() != rhs._arguments.size()) {
 		return false;
 	}
-	if (m_iNumArgs != right.getNumArguments()) {
+	if (_name != rhs._name) {
 		return false;
 	}
 
-	for (i = 0; i < m_iNumArgs; i++) {
-		const FunctionCall::Argument *rArg = right.getArgument(i);
-		if (m_pArguments[i].iType != rArg->iType) {
+	ArgumentVector::const_iterator i = _arguments.begin();
+	ArgumentVector::const_iterator j = rhs._arguments.begin();
+	while(i != _arguments.end()) {
+		if((**i) != (**j))
 			return false;
-		}
-		switch (m_pArguments[i].iType) {
-		case DBG_TYPE_CHAR:
-			if (*(char*) m_pArguments[i].pData != *(char*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_UNSIGNED_CHAR:
-			if (*(unsigned char*) m_pArguments[i].pData
-					!= *(unsigned char*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_SHORT_INT:
-			if (*(short*) m_pArguments[i].pData != *(short*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_UNSIGNED_SHORT_INT:
-			if (*(unsigned short*) m_pArguments[i].pData
-					!= *(unsigned short*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_INT:
-			if (*(int*) m_pArguments[i].pData != *(int*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_UNSIGNED_INT:
-			if (*(unsigned int*) m_pArguments[i].pData
-					!= *(unsigned int*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_LONG_INT:
-			if (*(long*) m_pArguments[i].pData != *(long*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_UNSIGNED_LONG_INT:
-			if (*(unsigned long*) m_pArguments[i].pData
-					!= *(unsigned long*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_LONG_LONG_INT:
-			if (*(long long*) m_pArguments[i].pData
-					!= *(long long*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
-			if (*(unsigned long long*) m_pArguments[i].pData
-					!= *(unsigned long long*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_FLOAT:
-			if (*(float*) m_pArguments[i].pData != *(float*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_DOUBLE:
-			if (*(double*) m_pArguments[i].pData != *(double*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_POINTER:
-			if (*(void**) m_pArguments[i].pData != *(void**) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_BOOLEAN:
-			if (*(GLboolean*) m_pArguments[i].pData
-					!= *(GLboolean*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_BITFIELD:
-			if (*(GLbitfield*) m_pArguments[i].pData
-					!= *(GLbitfield*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_ENUM:
-			if (*(GLenum*) m_pArguments[i].pData != *(GLenum*) rArg->pData) {
-				return false;
-			}
-			break;
-		case DBG_TYPE_STRUCT:
-			return false; /* FIXME */
-			break;
-		default:
-			return false;
-		}
+		++i;
+		++j;
 	}
 	return true;
 }
 
-bool FunctionCall::operator!=(const FunctionCall &right)
+bool FunctionCall::operator!=(const FunctionCall &rhs)
 {
-	return !operator==(right);
+	return !operator==(rhs);
 }
 
-char* FunctionCall::getArgumentString(Argument arg) const
+QString FunctionCall::asString(void) const
 {
-	char *argString, *s;
+	QString call(_name);
+	call.append("(");
 
-	switch (arg.iType) {
-	case DBG_TYPE_CHAR:
-		asprintf(&argString, "%i", *(char*) arg.pData);
-		break;
-	case DBG_TYPE_UNSIGNED_CHAR:
-		asprintf(&argString, "%i", *(unsigned char*) arg.pData);
-		break;
-	case DBG_TYPE_SHORT_INT:
-		asprintf(&argString, "%i", *(short*) arg.pData);
-		break;
-	case DBG_TYPE_UNSIGNED_SHORT_INT:
-		asprintf(&argString, "%i", *(unsigned short*) arg.pData);
-		break;
-	case DBG_TYPE_INT:
-		asprintf(&argString, "%i", *(int*) arg.pData);
-		break;
-	case DBG_TYPE_UNSIGNED_INT:
-		asprintf(&argString, "%u", *(unsigned int*) arg.pData);
-		break;
-	case DBG_TYPE_LONG_INT:
-		asprintf(&argString, "%li", *(long*) arg.pData);
-		break;
-	case DBG_TYPE_UNSIGNED_LONG_INT:
-		asprintf(&argString, "%lu", *(unsigned long*) arg.pData);
-		break;
-	case DBG_TYPE_LONG_LONG_INT:
-		asprintf(&argString, "%lli", *(long long*) arg.pData);
-		break;
-	case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
-		asprintf(&argString, "%llu", *(unsigned long long*) arg.pData);
-		break;
-	case DBG_TYPE_FLOAT:
-		asprintf(&argString, "%f", *(float*) arg.pData);
-		break;
-	case DBG_TYPE_DOUBLE:
-		asprintf(&argString, "%f", *(double*) arg.pData);
-		break;
-	case DBG_TYPE_POINTER:
-		asprintf(&argString, "%p", *(void**) arg.pData);
-		break;
-	case DBG_TYPE_BOOLEAN:
-		asprintf(&argString, "%s", *(GLboolean*) arg.pData ? "TRUE" : "FALSE");
-		break;
-	case DBG_TYPE_BITFIELD:
-		s = dissectBitfield(*(GLbitfield*) arg.pData);
-		asprintf(&argString, "%s", s);
-		free(s);
-		break;
-	case DBG_TYPE_ENUM:
-		asprintf(&argString, "%s", lookupEnum(*(GLenum*) arg.pData));
-		break;
-	case DBG_TYPE_STRUCT:
-		asprintf(&argString, "STRUCT");
-		break;
-	default:
-		asprintf(&argString, "UNKNOWN_TYPE[%i]", arg.iType);
-		break;
+	ArgumentVector::const_iterator it = _arguments.begin();
+	while(it != _arguments.end()) {
+		call.append((*it)->asString());
+		++it;
+		if (it != _arguments.end()) 
+			call.append(", ");
 	}
-	return argString;
-}
+	call.append(")");
 
-char* FunctionCall::getCallString(void) const
-{
-	int i;
-	char *callString = (char*) malloc(4096);
-
-	strcpy(callString, m_pName);
-	strcat(callString, "(");
-	for (i = 0; i < m_iNumArgs; i++) {
-		char *argstr = getArgumentString(m_pArguments[i]);
-		strcat(callString, argstr);
-		free(argstr);
-		if (i < m_iNumArgs - 1) {
-			strcat(callString, ", ");
-		}
-	}
-	strcat(callString, ")");
-
-	return callString;
+	return call;
 }
 
 bool FunctionCall::isDebuggable() const
@@ -445,7 +154,7 @@ bool FunctionCall::isDebuggable(int *primitiveMode) const
 
 bool FunctionCall::isDebuggableDrawCall(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && f->isDebuggableDrawCall)
 		return true;
 	return false;
@@ -453,10 +162,10 @@ bool FunctionCall::isDebuggableDrawCall(void) const
 
 bool FunctionCall::isDebuggableDrawCall(int *primitiveMode) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && f->isDebuggableDrawCall) {
 		int idx = f->primitiveModeIndex;
-		*primitiveMode = *(GLenum*) m_pArguments[idx].pData;
+		*primitiveMode = *(GLenum*) _arguments[idx]->data();
 		return true;
 	}
 	*primitiveMode = GL_NONE;
@@ -465,12 +174,12 @@ bool FunctionCall::isDebuggableDrawCall(int *primitiveMode) const
 
 bool FunctionCall::isEditable(void) const
 {
-	return (0 < m_iNumArgs);
+	return !_arguments.isEmpty();
 }
 
 bool FunctionCall::isShaderSwitch(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && f->isShaderSwitch)
 		return true;
 	return false;
@@ -478,7 +187,7 @@ bool FunctionCall::isShaderSwitch(void) const
 
 bool FunctionCall::isGlFunc(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && strcmp("GL", f->prefix) == 0)
 		return true;
 	return false;
@@ -486,7 +195,7 @@ bool FunctionCall::isGlFunc(void) const
 
 bool FunctionCall::isGlxFunc(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && strcmp("GLX", f->prefix) == 0)
 		return true;
 	return false;
@@ -494,7 +203,7 @@ bool FunctionCall::isGlxFunc(void) const
 
 bool FunctionCall::isWglFunc(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && strcmp("WGL", f->prefix) == 0)
 		return true;
 	return false;
@@ -502,7 +211,7 @@ bool FunctionCall::isWglFunc(void) const
 
 bool FunctionCall::isFrameEnd(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && f->isFrameEnd)
 		return true;
 	return false;
@@ -510,9 +219,17 @@ bool FunctionCall::isFrameEnd(void) const
 
 bool FunctionCall::isFramebufferChange(void) const
 {
-	GLFunctionList *f = FunctionsMap::instance()[m_pName];
+	gl_func_t *f = FunctionsMap::instance()[_name];
 	if (f && f->isFramebufferChange)
 		return true;
 	return false;
 }
 
+bool FunctionCall::isDirty() const
+{
+	for(auto &i : _arguments) {
+		if(i->isDirty())
+			return true;
+	}
+	return false;
+}

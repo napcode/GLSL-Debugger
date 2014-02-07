@@ -908,7 +908,7 @@ void setDbgOutputTarget(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	DMARK
 	switch (rec->items[0]) {
@@ -988,7 +988,7 @@ void restoreOutputTarget(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	int error;
 
 	DMARK
@@ -1130,7 +1130,7 @@ void readRenderBuffer(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	int numComponents = (int) rec->items[0];
 	int width, height, error;
 	void *buffer;
@@ -1393,7 +1393,7 @@ void clearRenderBuffer(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	GLbitfield clearBits = 0;
 
 	GLfloat clearColor[4];

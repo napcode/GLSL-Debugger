@@ -53,21 +53,21 @@ void setErrorCode(int error)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
-	UT_NOTIFY(LV_INFO, "STORE ERROR: %i", error);
+	UT_NOTIFY(LV_DEBUG, "STORE ERROR: %i", error);
 	rec->result = DBG_ERROR_CODE;
 	rec->items[0] = (ALIGNED_DATA) error;
 }
 
 /* work-around for external debug functions */
-/* TODO: do we need debug functions at all? */DBGLIBEXPORT void DEBUGLIB_EXTERNAL_setErrorCode(
-		int error)
+/* TODO: do we need debug functions at all? */
+DBGLIBEXPORT void DEBUGLIB_EXTERNAL_setErrorCode(int error)
 {
 	setErrorCode(error);
 }
 
-static const char *decodeError(GLenum error)
+static const char *getErrorString(GLenum error)
 {
 	switch (error) {
 	case GL_INVALID_ENUM:
@@ -95,7 +95,7 @@ int glError(void)
 {
 	GLenum error = ORIG_GL(glGetError)();
 	if (error != GL_NO_ERROR) {
-		UT_NOTIFY(LV_INFO, "GL ERROR: %s (%i)", decodeError(error), error);
+		UT_NOTIFY(LV_WARN, "GL ERROR: %s (%i)", getErrorString(error), error);
 		return error;
 	}
 	return GL_NO_ERROR;

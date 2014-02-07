@@ -1315,8 +1315,8 @@ void getShaderCode(void)
 	int error;
 
 	ShaderProgram shader;
-	DbgRec* rec;
-	int i, j;
+    debug_record_t* rec;
+    int i, j;
 
 #ifdef _WIN32
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
@@ -1814,9 +1814,9 @@ void setDbgShader(void)
 {
 #ifdef _WIN32
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DbgRec *rec = getThreadRecord(GetCurrentProcessId());
+	debug_record_t *rec = getThreadRecord(GetCurrentProcessId());
 #else /* _WIN32 */
-	DbgRec *rec = getThreadRecord(getpid());
+	debug_record_t *rec = getThreadRecord(getpid());
 #endif /* _WIN32 */
 
 	const char *vshader = (const char *)rec->items[0];

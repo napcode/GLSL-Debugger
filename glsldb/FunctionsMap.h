@@ -1,17 +1,17 @@
 #ifndef FUNCTIONSMAP_H
 #define FUNCTIONSMAP_H
 
-#include <unordered_map>
-#include <string>
+#include <QString>
+#include <QHash>
 #include "debuglib.h"
 
-typedef std::unordered_map<std::string, GLFunctionList*> GLFunctionsMap;
+typedef QHash<QString, gl_func_t*> GLFunctionsMap;
 
 class FunctionsMap {
 public:
 	static FunctionsMap& instance();
 	void initialize();
-	GLFunctionList* operator[](const std::string& name);
+	gl_func_t* operator[](const QString& name);
 private:
 	static FunctionsMap* _instance;
 	GLFunctionsMap _map;

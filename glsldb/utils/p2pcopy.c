@@ -57,7 +57,7 @@ typedef INT_PTR ALIGNED_DATA;
 #endif /* _WIN32 */
 
 #ifdef _WIN32
-void cpyFromProcess(DWORD pid, void *dst, void *src, size_t size) {
+void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size) {
 	SIZE_T numBytesRead;
 	HANDLE procHandle = OpenProcess(PROCESS_VM_READ, FALSE, pid);
 	if (procHandle == NULL) {
@@ -77,7 +77,7 @@ void cpyFromProcess(DWORD pid, void *dst, void *src, size_t size) {
 	CloseHandle(procHandle);
 }
 #else /* _WIN32 */
-void cpyFromProcess(pid_t pid, void *dst, void *src, size_t size)
+void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size)
 {
 	ALIGNED_DATA start, *buffer;
 	size_t count;
@@ -111,7 +111,7 @@ void cpyFromProcess(pid_t pid, void *dst, void *src, size_t size)
 #endif /* _WIN32 */
 
 #ifdef _WIN32
-void cpyToProcess(DWORD pid, void *dst, void *src, size_t size) {
+void cpyToProcess(PID_T pid, void *dst, const void *src, size_t size) {
 	SIZE_T numBytesWritten;
 	HANDLE procHandle = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, FALSE, pid);
 	if (procHandle == NULL) {
@@ -131,7 +131,7 @@ void cpyToProcess(DWORD pid, void *dst, void *src, size_t size) {
 	CloseHandle(procHandle);
 }
 #else /* _WIN32 */
-void cpyToProcess(pid_t pid, void *dst, void *src, size_t size)
+void cpyToProcess(PID_T pid, void *dst, const void *src, size_t size)
 {
 	ALIGNED_DATA start, *buffer;
 	size_t count;

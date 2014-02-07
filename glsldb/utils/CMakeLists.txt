@@ -6,6 +6,7 @@ set(SRC
 	pfm.c 
 	sync.c 
 	notify.c
+	types.c
 )
 
 if(GLSLDB_WIN)

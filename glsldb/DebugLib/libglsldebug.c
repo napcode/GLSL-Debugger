@@ -70,6 +70,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../utils/dbgprint.h"
 #include "../utils/dlutils.h"
 #include "../utils/hash.h"
+#include "../utils/types.h"
 #include "glenumerants.h"
 #include "debuglib.h"
 #include "debuglibInternal.h"
@@ -94,14 +95,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define USE_DLSYM_HARDCODED_LIB
 
-extern GLFunctionList glFunctions[];
-
-
 typedef struct {
 	LibraryHandle handle;
 	const char *fname;
 	void (*function)(void);
-} DbgFunction;
+} debug_function_t;
 
 
 /* TODO: threads! Should be local to each thread, isn't it? */
@@ -113,8 +111,8 @@ static struct {
 #endif
 	void *(*origdlsym)(void *, const char *);
 
-	DbgRec *fcalls;
-	DbgFunction *dbgFunctions;
+	debug_record_t *fcalls;
+	debug_function_t *dbgFunctions;
 	int numDbgFunctions;
 	Hash origFunctions;
 } g = {
@@ -137,8 +135,8 @@ static struct {
 	HANDLE hEvtDebugee; /* wait for debugger */
 	HANDLE hEvtDebugger; /* signal debugger */
 	HANDLE hShMem; /* shared memory handle */
-	DbgRec *fcalls;
-	DbgFunction *dbgFunctions;
+	debug_record_t *fcalls;
+	debug_function_t *dbgFunctions;
 	int numDbgFunctions;
 } g = {NULL, NULL, NULL, NULL, NULL, 0};
 #endif /* _WIN32 */
@@ -236,10 +234,10 @@ static void addDbgFunction(const char *soFile)
 	}
 	g.numDbgFunctions++;
 	g.dbgFunctions = realloc(g.dbgFunctions,
-			g.numDbgFunctions * sizeof(DbgFunction));
+			g.numDbgFunctions * sizeof(debug_function_t));
 	if (!g.dbgFunctions) {
 		dbgPrint(DBGLVL_ERROR,
-				"Allocating g.dbgFunctions failed: %s (%d)\n", strerror(errno), g.numDbgFunctions*sizeof(DbgFunction));
+				"Allocating g.dbgFunctions failed: %s (%d)\n", strerror(errno), g.numDbgFunctions*sizeof(debug_function_t));
 		closeLibrary(handle);
 		exit(1);
 	}
@@ -606,9 +604,9 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 #endif
 
 #ifndef _WIN32
-DbgRec *getThreadRecord(pid_t pid)
+debug_record_t *getThreadRecord(pid_t pid)
 #else /* _WIN32 */
-DbgRec *getThreadRecord(DWORD pid)
+debug_record_t *getThreadRecord(DWORD pid)
 #endif /* _WIN32 */
 {
 	int i;
@@ -700,7 +698,7 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	rec->threadId = pid;
 	rec->result = DBG_FUNCTION_CALL;
@@ -726,7 +724,7 @@ void storeResult(void *result, int type)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	dbgPrintNoPrefix(DBGLVL_INFO, "STORE RESULT: ");
 	printArgument(result, type);
@@ -744,7 +742,7 @@ void storeResultOrError(unsigned int error, void *result, int type)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 
 	if (error) {
 		setErrorCode(error);
@@ -840,9 +838,9 @@ static void shaderStep(void)
 
 #ifdef _WIN32
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DbgRec *rec = getThreadRecord(GetCurrentProcessId());
+	debug_record_t *rec = getThreadRecord(GetCurrentProcessId());
 #else /* _WIN32 */
-	DbgRec *rec = getThreadRecord(getpid());
+	debug_record_t *rec = getThreadRecord(getpid());
 #endif /* _WIN32 */
 	const char *vshader = (const char *) rec->items[0];
 	const char *gshader = (const char *) rec->items[1];
@@ -972,7 +970,7 @@ int getDbgOperation(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	dbgPrint(DBGLVL_INFO, "OPERATION: %li\n", rec->operation);
 	return rec->operation;
 }
@@ -1009,7 +1007,7 @@ int keepExecuting(const char *calledName)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	if (rec->operation == DBG_STOP_EXECUTION) {
 		return 0;
 	} else if (rec->operation == DBG_EXECUTE) {
@@ -1039,7 +1037,7 @@ int checkGLErrorInExecution(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	return rec->items[1];
 	return 1;
 }
@@ -1052,7 +1050,7 @@ void setExecuting(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
 
@@ -1141,7 +1139,7 @@ void (*getDbgFunction(void))(void)
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	DWORD pid = GetCurrentProcessId();
 #endif /* _WIN32 */
-	DbgRec *rec = getThreadRecord(pid);
+	debug_record_t *rec = getThreadRecord(pid);
 	int i;
 
 	for (i = 0; i < g.numDbgFunctions; i++) {

@@ -79,7 +79,7 @@ void GlCallStatistics::resetStatistic(void)
 	m_nNumCalls = 0;
 }
 
-void GlCallStatistics::incCallStatistic(QString i_qFName)
+void GlCallStatistics::incCallStatistic(const QString& i_qFName)
 {
 	m_nNumCalls++;
 
