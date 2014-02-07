@@ -27,7 +27,9 @@ void Debugger::release()
 }
 
 Debugger::Debugger()
-	: _shmID(0)
+	: _shmID(0),
+    _cmdHandler(nullptr), 
+    _end(true)
 {
 #ifdef _WIN32
 	_hEvtDebuggee = NULL;
@@ -58,9 +60,18 @@ void Debugger::init()
 	buildEnvironmentVars();
 	initSharedMem();
 	clearSharedMem();
+    _end = false;
+    _cmdHandler = new std::thread(&Debugger::handleCommands, this);
 }
 void Debugger::shutdown()
 {
+    _end = true;
+    if(_cmdHandler) {
+        _cmdCondition.notify_all();
+        _cmdHandler->join();
+        delete _cmdHandler;
+        _cmdHandler = nullptr;
+    }
 	_processes.clear();
 }
 
@@ -73,9 +84,27 @@ ProcessPtr Debugger::create(const DebugConfig& cfg)
 
 void Debugger::enqueue(CommandPtr cmd)
 {
+    std::lock_guard<std::mutex> lock(_mtx);
 	_queue.enqueue(cmd);
-	/* TODO wake handler thread */
 	UT_NOTIFY(LV_INFO, "Command enqueued");
+    _cmdCondition.notify_one();
+}
+void Debugger::handleCommands()
+{
+    CommandPtr cmd;
+    std::unique_lock<std::mutex> lock(_mtx, std::defer_lock);
+    while(true) {
+        {
+            lock.lock();
+            _cmdCondition.wait(lock, [this] { return !_queue.empty() || _end; });
+            if(_end)
+                break;
+            cmd = _queue.dequeue();
+            lock.unlock();
+        }
+	    UT_NOTIFY(LV_INFO, "Command dequeued");
+        (*cmd)();
+    }
 }
 
 void Debugger::setEnvironmentVars(void)

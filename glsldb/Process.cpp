@@ -5,6 +5,7 @@
 
 #ifndef GLSLDB_WIN32
 #	include <sys/types.h>
+#	include <sys/wait.h>
 #	include <signal.h>
 #endif
 #include <cassert>
@@ -16,25 +17,44 @@ extern "C" {
 
 Process::Process() : 
 	_pid(0), 
+    _statusHandler(nullptr), 
 	_state(INVALID)
 {
-
 }
 
 Process::Process(const DebugConfig& cfg, PID_T pid) :
 	_pid(pid), 
+    _statusHandler(nullptr), 
 	_debugConfig(cfg), 
 	_state(INVALID)
 {
 	/* TODO check if proc is already running */
 	/* if (pid != 0) ... */
 }
+void Process::startStatusHandler()
+{
+    if(!_statusHandler) {
+        _end = false;
+        _statusHandler = new std::thread(&Process::handleStatusUpdates, this);
+    }
+}
+void Process::stopStatusHandler()
+{
+    if(_statusHandler) {
+        _end = true;
+	    if(_state == RUNNING || _state == STOPPED || _state == TRAPPED)
+    		kill();
+        if(_statusHandler->joinable())
+            _statusHandler->join();
+        delete _statusHandler;
+        _statusHandler = nullptr;
+    }
+}
 
 Process::~Process()
 {
 	UT_NOTIFY(LV_TRACE, "~Process");
-	if(_state == RUNNING || _state == STOPPED || _state == TRAPPED)
-		kill();
+    stopStatusHandler();
 }
 CommandFactory& Process::commandFactory()
 {
@@ -44,7 +64,7 @@ CommandFactory& Process::commandFactory()
 }
 void Process::kill()
 {
-#ifdef GLSLDB_WIN32
+#ifdef GLSLDB_WIN
 	if (_ai.hProcess != NULL) {
 		return this->detachFromProgram();
 	} else if (_hDebuggedProgram != NULL) {
@@ -54,38 +74,41 @@ void Process::kill()
 		_pid = 0;
 		return retval;
 	}
-#else /* GLSLDB_WIN32 */
+#else /* GLSLDB_WIN */
 	if (_pid) {
+        _end = true;
 		if(::kill(_pid, SIGKILL) == -1) {
             throw std::runtime_error("attempt to kill process failed");
         }
-		_pid = 0;
-        /* FIXME why? is this useful? */
-		waitForStatus();
+        _statusHandler->join();
 	}
-#endif /* GLSLDB_WIN32 */
+#endif /* GLSLDB_WIN */
 }
 
 void Process::advance(void)
 {
 #ifdef _WIN32
 	if (::SetEvent(_hEvtDebuggee)) {
+        state(RUNNING);
 		return;
 	}
 #else /* _WIN32 */
 	if(ptrace(PTRACE_CONT, _pid, 0, 0) != -1) {
+        state(RUNNING);
 		return;
 	}
 #endif /* _WIN32 */
 	throw std::runtime_error("Continue failed");
 }
 
-void Process::halt(bool immediately)
+void Process::stop(bool immediately)
 {
 	if(immediately) {
 		if(::kill(_pid, SIGSTOP) == -1) {
+            state(INVALID);
 			throw std::runtime_error("halt failed");
         }
+        state(STOPPED);
 	}
 	else {
 		/* FIXME use CommandFactory */
@@ -96,6 +119,13 @@ void Process::halt(bool immediately)
 		// advance();
 		// waitForStatus();
 	}
+}
+void Process::handleStatusUpdates()
+{
+    std::unique_lock<std::mutex> lock(_mtx, std::defer_lock);
+    while(!_end) {
+        waitForStatus();
+    }
 }
 void Process::waitForStatus(void)
 {
@@ -147,8 +177,8 @@ void Process::waitForStatus(void)
 		sig = WSTOPSIG(status);
 		//UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
 		if(sig == SIGTRAP) {
-			queryTraceEvent(pid, status);
-			state(TRAPPED);
+			if (isForkTraceEvent(pid, status))
+			    state(TRAPPED);
         }
         else {
 			state(STOPPED);
@@ -207,7 +237,7 @@ void Process::waitForStatus(void)
 #endif /* !_WIN32 */
 }
 
-void Process::queryTraceEvent(pid_t pid, int status)
+bool Process::isForkTraceEvent(pid_t pid, int status)
 {
     pid_t newpid;
     if ((status & (PTRACE_EVENT_FORK << 8)) || (status & (PTRACE_EVENT_VFORK))) {
@@ -218,33 +248,34 @@ void Process::queryTraceEvent(pid_t pid, int status)
     }
     else if (status & (PTRACE_EVENT_VFORK_DONE << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee signals vfork() done");
-        return;
+        return false;
     }
     else if (status & (PTRACE_EVENT_EXEC << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee calls exec()");
-        return;
+        return false;
     }
     else if (status & (PTRACE_EVENT_EXIT << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee calls exit()");
-        return;
+        return false;
     }
     else if (status & (PTRACE_EVENT_STOP << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee calls stop()");
-        return;
+        return false;
     }
     else if (status & (PTRACE_EVENT_SECCOMP << 8)) {
         UT_NOTIFY(LV_INFO, "seccomp");
-        return;
+        return false;
     }
     else {
         UT_NOTIFY(LV_INFO, "unknown ptrace event " << status);
-        return;
+        return false;
     }
     ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &newpid);
-    UT_NOTIFY(LV_INFO, "new child has pid " << newpid);
     if(pid == newpid || newpid == 0)
-        return;
+        return false;
+    UT_NOTIFY(LV_INFO, "new child has pid " << newpid);
     emit newChild(newpid);
+    return true;
 }
 
 // void Process::attach()
@@ -383,6 +414,10 @@ void Process::launch(const DebugConfig* cfg)
 	else 
 		UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child ");
 
+    /* don't really know why we have to do that */
+    startStatusHandler();
+    advance();
+  //  waitForStatus();
 	return;
 #else /* _WIN32 */
 	STARTUPINFOA startupInfo;
