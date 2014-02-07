@@ -5,6 +5,7 @@
 
 #include "Process.qt.h"
 #include "Command.h"
+#include <thread>
 
 class Error {
 	/* Error class describing error msg, error code
@@ -76,6 +77,10 @@ private:
 	std::string _pathDbgFuncs;
 	std::string _pathLibDlSym;
 	std::string _pathLog;
+    std::thread *_cmdHandler;
+    std::mutex _mtx;
+    std::condition_variable _cmdCondition;
+    bool _end;
 #ifdef GLSLDB_WIN
 	HANDLE _hEvtDebuggee;
 	HANDLE _hEvtDebugger;
@@ -95,6 +100,7 @@ private:
 	void initSharedMem();
 	void freeSharedMem();
 	void clearSharedMem();
+    void handleCommands();
 };
 
 #endif //DEBUGGER_H

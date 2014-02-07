@@ -52,7 +52,7 @@ public:
 	/* halt/stop
 	 * @param immediately send SIGSTOP instead of waiting for next GLCall
 	 */
-	void halt(bool immediately = false);
+	void stop(bool immediately = false);
 
 	/* synchroneously waits for status change */
 	void waitForStatus();
@@ -80,23 +80,39 @@ public:
 	static const QString& strState(State s);
 
 	State state() const { return _state; }
+
+    bool isIinit() const { return _state == INIT; }
+    bool isInvalid() const { return _state == INVALID; }
+    bool isRunning() const { return _state == RUNNING; }
+    bool isTrapped() const { return _state == TRAPPED; }
+    bool isStopped() const { return _state == STOPPED; }
+    bool isKilled() const { return _state == KILLED; }
+    bool hasExited() const { return _state == EXITED; }
 signals:
-	void stateChanged(State s);
+	void stateChanged(Process::State s);
 	void newChild(PID_T p);
 private:
 	/* methods */
-	void queryTraceEvent(PID_T pid, int status);
+	bool isForkTraceEvent(PID_T pid, int status);
 	void updateDebugRecord(PID_T pid);
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
+    void init();
+    void handleStatusUpdates();
+    void startStatusHandler();
+    void stopStatusHandler();
 
 private:
 	/* variables */
 	PID_T _pid;
+    std::thread *_statusHandler;
     DebugConfig _debugConfig;
     State _state;
     CommandFactoryPtr _cmdFactory;
 	debug_record_t *_rec;
+    std::mutex _mtx;
+    std::condition_variable _statusCondition;
+    bool _end;
 };
 
 typedef QSharedPointer<Process> ProcessPtr;

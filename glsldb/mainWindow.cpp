@@ -470,11 +470,16 @@ void MainWindow::on_tbExecute_clicked()
 		UT_NOTIFY(LV_ERROR, e.what());
 	}
 	_proc = p;
+	connect(p.data(), SIGNAL(stateChanged(Process::State)), this, SLOT(debuggeeStateChanged(Process::State)));
+    UT_NOTIFY(LV_INFO, "advance");
+    //_proc->advance();
+    /* 
 	CommandFactory& c = _proc->commandFactory();
 	auto cmd = c.dbgExecute(false);
 	auto a = cmd.get();
 	auto x = dynamic_cast<ExecuteCommand::Result*>(a.data());
 	UT_NOTIFY(LV_INFO, "result " << x->valid << " " << x->value);
+    */
 	// /* Cleanup shader debugging */
 	// cleanupDBGShader();
 
@@ -996,6 +1001,12 @@ void MainWindow::on_tbRun_clicked()
 void MainWindow::on_tbPause_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "pause clicked");
+
+	UT_NOTIFY(LV_TRACE, "proc state " << Process::strState(_proc->state()).toStdString());
+    if(_proc->isStopped())
+        _proc->advance();
+    else if(_proc->isRunning())
+        _proc->stop(true);
 	// if (_ui->tbToggleNoTrace->isChecked()) {
 	// 	_dbg->stop();
 	// } else {
@@ -3488,8 +3499,8 @@ void MainWindow::debuggeeStateChanged(Process::State s)
 		/* debuggee has stopped and we assume it is a debug trap */
 		UT_NOTIFY(LV_INFO, "debuggee state " << Process::strState(s).toStdString());
 		//debugRunLevel(RL_TRACE_EXECUTE);
-		ProcessPtr *p = dynamic_cast<ProcessPtr*>(sender());
-		addGlTraceItem(*p);
+		//ProcessPtr *p = dynamic_cast<ProcessPtr*>(sender());
+		//addGlTraceItem(*p);
 	} 
 	else if (s == Process::TRAPPED) {
 		/* trap happens when child forks */
@@ -3498,7 +3509,7 @@ void MainWindow::debuggeeStateChanged(Process::State s)
 	}
 	else if (s == Process::KILLED) {
 		/* child got killed by uncaught signal or whatever */
-		leaveDBGState();
+		//leaveDBGState();
 		QString msg("debuggee died. What a sad day this is.");
 		_ui->statusbar->showMessage(msg);
 		addGlTraceWarningItem(msg);
@@ -3507,7 +3518,7 @@ void MainWindow::debuggeeStateChanged(Process::State s)
 	}
 	else if (s == Process::EXITED) {
 		/* child exited normally */
-		leaveDBGState();
+		//leaveDBGState();
 		QString msg("debuggee terminated happily.");
 		_ui->statusbar->showMessage(msg);
 		addGlTraceWarningItem(msg);
