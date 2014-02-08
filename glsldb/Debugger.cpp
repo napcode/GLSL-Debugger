@@ -58,6 +58,7 @@ void Debugger::init()
 {
 	shutdown();
 	buildEnvironmentVars();
+    setEnvironmentVars();
 	initSharedMem();
 	clearSharedMem();
     _end = false;
@@ -391,7 +392,6 @@ const QString& Debugger::strRunLevel(RunLevel rl)
 void Debugger::childBecameParent(PID_T p)
 {
 	UT_NOTIFY(LV_INFO, "Child forked!");
-	emit newChild();
 }
 
 // void Debugger::setRunLevel(RunLevel rl)
