@@ -43,6 +43,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtGui/QTabBar>
 #include <QtGui/QColor>
 #include <QtCore/QUrl>
+#include <QtCore/QThread>
 #include <stdio.h>
 #include <string.h>
 
@@ -147,8 +148,13 @@ MainWindow::MainWindow(const QStringList& args)
 	//connect(&dbg, SIGNAL(message(QString)), this, SLOT(debugMessage(QString)));
 	//connect(&dbg, SIGNAL(error(ErrorCode)), this, SLOT(debugError(ErrorCode)));
 	//connect(&dbg, SIGNAL(runLevel(RunLevel)), this, SLOT(debugRunLevel(RunLevel)));
-
-	m_pShVarModel = NULL;
+    
+    /* we need to register a few types for the signal/slot mechanism */
+    qRegisterMetaType<Process::State>("Process::State");
+    qRegisterMetaType<PID_T>("PID_T");
+	
+    
+    m_pShVarModel = NULL;
 
 	_inDLCompilation = false;
 
@@ -190,6 +196,8 @@ MainWindow::~MainWindow()
 {
 	/* Free reachable memory */
 	UT_NOTIFY(LV_TRACE, "~MainWindow");
+    if(_proc)
+	    disconnect(_proc.data(), 0, 0, 0);
 	Debugger::instance().release();
 
 	delete[] m_pCoverage;
@@ -463,15 +471,18 @@ void MainWindow::on_tbExecute_clicked()
 	UT_NOTIFY(LV_INFO, "Executing");
 
 	ProcessPtr p = Debugger::instance().create(_debugConfig);
+	connect(p.data(), SIGNAL(stateChanged(Process::State)), this, SLOT(debuggeeStateChanged(Process::State)), Qt::QueuedConnection);
+	connect(p.data(), SIGNAL(newChild(PID_T)), this, SLOT(debuggeeForked(PID_T)), Qt::QueuedConnection);
 	try {
 		p->launch();
 	} 
 	catch (std::exception& e) {
 		UT_NOTIFY(LV_ERROR, e.what());
+        return;
 	}
 	_proc = p;
-	connect(p.data(), SIGNAL(stateChanged(Process::State)), this, SLOT(debuggeeStateChanged(Process::State)));
-    UT_NOTIFY(LV_INFO, "advance");
+    //sleep(1);
+    //_ui->statusbar->setText(Process::strState(_proc->state()).toStdString());
     //_proc->advance();
     /* 
 	CommandFactory& c = _proc->commandFactory();
@@ -962,6 +973,7 @@ void MainWindow::on_tbJumpToUserDef_clicked()
 void MainWindow::on_tbRun_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
+    _proc->advance();
 	// /* cleanup dbg state */
 	// leaveDBGState();
 
@@ -1002,10 +1014,6 @@ void MainWindow::on_tbPause_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "pause clicked");
 
-	UT_NOTIFY(LV_TRACE, "proc state " << Process::strState(_proc->state()).toStdString());
-    if(_proc->isStopped())
-        _proc->advance();
-    else if(_proc->isRunning())
         _proc->stop(true);
 	// if (_ui->tbToggleNoTrace->isChecked()) {
 	// 	_dbg->stop();
@@ -3497,36 +3505,50 @@ void MainWindow::debuggeeStateChanged(Process::State s)
 {
 	if(s == Process::STOPPED) {
 		/* debuggee has stopped and we assume it is a debug trap */
-		UT_NOTIFY(LV_INFO, "debuggee state " << Process::strState(s).toStdString());
 		//debugRunLevel(RL_TRACE_EXECUTE);
 		//ProcessPtr *p = dynamic_cast<ProcessPtr*>(sender());
 		//addGlTraceItem(*p);
 	} 
 	else if (s == Process::TRAPPED) {
 		/* trap happens when child forks */
-		UT_NOTIFY(LV_INFO, "debuggee state " << Process::strState(s).toStdString());
-		UT_NOTIFY(LV_INFO, "We might want to do somethin' 'bout that");
+	//	UT_NOTIFY(LV_INFO, "debuggee state " << Process::strState(s).toStdString());
+	//	UT_NOTIFY(LV_INFO, "We might want to do somethin' 'bout that");
 	}
 	else if (s == Process::KILLED) {
 		/* child got killed by uncaught signal or whatever */
 		//leaveDBGState();
-		QString msg("debuggee died. What a sad day this is.");
-		_ui->statusbar->showMessage(msg);
-		addGlTraceWarningItem(msg);
+		//QString msg("debuggee died. What a sad day this is.");
+		//_ui->statusbar->showMessage(msg);
+		//addGlTraceWarningItem(msg);
 		//debugRunLevel(RL_SETUP);
 	
 	}
 	else if (s == Process::EXITED) {
 		/* child exited normally */
 		//leaveDBGState();
-		QString msg("debuggee terminated happily.");
-		_ui->statusbar->showMessage(msg);
-		addGlTraceWarningItem(msg);
+		//QString msg("debuggee terminated happily.");
+		//_ui->statusbar->showMessage(msg);
+		//addGlTraceWarningItem(msg);
 		//debugRunLevel(RL_SETUP);
 	}
-	else {
-		UT_NOTIFY(LV_INFO, "Unimplemented");
-	}
+    else if (s == Process::INVALID)
+        ;
+    else if (s == Process::INIT)
+        ;
+    else if (s == Process::RUNNING)
+        ;
+	else 
+        ;
+		QString msg("debuggee state " + Process::strState(s));
+		_ui->statusbar->showMessage(msg);
+		addGlTraceWarningItem(msg);
+}
+void MainWindow::debuggeeForked(PID_T pid)
+{
+		QString msg("child forked! " + QString::number(pid));
+		_ui->statusbar->showMessage(msg);
+		addGlTraceWarningItem(msg);
+
 }
 
 void MainWindow::debugMessage(const QString& msg)

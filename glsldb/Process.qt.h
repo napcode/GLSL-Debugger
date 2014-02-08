@@ -21,7 +21,7 @@ public:
 	/* types */
 	/* Reminder: change strState() if enum changes */
 	enum State {
-		INVALID, 	/* no debuggee attached */
+		INVALID, 	/* no valid debuggee attached */
 		INIT,  		/* initialized but not yet executing */
 		RUNNING, 	/* running */
 		STOPPED,		/* stopped (by SIG***) */
@@ -81,7 +81,7 @@ public:
 
 	State state() const { return _state; }
 
-    bool isIinit() const { return _state == INIT; }
+    bool isInit() const { return _state == INIT; }
     bool isInvalid() const { return _state == INVALID; }
     bool isRunning() const { return _state == RUNNING; }
     bool isTrapped() const { return _state == TRAPPED; }
@@ -93,7 +93,7 @@ signals:
 	void newChild(PID_T p);
 private:
 	/* methods */
-	bool isForkTraceEvent(PID_T pid, int status);
+	bool checkTrapEvent(PID_T pid, int status);
 	void updateDebugRecord(PID_T pid);
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }

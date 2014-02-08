@@ -18,7 +18,7 @@ extern "C" {
 Process::Process() : 
 	_pid(0), 
     _statusHandler(nullptr), 
-	_state(INVALID)
+	_state(INIT)
 {
 }
 
@@ -26,7 +26,7 @@ Process::Process(const DebugConfig& cfg, PID_T pid) :
 	_pid(pid), 
     _statusHandler(nullptr), 
 	_debugConfig(cfg), 
-	_state(INVALID)
+	_state(INIT)
 {
 	/* TODO check if proc is already running */
 	/* if (pid != 0) ... */
@@ -78,6 +78,7 @@ void Process::kill()
 	if (_pid) {
         _end = true;
 		if(::kill(_pid, SIGKILL) == -1) {
+            state(INVALID);
             throw std::runtime_error("attempt to kill process failed");
         }
         _statusHandler->join();
@@ -87,6 +88,8 @@ void Process::kill()
 
 void Process::advance(void)
 {
+    if(!isStopped() && !isTrapped())
+        return;
 #ifdef _WIN32
 	if (::SetEvent(_hEvtDebuggee)) {
         state(RUNNING);
@@ -103,6 +106,9 @@ void Process::advance(void)
 
 void Process::stop(bool immediately)
 {
+    if(!isRunning())
+        return;
+
 	if(immediately) {
 		if(::kill(_pid, SIGSTOP) == -1) {
             state(INVALID);
@@ -150,16 +156,21 @@ void Process::waitForStatus(void)
 		    UT_NOTIFY(LV_ERROR, "no such debuggee");
         }
 		state(INVALID);
+        _end = true;
         return;
 	}
 
 	UT_NOTIFY(LV_INFO, "received status (" << status << ") from " << pid);
+    if(pid != _pid)
+	    UT_NOTIFY(LV_INFO, "FROM CHILD!");
+
 	if(WIFEXITED(status) != 0) {
 		sig = WEXITSTATUS(status);
 		if(sig != 0) {
 			UT_NOTIFY(LV_INFO, "exited with status " << sig << "(" << strsignal(sig) << ")");
 		}
         state(EXITED);
+        _end = true;
         //return;
 	}
     else if(WIFSIGNALED(status) != 0) {
@@ -168,6 +179,7 @@ void Process::waitForStatus(void)
 			UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
 		}
         state(KILLED);
+        _end = true;
 	}
 	/* this is the interesting case */
 	else if(WIFSTOPPED(status) != 0) {
@@ -175,15 +187,29 @@ void Process::waitForStatus(void)
 		 * or syscall-stops.
 		 */
 		sig = WSTOPSIG(status);
-		//UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
-		if(sig == SIGTRAP) {
-			if (isForkTraceEvent(pid, status))
-			    state(TRAPPED);
-        }
-        else {
-			state(STOPPED);
-			/* update thread record ptr */
-		 	_rec = Debugger::instance().debugRecord(_pid);
+		UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
+        switch(sig) {
+            case SIGTRAP:
+			    checkTrapEvent(pid, status);
+    			state(TRAPPED);
+                break;
+            case SIGSTOP:
+			    state(STOPPED);
+    			/* update thread record ptr */
+	    	 	_rec = Debugger::instance().debugRecord(_pid);
+                break;
+            case SIGHUP:
+            case SIGILL:
+            case SIGFPE:
+            case SIGSEGV:
+                UT_NOTIFY(LV_WARN, "debuggee misbehaved.");
+			    state(KILLED);
+                _end = true;
+                break;
+            default:
+                UT_NOTIFY(LV_WARN, "unimplemented stop signal.");
+			    state(INVALID);
+                _end = true;
         }
 	}
     else if(WIFCONTINUED(status) != 0) {
@@ -237,9 +263,10 @@ void Process::waitForStatus(void)
 #endif /* !_WIN32 */
 }
 
-bool Process::isForkTraceEvent(pid_t pid, int status)
+bool Process::checkTrapEvent(pid_t pid, int status)
 {
     pid_t newpid;
+    unsigned long msg;
     if ((status & (PTRACE_EVENT_FORK << 8)) || (status & (PTRACE_EVENT_VFORK))) {
         UT_NOTIFY(LV_INFO, "debuggee calls (v)fork()");
     }
@@ -248,7 +275,6 @@ bool Process::isForkTraceEvent(pid_t pid, int status)
     }
     else if (status & (PTRACE_EVENT_VFORK_DONE << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee signals vfork() done");
-        return false;
     }
     else if (status & (PTRACE_EVENT_EXEC << 8)) {
         UT_NOTIFY(LV_INFO, "debuggee calls exec()");
@@ -270,7 +296,12 @@ bool Process::isForkTraceEvent(pid_t pid, int status)
         UT_NOTIFY(LV_INFO, "unknown ptrace event " << status);
         return false;
     }
-    ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &newpid);
+    UT_NOTIFY(LV_INFO, "retrieving new pid for "<<pid);
+    if(ptrace((__ptrace_request)PTRACE_GETEVENTMSG, pid, 0, &msg) == -1) {
+        UT_NOTIFY(LV_ERROR, "unable to retrieve new pid: " << strerror(errno));
+        return false;
+    }
+    newpid = msg;
     if(pid == newpid || newpid == 0)
         return false;
     UT_NOTIFY(LV_INFO, "new child has pid " << newpid);
@@ -323,6 +354,8 @@ bool Process::isForkTraceEvent(pid_t pid, int status)
 
 void Process::launch(const DebugConfig* cfg)
 {
+    if(state() != INIT)
+        return;
 	if(cfg)
 		config(*cfg);
 
@@ -330,7 +363,6 @@ void Process::launch(const DebugConfig* cfg)
 		throw std::logic_error("config invalid");
 
 #ifndef _WIN32
-	state(INIT);
 	_pid = fork();
 	if (_pid == -1) {
 		_pid = 0;
@@ -344,7 +376,6 @@ void Process::launch(const DebugConfig* cfg)
 		 * alternative: parent uses PTRACE_ATTACH but that might be racy
 		 */
 		ptrace(PTRACE_TRACEME, 0, 0, 0);
-        raise(SIGSTOP);
 
 		if(!_debugConfig.workDir.isEmpty() && chdir(_debugConfig.workDir.toLatin1().data()) != 0) {
 			UT_NOTIFY(LV_WARN, "changing to working directory failed (" << strerror(errno) << ")");
@@ -383,7 +414,7 @@ void Process::launch(const DebugConfig* cfg)
 	// parent path
 	UT_NOTIFY(LV_INFO, "debuggee process pid: " << _pid);
     waitForStatus();
-	if(state() != STOPPED) {
+	if(!isStopped() && !isTrapped()) {
 		::kill(_pid, SIGKILL);
 		_pid = 0;
 		state(INVALID);
@@ -409,15 +440,13 @@ void Process::launch(const DebugConfig* cfg)
     opts |= PTRACE_O_EXITKILL;
 #endif
 
-	if(ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _pid, 0, opts) == -1) 
+    if(ptrace((__ptrace_request ) PTRACE_SETOPTIONS, _pid, 0, opts) == -1) 
 		UT_NOTIFY(LV_ERROR, "unable to set PTRACE options: " << strerror(errno));		
 	else 
 		UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child ");
 
     /* don't really know why we have to do that */
     startStatusHandler();
-    advance();
-  //  waitForStatus();
 	return;
 #else /* _WIN32 */
 	STARTUPINFOA startupInfo;

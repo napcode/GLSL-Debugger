@@ -88,6 +88,7 @@ public slots:
 	void debugMessage(const QString& msg);
 	void updateGuiToRunLevel(RunLevel);
 	void debugError(ErrorCode);
+    void debuggeeForked(PID_T pid);
 
 private slots:
 
