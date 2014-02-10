@@ -6,14 +6,19 @@
 
 #include "Command.h"
 
+class DebugConfig;
 class CommandFactory
 {
 public:
 	CommandFactory(Process& p) : 
 		_proc(p)
 	{}
+	/* Commands */
+	FutureResult checkTrapEvent(os_pid_t p, int s);
+	FutureResult launch();
 
-	std::future<Command::ResultPtr> dbgExecute(bool stopOnGLError);
+	/* DebugCommands */
+	FutureResult execute(bool step, bool stopOnGLError);
 	
 		/* these commands need to CONT the process in order to be effectual*/
 	/*void dbgExecute(bool stopOnGLError);

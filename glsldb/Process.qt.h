@@ -17,6 +17,7 @@ class CommandFactory;
 class Process : public QObject
 {
 	Q_OBJECT
+#	include "ProcessFriends.inc.h"
 public:
 	/* types */
 	/* Reminder: change strState() if enum changes */
@@ -33,29 +34,10 @@ public:
 public:
 	/* methods */
 	Process();
-	Process(const DebugConfig& config, PID_T pid = 0);
+	Process(const DebugConfig& config, os_pid_t pid = 0);
 	~Process();
 
 	const DebugConfig& config() { return _debugConfig; }
-
-	/* launches process, applies options if needed & leaves
-	 * process in STOPPED state if everything went well
-	 */
-	void launch(const DebugConfig* config = nullptr);
-
-	/* continue the process */
-	void advance();
-
-	/* continue the process */
-	void kill();
-
-	/* halt/stop
-	 * @param immediately send SIGSTOP instead of waiting for next GLCall
-	 */
-	void stop(bool immediately = false);
-
-	/* synchroneously waits for status change */
-	void waitForStatus();
 
 	/* check if the child is alive */
 	bool isAlive();
@@ -90,11 +72,10 @@ public:
     bool hasExited() const { return _state == EXITED; }
 signals:
 	void stateChanged(Process::State s);
-	void newChild(PID_T p);
+	void newChild(os_pid_t p);
 private:
 	/* methods */
-	bool checkTrapEvent(PID_T pid, int status);
-	void updateDebugRecord(PID_T pid);
+	bool checkTrapEvent(os_pid_t pid, int status);
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
     void init();
@@ -102,16 +83,31 @@ private:
     void startStatusHandler();
     void stopStatusHandler();
 
+	/* continue the process */
+	void advance();
+
+	/* kill the process */
+	void kill();
+	/* launches process, applies options if needed & leaves
+	 * process in STOPPED state if everything went well
+	 */
+	void launch();
+
+	/* synchroneously waits for status change */
+	void waitForStatus(bool checkTrap = false);
+
+	/* halt/stop
+	 * @param immediately send SIGSTOP instead of waiting for next GLCall
+	 */
+	void stop(bool immediately = false);
 private:
 	/* variables */
-	PID_T _pid;
+	os_pid_t _pid;
+	debug_record_t *_rec;
     std::thread *_statusHandler;
     DebugConfig _debugConfig;
     State _state;
     CommandFactoryPtr _cmdFactory;
-	debug_record_t *_rec;
-    std::mutex _mtx;
-    std::condition_variable _statusCondition;
     bool _end;
 };
 

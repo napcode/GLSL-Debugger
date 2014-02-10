@@ -408,6 +408,7 @@ enum DBG_CLEAR_MODE {
 };
 
 enum DBG_EXECUTE_MODE {
+	DBG_STEP, 
 	DBG_EXECUTE_RUN,
 	DBG_JUMP_TO_SHADER_SWITCH,
 	DBG_JUMP_TO_DRAW_CALL,
@@ -435,9 +436,9 @@ typedef intptr_t ALIGNED_DATA;
 #define SHM_MAX_ITEMS ((SHM_SIZE/SHM_MAX_THREADS - SHM_MAX_FUNCNAME - 4*sizeof(ALIGNED_DATA))/sizeof(ALIGNED_DATA))
 #endif /* _WIN32 */
 
-#pragma pack(4)
+#pragma pack(8)
 typedef struct {
-	PID_T threadId;
+	os_pid_t threadId;
 	enum DBG_OPERATION operation;
 	enum DBG_RETURN result;
 	char fname[SHM_MAX_FUNCNAME];

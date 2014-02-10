@@ -1,33 +1,39 @@
 #include "Command.h"
+#include "DebugCommand.h"
 #include "Process.qt.h"
+#include "build-config.h"
 #include <cstring>
 #include <stdexcept>
 #include <cassert>
+#include <cstdlib>
 
-static const QString dummy("INVALID");
+const QString Command::_dummy("DEFAULT");
 
-Command::Command(Process& p) :
-	_proc(p),  
-	_message(&dummy)
+DebugCommand::DebugCommand(Process& p,  const QString& msg) :
+	Command(p, msg) 
 {
 	assert(_proc.debugRecord());
-	_rec = *_proc.debugRecord();
+	/* aligned_alloc requirement */
+	assert((sizeof(debug_record_t)%MEM_ALIGNMENT) == 0);
+
+	_rec = (debug_record_t*)aligned_alloc(MEM_ALIGNMENT, sizeof(debug_record_t));
+	*_rec = *_proc.debugRecord();
 }
 
-Command::~Command()
+DebugCommand::~DebugCommand()
 {
-
+	free(_rec);
 }
 
-void Command::operator()()
+void DebugCommand::operator()()
 {
 	/* TODO 
 	 * currently, we overwrite the whole process record
 	 * we might want to write only the modified parts
 	 */ 
 	if(!_proc.debugRecord())
-		throw std::runtime_error("No debug record");
-	*_proc.debugRecord() = _rec;
+		throw std::logic_error("No debug record");
+	*_proc.debugRecord() = *_rec;
 }
 /*
 void Command::dbgCommandExecuteToDrawCall(bool stopOnGLError)

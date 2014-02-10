@@ -10,7 +10,6 @@
 #include <future>
 
 class Process;
-
 class Command
 {
 public:
@@ -26,14 +25,15 @@ public:
 	typedef QSharedPointer<Command::Result> ResultPtr;
 
 public:
-	Command(Process& p);
-	virtual ~Command();
-
-	void debugRecord(const debug_record_t *r);
-	const debug_record_t& debugRecord() const { return _rec; }
+	Command(Process& p, const QString& msg = _dummy) :
+		_proc(p), 
+		_message(&msg)
+	{};
+	virtual ~Command()
+	{};
 
 	/* execution low level implementation */
-	virtual void operator()();
+	virtual void operator()() = 0;
 	const QString& message() const { return *_message; }
 
 	/* these just modified the shared memory */ 
@@ -46,7 +46,7 @@ public:
 	Process& process() const { return _proc; }
 protected:
 	Process& _proc;
-	debug_record_t _rec;
+	static const QString _dummy;
 	const QString* _message;
 	std::promise<ResultPtr> _result;
 
@@ -55,5 +55,6 @@ protected:
 };
 typedef QSharedPointer<Command> CommandPtr;
 typedef QQueue<CommandPtr> CommandQueue;
+typedef std::future<Command::ResultPtr> FutureResult;
 
 #endif

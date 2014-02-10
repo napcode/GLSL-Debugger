@@ -64,6 +64,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "DebugConfig.h"
 #include "Process.qt.h"
+#include "MainWinResultHandler.h"
 
 #include <QtGui/QScrollArea>
 #include <QtCore/QStack>
@@ -78,7 +79,7 @@ namespace Ui {
 class MainWindow: public QMainWindow
 {
 	Q_OBJECT
-
+	friend class MainWinResultHandler;
 public:
 	MainWindow(const QStringList& args);
 	~MainWindow();
@@ -88,7 +89,7 @@ public slots:
 	void debugMessage(const QString& msg);
 	void updateGuiToRunLevel(RunLevel);
 	void debugError(ErrorCode);
-    void debuggeeForked(PID_T pid);
+    void debuggeeForked(os_pid_t pid);
 
 private slots:
 
@@ -237,6 +238,7 @@ private: /* variables */
 
     DebugConfig _debugConfig;
     ProcessPtr _proc;
+    MainWinResultHandler _resultHandler;
 
 	FunctionCallPtr _currentCall;
 

@@ -46,7 +46,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 #include <stdio.h>
 
-#include "dbgprint.h"
+#include "notify.h"
 #include "p2pcopy.h"
 
 /* works at least for Linux on x86 architecture and for windows*/
@@ -57,27 +57,27 @@ typedef INT_PTR ALIGNED_DATA;
 #endif /* _WIN32 */
 
 #ifdef _WIN32
-void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size) {
+void cpyFromProcess(os_pid_t pid, void *dst, const void *src, size_t size) {
 	SIZE_T numBytesRead;
 	HANDLE procHandle = OpenProcess(PROCESS_VM_READ, FALSE, pid);
 	if (procHandle == NULL) {
-		dbgPrint(DBGLVL_ERROR, "cpyFromProcess: could not open process %u\n", procHandle);
+		UT_NOTIFY(LV_ERROR, "cpyFromProcess: could not open process %u\n", procHandle);
 		exit(1);
 	}
 	if (ReadProcessMemory(procHandle, src, dst, size, &numBytesRead) == 0) {
-		dbgPrint(DBGLVL_ERROR, "cpyFromProcess: copying failed: %u\n", GetLastError());
+		UT_NOTIFY(LV_ERROR, "cpyFromProcess: copying failed: %u\n", GetLastError());
 		CloseHandle(procHandle);
 		exit(1);
 	}
 	if (numBytesRead != size) {
-		dbgPrint(DBGLVL_ERROR, "cpyFromProcess: could copy only %u out of %u bytes.\n", numBytesRead, size);
+		UT_NOTIFY(LV_ERROR, "cpyFromProcess: could copy only %u out of %u bytes.\n", numBytesRead, size);
 		CloseHandle(procHandle);
 		exit(1);
 	}
 	CloseHandle(procHandle);
 }
 #else /* _WIN32 */
-void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size)
+void cpyFromProcess(os_pid_t pid, void *dst, const void *src, size_t size)
 {
 	ALIGNED_DATA start, *buffer;
 	size_t count;
@@ -92,7 +92,7 @@ void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size)
 
 	buffer = (ALIGNED_DATA*) malloc(count * sizeof(ALIGNED_DATA));
 	if (!buffer) {
-		dbgPrint(DBGLVL_ERROR, "cpyFromProcess: Could not allocate buffer\n");
+		UT_NOTIFY(LV_ERROR, "cpyFromProcess: Could not allocate buffer\n");
 		exit(1);
 	}
 
@@ -111,27 +111,27 @@ void cpyFromProcess(PID_T pid, void *dst, const void *src, size_t size)
 #endif /* _WIN32 */
 
 #ifdef _WIN32
-void cpyToProcess(PID_T pid, void *dst, const void *src, size_t size) {
+void cpyToProcess(os_pid_t pid, void *dst, const void *src, size_t size) {
 	SIZE_T numBytesWritten;
 	HANDLE procHandle = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, FALSE, pid);
 	if (procHandle == NULL) {
-		dbgPrint(DBGLVL_ERROR, "cpyToProcess: could not open process %u\n", procHandle);
+		UT_NOTIFY(LV_ERROR, "cpyToProcess: could not open process %u\n", procHandle);
 		exit(1);
 	}
 	if (WriteProcessMemory(procHandle, dst, src, size, &numBytesWritten) == 0) {
-		dbgPrint(DBGLVL_ERROR, "cpyToProcess: copying failed: %u\n", GetLastError());
+		UT_NOTIFY(LV_ERROR, "cpyToProcess: copying failed: %u\n", GetLastError());
 		CloseHandle(procHandle);
 		exit(1);
 	}
 	if (numBytesWritten != size) {
-		dbgPrint(DBGLVL_ERROR, "cpyToProcess: could copy only %u out of %u bytes.\n", numBytesWritten, size);
+		UT_NOTIFY(LV_ERROR, "cpyToProcess: could copy only %u out of %u bytes.\n", numBytesWritten, size);
 		CloseHandle(procHandle);
 		exit(1);
 	}
 	CloseHandle(procHandle);
 }
 #else /* _WIN32 */
-void cpyToProcess(PID_T pid, void *dst, const void *src, size_t size)
+void cpyToProcess(os_pid_t pid, void *dst, const void *src, size_t size)
 {
 	ALIGNED_DATA start, *buffer;
 	size_t count;
@@ -146,7 +146,7 @@ void cpyToProcess(PID_T pid, void *dst, const void *src, size_t size)
 
 	buffer = (ALIGNED_DATA*) malloc(count * sizeof(ALIGNED_DATA));
 	if (!buffer) {
-		dbgPrint(DBGLVL_ERROR, "cpyFromProcess: Could not allocate buffer\n");
+		UT_NOTIFY(LV_ERROR, "cpyFromProcess: Could not allocate buffer\n");
 		exit(1);
 	}
 

@@ -3,6 +3,7 @@
 
 #define MAX_NOTIFY_SIZE 512
 #define MAX_BACKTRACE_DEPTH 100
+#define MEM_ALIGNMENT 8
 
 #ifdef GLSLDB_WIN
 #define DEBUGLIB "\\debuglib.dll"
@@ -13,7 +14,6 @@
 #define LIBDLSYM "/../lib/libdlsym.so"
 #define DBG_FUNCTIONS_PATH "/../lib/plugins"
 #endif
-
 
 // define for suppressing "defined but not used" warnings
 #ifdef __GNUC__

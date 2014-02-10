@@ -28,7 +28,7 @@ void Debugger::release()
 
 Debugger::Debugger()
 	: _shmID(0),
-    _cmdHandler(nullptr), 
+    _worker(nullptr), 
     _end(true)
 {
 #ifdef _WIN32
@@ -58,20 +58,20 @@ void Debugger::init()
 {
 	shutdown();
 	buildEnvironmentVars();
-    setEnvironmentVars();
 	initSharedMem();
 	clearSharedMem();
+    setEnvironmentVars();
     _end = false;
-    _cmdHandler = new std::thread(&Debugger::handleCommands, this);
+    _worker = new std::thread(&Debugger::run, this);
 }
 void Debugger::shutdown()
 {
     _end = true;
-    if(_cmdHandler) {
-        _cmdCondition.notify_all();
-        _cmdHandler->join();
-        delete _cmdHandler;
-        _cmdHandler = nullptr;
+    if(_worker) {
+        _workCondition.notify_all();
+        _worker->join();
+        delete _worker;
+        _worker = nullptr;
     }
 	_processes.clear();
 }
@@ -82,28 +82,28 @@ ProcessPtr Debugger::create(const DebugConfig& cfg)
 	_processes.push_back(p);
 	return p;
 }
-
 void Debugger::enqueue(CommandPtr cmd)
 {
-    std::lock_guard<std::mutex> lock(_mtx);
-	_queue.enqueue(cmd);
-	UT_NOTIFY(LV_INFO, "Command enqueued");
-    _cmdCondition.notify_one();
+	{
+    	std::lock_guard<std::mutex> lock(_mtxCmd);
+		_queue.enqueue(cmd);
+		UT_NOTIFY(LV_INFO, "Command enqueued");	
+	}
+    _workCondition.notify_one();
 }
-void Debugger::handleCommands()
+void Debugger::run()
 {
     CommandPtr cmd;
-    std::unique_lock<std::mutex> lock(_mtx, std::defer_lock);
-    while(true) {
-        {
-            lock.lock();
-            _cmdCondition.wait(lock, [this] { return !_queue.empty() || _end; });
-            if(_end)
-                break;
-            cmd = _queue.dequeue();
-            lock.unlock();
-        }
-	    UT_NOTIFY(LV_INFO, "Command dequeued");
+    std::unique_lock<std::mutex> lock(_mtxWork, std::defer_lock);
+    while(!_end) {
+    	lock.lock();
+        _workCondition.wait(lock, 
+        	[this] { return !_queue.empty() || _end; });
+		if(_end)
+			break;
+        cmd = _queue.dequeue();
+    	lock.unlock();
+        UT_NOTIFY(LV_INFO, "Command dequeued");
         (*cmd)();
     }
 }
@@ -201,7 +201,7 @@ void Debugger::buildEnvironmentVars()
 	{
 		std::string s;
 		ssize_t progPathLen;
-		s += "/proc/" + std::to_string(getPID()) + "/exe";
+		s += "/proc/" + std::to_string(os_getpid()) + "/exe";
 		char *tmp = new char[pathmax];
 		progPathLen = readlink(s.c_str(), tmp, pathmax);
 		if (progPathLen != -1) {
@@ -218,7 +218,7 @@ void Debugger::buildEnvironmentVars()
 	UT_NOTIFY(LV_INFO, "Absolute path to debugger executable is: " << progpath);
 
 	/* Remove executable name from path. */
-	size_t pos = progpath.find_last_of(PATH_SEPARATOR);
+	size_t pos = progpath.find_last_of(OS_PATH_SEPARATOR);
 	if (pos != std::string::npos) {
 		progpath = progpath.substr(0, pos);
 	}
@@ -389,7 +389,7 @@ const QString& Debugger::strRunLevel(RunLevel rl)
 	return dummy;
 }
 
-void Debugger::childBecameParent(PID_T p)
+void Debugger::childBecameParent(os_pid_t p)
 {
 	UT_NOTIFY(LV_INFO, "Child forked!");
 }
@@ -433,7 +433,7 @@ void Debugger::childBecameParent(PID_T p)
 // 	}
 // }
 
-debug_record_t* Debugger::debugRecord(PID_T pid)
+debug_record_t* Debugger::debugRecord(os_pid_t pid)
 {
 	int i;
 	debug_record_t *rec = nullptr;

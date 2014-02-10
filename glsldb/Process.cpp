@@ -16,14 +16,16 @@ extern "C" {
 }
 
 Process::Process() : 
-	_pid(0), 
+	_pid(0),
+	_rec(nullptr), 
     _statusHandler(nullptr), 
 	_state(INIT)
 {
 }
 
-Process::Process(const DebugConfig& cfg, PID_T pid) :
+Process::Process(const DebugConfig& cfg, os_pid_t pid) :
 	_pid(pid), 
+	_rec(nullptr), 
     _statusHandler(nullptr), 
 	_debugConfig(cfg), 
 	_state(INIT)
@@ -101,7 +103,7 @@ void Process::advance(void)
 		return;
 	}
 #endif /* _WIN32 */
-	throw std::runtime_error("Continue failed");
+	throw std::runtime_error(std::string("Continue failed: ") + strerror(errno));
 }
 
 void Process::stop(bool immediately)
@@ -112,7 +114,7 @@ void Process::stop(bool immediately)
 	if(immediately) {
 		if(::kill(_pid, SIGSTOP) == -1) {
             state(INVALID);
-			throw std::runtime_error("halt failed");
+			throw std::runtime_error(std::string("sending SIGSTOP failed") + strerror(errno));
         }
         state(STOPPED);
 	}
@@ -128,12 +130,11 @@ void Process::stop(bool immediately)
 }
 void Process::handleStatusUpdates()
 {
-    std::unique_lock<std::mutex> lock(_mtx, std::defer_lock);
     while(!_end) {
-        waitForStatus();
+        waitForStatus(true);
     }
 }
-void Process::waitForStatus(void)
+void Process::waitForStatus(bool checkTrap)
 {
 #ifndef _WIN32
 	int status = 15;
@@ -189,8 +190,14 @@ void Process::waitForStatus(void)
 		sig = WSTOPSIG(status);
 		UT_NOTIFY(LV_INFO, "signal was " << sig << "(" << strsignal(sig) << ")");
         switch(sig) {
-            case SIGTRAP:
-			    checkTrapEvent(pid, status);
+            case SIGTRAP: 
+            		if(checkTrap) {
+	            		try {
+	            			commandFactory().checkTrapEvent(pid, status).get();
+	            		} catch (std::exception& e) {
+	            			UT_NOTIFY(LV_INFO, e.what());
+	            		}
+	            	}
     			state(TRAPPED);
                 break;
             case SIGSTOP:
@@ -263,7 +270,7 @@ void Process::waitForStatus(void)
 #endif /* !_WIN32 */
 }
 
-bool Process::checkTrapEvent(pid_t pid, int status)
+bool Process::checkTrapEvent(os_pid_t pid, int status)
 {
     pid_t newpid;
     unsigned long msg;
@@ -352,12 +359,10 @@ bool Process::checkTrapEvent(pid_t pid, int status)
 //     }
 // }
 
-void Process::launch(const DebugConfig* cfg)
+void Process::launch()
 {
     if(state() != INIT)
-        return;
-	if(cfg)
-		config(*cfg);
+		throw std::logic_error("not in launchable state");
 
 	if(!_debugConfig.valid)
 		throw std::logic_error("config invalid");
@@ -413,7 +418,7 @@ void Process::launch(const DebugConfig* cfg)
 
 	// parent path
 	UT_NOTIFY(LV_INFO, "debuggee process pid: " << _pid);
-    waitForStatus();
+    waitForStatus(false);
 	if(!isStopped() && !isTrapped()) {
 		::kill(_pid, SIGKILL);
 		_pid = 0;
@@ -446,6 +451,7 @@ void Process::launch(const DebugConfig* cfg)
 		UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child ");
 
     /* don't really know why we have to do that */
+	_rec = Debugger::instance().debugRecord(_pid);
     startStatusHandler();
 	return;
 #else /* _WIN32 */
