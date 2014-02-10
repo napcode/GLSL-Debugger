@@ -48,11 +48,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* copy <size> bytes from address <src> in context of process <pid> to local
  * address <dst>
  */
-UTILSLOCAL void cpyFromProcess(pid_t pid, void *dst, const void *src, size_t size);
+UTILSLOCAL void cpyFromProcess(os_pid_t pid, void *dst, const void *src, size_t size);
 
 /* copy <size> bytes from local address <src> to address <dst> in context of
  * process <pid>
  */
-UTILSLOCAL void cpyToProcess(pid_t pid, void *dst, const void *src, size_t size);
+UTILSLOCAL void cpyToProcess(os_pid_t pid, void *dst, const void *src, size_t size);
 
 #endif

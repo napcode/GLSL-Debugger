@@ -47,6 +47,7 @@ public:
 	/* end all debugging sessions and wait for them to finish */
 	void shutdown();
 	ProcessPtr create(const DebugConfig& cfg);
+
 	void waitForEndOfExecution();
 
 	const ProcessList& processes() const { return _processes; }
@@ -54,11 +55,11 @@ public:
 	static const QString& strRunLevel(RunLevel rl);
 	RunLevel runLevel() const { return _runLevel; }
 
-	debug_record_t* debugRecord(PID_T pid);
+	debug_record_t* debugRecord(os_pid_t pid);
 
 	void enqueue(CommandPtr cmd);
 public slots:
-	void childBecameParent(PID_T p);
+	void childBecameParent(os_pid_t p);
 
 signals:
 	void message(const QString& msg);
@@ -77,9 +78,10 @@ private:
 	std::string _pathDbgFuncs;
 	std::string _pathLibDlSym;
 	std::string _pathLog;
-    std::thread *_cmdHandler;
-    std::mutex _mtx;
-    std::condition_variable _cmdCondition;
+    std::thread *_worker;
+    std::mutex _mtxWork;
+    std::mutex _mtxCmd;
+    std::condition_variable _workCondition;
     bool _end;
 #ifdef GLSLDB_WIN
 	HANDLE _hEvtDebuggee;
@@ -100,7 +102,7 @@ private:
 	void initSharedMem();
 	void freeSharedMem();
 	void clearSharedMem();
-    void handleCommands();
+    void run();
 };
 
 #endif //DEBUGGER_H

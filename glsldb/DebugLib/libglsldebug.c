@@ -65,9 +65,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "trampolines.h"
 #endif /* !_WIN32 */
 
-#include "../utils/dbgprint.h"
 #include "../utils/dlutils.h"
 #include "../utils/hash.h"
+#include "../utils/notify.h"
 #include "../utils/types.h"
 #include "glenumerants.h"
 #include "debuglib.h"
@@ -93,7 +93,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define USE_DLSYM_HARDCODED_LIB
 
 typedef struct {
-	LibraryHandle handle;
+	os_LibraryHandle_t handle;
 	const char *fname;
 	void (*function)(void);
 } debug_function_t;
@@ -103,7 +103,7 @@ typedef struct {
 static struct {
 	int initialized;
 #ifdef USE_DLSYM_HARDCODED_LIB
-	LibraryHandle libgl;
+	os_LibraryHandle_t libgl;
 #endif
 	void *(*origdlsym)(void *, const char *);
 
@@ -148,8 +148,7 @@ static int getShmid()
 	if (s) {
 		return atoi(s);
 	} else {
-		dbgPrint(DBGLVL_ERROR,
-				"Oh my god! No Shmid! Set GLSL_DEBUGGER_SHMID!\n");
+		UT_NOTIFY(LV_ERROR, "No Shmid! Set GLSL_DEBUGGER_SHMID!\n");
 		exit(1);
 	}
 }
@@ -164,7 +163,9 @@ static void setLogging(void)
 
 	s = getenv("GLSL_DEBUGGER_LOGDIR");
 	if (s) {
-		setLogDir(s);
+		int i = 1;
+		utils_notify_to_file(&i);
+		utils_notify_filename(s);
 	} else {
 #else /* !_WIN32 */
 		char s[MAX_PATH];
@@ -172,14 +173,13 @@ static void setLogging(void)
 		if (GetEnvironmentVariableA("GLSL_DEBUGGER_LOGDIR", s,
 						MAX_PATH)) {
 			s[MAX_PATH - 1] = '\0'; /* just to be sure ... */
-			setLogDir(s);
+			utils_notify_filename(s);
 		} else {
 #endif /* !_WIN32 */
-		setLogDir(NULL);
+		utils_notify_filename(NULL);
 	}
 
-	startLogging(NULL);
-
+	UTILS_NOTIFY_STARTUP();
 #ifndef _WIN32
 	s = getenv("GLSL_DEBUGGER_LOGLEVEL");
 	if (s) {
@@ -189,22 +189,24 @@ static void setLogging(void)
 			s[MAX_PATH - 1] = '\0'; /* just to be sure ... */
 #endif /* !_WIN32 */
 		level = atoi(s);
-		setMaxDebugOutputLevel(level);
-		dbgPrint(DBGLVL_INFO, "Log level set to %i\n", level);
+		/* FIXME that's not enirely correct */
+		UTILS_NOTIFY_LEVEL((severity_t*)&level);
+		UT_NOTIFY(LV_INFO, "Log level set to %s", utils_notify_strlevel((severity_t)level));
 	} else {
-		setMaxDebugOutputLevel(DBGLVL_DEBUG);
-		dbgPrint(DBGLVL_WARNING, "Log level not set!\n");
+		severity_t t = LV_DEBUG;
+		UTILS_NOTIFY_LEVEL(&t);
+		UT_NOTIFY(LV_WARN, "Log level not set!");
 	}
 }
 
 static void addDbgFunction(const char *soFile)
 {
-	LibraryHandle handle = NULL;
+	os_LibraryHandle_t handle = NULL;
 	void (*dbgFunc)(void) = NULL;
 	const char *provides = NULL;
 
 	if (!(handle = openLibrary(soFile))) {
-		dbgPrint(DBGLVL_WARNING, "Opening dbgPlugin \"%s\" failed\n", soFile);
+		UT_NOTIFY(LV_WARN, "Opening dbgPlugin \"%s\" failed\n", soFile);
 		return;
 	}
 #ifdef _WIN32
@@ -212,9 +214,9 @@ static void addDbgFunction(const char *soFile)
 #else /* _WIN32 */
 	if (!(provides = g.origdlsym(handle, "provides"))) {
 #endif /* _WIN32 */
-		dbgPrint(DBGLVL_WARNING, "Could not determine what \"%s\" provides!\n"
+		UT_NOTIFY(LV_WARN, "Could not determine what \"%s\" provides!\n"
 		"Export the " "\"provides\"-string!\n", soFile);
-		closeLibrary(handle);
+		os_dlclose(handle);
 		return;
 	}
 
@@ -223,16 +225,16 @@ static void addDbgFunction(const char *soFile)
 #else /* _WIN32 */
 	if (!(dbgFunc = (void (*)(void)) g.origdlsym(handle, provides))) {
 #endif /* _WIN32 */
-		closeLibrary(handle);
+		os_dlclose(handle);
 		return;
 	}
 	g.numDbgFunctions++;
 	g.dbgFunctions = realloc(g.dbgFunctions,
 			g.numDbgFunctions * sizeof(debug_function_t));
 	if (!g.dbgFunctions) {
-		dbgPrint(DBGLVL_ERROR,
+		UT_NOTIFY(LV_ERROR,
 				"Allocating g.dbgFunctions failed: %s (%d)\n", strerror(errno), g.numDbgFunctions*sizeof(debug_function_t));
-		closeLibrary(handle);
+		os_dlclose(handle);
 		exit(1);
 	}
 	g.dbgFunctions[g.numDbgFunctions - 1].handle = handle;
@@ -246,7 +248,7 @@ static void freeDbgFunctions()
 
 	for (i = 0; i < g.numDbgFunctions; i++) {
 		if (g.dbgFunctions[i].handle != NULL) {
-			closeLibrary(g.dbgFunctions[i].handle);
+			os_dlclose(g.dbgFunctions[i].handle);
 			g.dbgFunctions[i].handle = NULL;
 		}
 	}
@@ -288,14 +290,14 @@ static void loadDbgFunctions(void)
 #endif /* !_WIN32 */
 
 	if (!dbgFctsPath || dbgFctsPath[0] == '\0') {
-		dbgPrint(DBGLVL_ERROR,
+		UT_NOTIFY(LV_ERROR,
 				"No dbgFctsPath! Set GLSL_DEBUGGER_DBGFCTNS_PATH!\n");
 		exit(1);
 	}
 
 #if ! defined WIN32
 	if ((dp = opendir(dbgFctsPath)) == NULL) {
-		dbgPrint(DBGLVL_ERROR,
+		UT_NOTIFY(LV_ERROR,
 				"cannot open so directory \"%s\"\n", dbgFctsPath);
 		exit(1);
 	}
@@ -304,7 +306,7 @@ static void loadDbgFunctions(void)
 		if (endsWith(entry->d_name, SO_EXTENSION)) {
 			if (!(file = (char *) malloc(
 					strlen(dbgFctsPath) + strlen(entry->d_name) + 2))) {
-				dbgPrint(DBGLVL_ERROR, "not enough memory for file template\n");
+				UT_NOTIFY(LV_ERROR, "not enough memory for file template\n");
 				exit(1);
 			}
 			strcpy(file, dbgFctsPath);
@@ -322,25 +324,25 @@ static void loadDbgFunctions(void)
 	closedir(dp);
 #else
 	if (! (files = (char *)malloc(strlen(dbgFctsPath) + 3 + strlen(SO_EXTENSION)))) {
-		dbgPrint(DBGLVL_ERROR, "not enough memory for file template\n");
+		UT_NOTIFY(LV_ERROR, "not enough memory for file template\n");
 		exit(1);
 	}
 	if (!(cwd = _getcwd(NULL, 512))) {
-		dbgPrint(DBGLVL_ERROR, "Failed to get current working directory\n");
+		UT_NOTIFY(LV_ERROR, "Failed to get current working directory\n");
 		exit(1);
 	}
 	if (_chdir(dbgFctsPath) != 0) {
-		dbgPrint(DBGLVL_ERROR, "directory '%s' not found\n", dbgFctsPath);
+		UT_NOTIFY(LV_ERROR, "directory '%s' not found\n", dbgFctsPath);
 		exit(1);
 	}
 	strcpy(files, ".\\*.*");
 	if ((handle = _findfirst(files, &fd)) == -1) {
-		dbgPrint(DBGLVL_WARNING, "no dbg functions found in %s\n", files);
+		UT_NOTIFY(LV_WARNING, "no dbg functions found in %s\n", files);
 		return;
 	}
 	/* restore working directory */
 	if (_chdir(cwd) != 0) {
-		dbgPrint(DBGLVL_ERROR, "Failed to restore working directory\n");
+		UT_NOTIFY(LV_ERROR, "Failed to restore working directory\n");
 		exit(1);
 	}
 	free(cwd);
@@ -349,7 +351,7 @@ static void loadDbgFunctions(void)
 	do {
 		if (endsWith(fd.name, SO_EXTENSION)) {
 			if (! (file = (char *)malloc(strlen(dbgFctsPath) + strlen(fd.name) + 2))) {
-				dbgPrint(DBGLVL_ERROR, "not enough memory for file template\n");
+				UT_NOTIFY(LV_ERROR, "not enough memory for file template\n");
 				exit(1);
 			}
 			strcpy(file, dbgFctsPath);
@@ -381,9 +383,9 @@ __declspec(dllexport) BOOL __cdecl uninitialiseDll(void) {
 
 	/* We must detach first, as trampolines use events. */
 	if (detachTrampolines()) {
-		dbgPrint(DBGLVL_INFO, "Trampolines detached.\n");
+		UT_NOTIFY(LV_INFO, "Trampolines detached.\n");
 	} else {
-		dbgPrint(DBGLVL_WARNING, "Detaching trampolines failed.\n");
+		UT_NOTIFY(LV_WARN, "Detaching trampolines failed.\n");
 		retval = FALSE;
 	}
 
@@ -395,8 +397,8 @@ __declspec(dllexport) BOOL __cdecl uninitialiseDll(void) {
 		retval = FALSE;
 	}
 
-	quitLogging();
-
+	UTILS_NOTIFY_SHUTDOWN();
+	
 	LeaveCriticalSection(&G.lock);
 	return retval;
 }
@@ -416,7 +418,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 
 #ifdef DEBUG
 		//AllocConsole();     /* Force availability of console in debug mode. */
-		dbgPrint(DBGLVL_DEBUG, "I am in Debug mode.\n");
+		UT_NOTIFY(LV_DEBUG, "I am in Debug mode.\n");
 
 		//_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_WNDW);
 		//      if (_CrtDbgReport(_CRT_ERROR, __FILE__, __LINE__, "", "This is the "
@@ -441,7 +443,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 		if (!attachTrampolines()) {
 			return FALSE;
 		} else {
-			dbgPrint(DBGLVL_INFO, "attaching has worked!\n");
+			UT_NOTIFY(LV_INFO, "attaching has worked!\n");
 		}
 
 		/* Attach to shared mem segment */
@@ -491,7 +493,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 		break;
 
 		case DLL_PROCESS_DETACH:
-		dbgPrint(DBGLVL_INFO, "DLL_PROCESS_DETACH\n");
+		UT_NOTIFY(LV_INFO, "DLL_PROCESS_DETACH\n");
 		EnterCriticalSection(&G.lock);
 		retval = uninitialiseDll();
 		DeleteCriticalSection(&G.lock);
@@ -512,15 +514,15 @@ void __attribute__ ((constructor)) debuglib_init(void)
 
 #ifdef USE_DLSYM_HARDCODED_LIB
 	if (!(g.libgl = openLibrary(LIBGL))) {
-		dbgPrint(DBGLVL_ERROR, "Error opening OpenGL library\n");
+		UT_NOTIFY(LV_ERROR, "Error opening OpenGL library\n");
 		exit(1);
 	}
 #endif
 
 	/* attach to shared mem segment */
-	if (!(g.fcalls = shmat(getShmid(), NULL, 0))) {
-		dbgPrint(DBGLVL_ERROR,
-				"Could not attach to shared memory segment: %s\n", strerror(errno));
+	g.fcalls = shmat(getShmid(), NULL, 0);
+	if ((long)g.fcalls == -1) {
+		UT_NOTIFY(LV_ERROR, "Could not attach to shared memory segment: %s\n", strerror(errno));
 		exit(1);
 	}
 
@@ -541,7 +543,7 @@ void __attribute__ ((constructor)) debuglib_init(void)
 				(void (*(*)(const GLubyte*))(void)) g.origdlsym(g.libgl,
 						"glXGetProcAddressARB");
 		if (!G.origGlXGetProcAddress) {
-			dbgPrint(DBGLVL_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
+			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
 			exit(1);
 		}
 	}
@@ -553,7 +555,7 @@ void __attribute__ ((constructor)) debuglib_init(void)
 	if (!G.origGlXGetProcAddress) {
 		G.origGlXGetProcAddress = g.origdlsym(RTLD_NEXT, "glXGetProcAddressARB");
 		if (!G.origGlXGetProcAddress) {
-			dbgPrint(DBGLVL_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
+			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
 			exit(1);
 		}
 	}
@@ -575,7 +577,7 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 
 #ifdef USE_DLSYM_HARDCODED_LIB
 	if (g.libgl) {
-		closeLibrary(g.libgl);
+		os_dlclose(g.libgl);
 	}
 #endif
 
@@ -587,17 +589,13 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 
 	clearRecordedCalls(&G.recordedStream);
 
-	quitLogging();
+	UTILS_NOTIFY_SHUTDOWN();
 
 	pthread_mutex_destroy(&G.lock);
 }
 #endif
 
-#ifndef _WIN32
-debug_record_t *getThreadRecord(pid_t pid)
-#else /* _WIN32 */
-debug_record_t *getThreadRecord(DWORD pid)
-#endif /* _WIN32 */
+debug_record_t *getThreadRecord(os_pid_t pid)
 {
 	int i;
 	for (i = 0; i < SHM_MAX_THREADS; i++) {
@@ -607,8 +605,7 @@ debug_record_t *getThreadRecord(DWORD pid)
 	}
 	if (i == SHM_MAX_THREADS) {
 		/* TODO */
-		dbgPrint(DBGLVL_ERROR,
-				"Error: max. number of debugable threads exceeded!\n");
+		UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!\n");
 		exit(1);
 	}
 	return &g.fcalls[i];
@@ -620,61 +617,60 @@ static void printArgument(void *addr, int type)
 
 	switch (type) {
 	case DBG_TYPE_CHAR:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%i, ", *(char*)addr);
+		UT_NOTIFY_NO_PRFX("%i", *(char*)addr);
 		break;
 	case DBG_TYPE_UNSIGNED_CHAR:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%i, ", *(unsigned char*)addr);
+		UT_NOTIFY_NO_PRFX("%i", *(unsigned char*)addr);
 		break;
 	case DBG_TYPE_SHORT_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%i, ", *(short*)addr);
+		UT_NOTIFY_NO_PRFX("%i", *(short*)addr);
 		break;
 	case DBG_TYPE_UNSIGNED_SHORT_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%i, ", *(unsigned short*)addr);
+		UT_NOTIFY_NO_PRFX("%i", *(unsigned short*)addr);
 		break;
 	case DBG_TYPE_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%i, ", *(int*)addr);
+		UT_NOTIFY_NO_PRFX("%i", *(int*)addr);
 		break;
 	case DBG_TYPE_UNSIGNED_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%u, ", *(unsigned int*)addr);
+		UT_NOTIFY_NO_PRFX("%u", *(unsigned int*)addr);
 		break;
 	case DBG_TYPE_LONG_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%li, ", *(long*)addr);
+		UT_NOTIFY_NO_PRFX("%li", *(long*)addr);
 		break;
 	case DBG_TYPE_UNSIGNED_LONG_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%lu, ", *(unsigned long*)addr);
+		UT_NOTIFY_NO_PRFX("%lu", *(unsigned long*)addr);
 		break;
 	case DBG_TYPE_LONG_LONG_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%lli, ", *(long long*)addr);
+		UT_NOTIFY_NO_PRFX("%lli", *(long long*)addr);
 		break;
 	case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%llu, ", *(unsigned long long*)addr);
+		UT_NOTIFY_NO_PRFX("%llu", *(unsigned long long*)addr);
 		break;
 	case DBG_TYPE_FLOAT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%f, ", *(float*)addr);
+		UT_NOTIFY_NO_PRFX("%f", *(float*)addr);
 		break;
 	case DBG_TYPE_DOUBLE:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%f, ", *(double*)addr);
+		UT_NOTIFY_NO_PRFX("%f", *(double*)addr);
 		break;
 	case DBG_TYPE_POINTER:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%p, ", *(void**)addr);
+		UT_NOTIFY_NO_PRFX("%p", *(void**)addr);
 		break;
 	case DBG_TYPE_BOOLEAN:
-		dbgPrintNoPrefix(DBGLVL_INFO,
-				"%s, ", *(GLboolean*)addr ? "TRUE" : "FALSE");
+		UT_NOTIFY_NO_PRFX("%s", *(GLboolean*)addr ? "TRUE" : "FALSE");
 		break;
 	case DBG_TYPE_BITFIELD:
 		s = dissectBitfield(*(GLbitfield*) addr);
-		dbgPrintNoPrefix(DBGLVL_INFO, "%s, ", s);
+		UT_NOTIFY_NO_PRFX("%s", s);
 		free(s);
 		break;
 	case DBG_TYPE_ENUM:
-		dbgPrintNoPrefix(DBGLVL_INFO, "%s, ", lookupEnum(*(GLenum*)addr));
+		UT_NOTIFY_NO_PRFX("%s", lookupEnum(*(GLenum*)addr));
 		break;
 	case DBG_TYPE_STRUCT:
-		dbgPrintNoPrefix(DBGLVL_INFO, "STRUCT, ");
+		UT_NOTIFY_NO_PRFX("STRUCT");
 		break;
 	default:
-		dbgPrintNoPrefix(DBGLVL_INFO, "UNKNOWN TYPE [%i], ", type);
+		UT_NOTIFY_NO_PRFX("UNKNOWN TYPE [%i]", type);
 	}
 }
 
@@ -682,12 +678,7 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
 {
 	int i;
 	va_list argp;
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 
 	rec->threadId = pid;
@@ -695,30 +686,28 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
 	strncpy(rec->fname, fname, SHM_MAX_FUNCNAME);
 	rec->numItems = numArgs;
 
-	dbgPrintNoPrefix(DBGLVL_INFO, "STORE CALL: %s(", rec->fname);
+	UT_NOTIFY_NL(LV_INFO, "STORE CALL: %s(", rec->fname);
 	va_start(argp, numArgs);
-	for (i = 0; i < numArgs; i++) {
+	for (i = 0; i < numArgs;) {
 		rec->items[2 * i] = (ALIGNED_DATA) va_arg(argp, void*);
 		rec->items[2 * i + 1] = (ALIGNED_DATA) va_arg(argp, int);
 		printArgument((void*) rec->items[2 * i], rec->items[2 * i + 1]);
+		++i;
+		if (i != numArgs) 
+			UT_NOTIFY_NO_PRFX(", ");
 	}
 	va_end(argp);
-	dbgPrintNoPrefix(DBGLVL_INFO, ")\n");
+	UT_NOTIFY_NO_PRFX(")\n");
 }
 
 void storeResult(void *result, int type)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 
-	dbgPrintNoPrefix(DBGLVL_INFO, "STORE RESULT: ");
+	UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
 	printArgument(result, type);
-	dbgPrintNoPrefix(DBGLVL_INFO, "\n");
+	UT_NOTIFY_NO_PRFX("\n");
 	rec->result = DBG_RETURN_VALUE;
 	rec->items[0] = (ALIGNED_DATA) result;
 	rec->items[1] = (ALIGNED_DATA) type;
@@ -726,21 +715,16 @@ void storeResult(void *result, int type)
 
 void storeResultOrError(unsigned int error, void *result, int type)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 
 	if (error) {
 		setErrorCode(error);
-		dbgPrint(DBGLVL_WARNING, "NO RESULT STORED: %u\n", error);
+		UT_NOTIFY(LV_WARN, "NO RESULT STORED: %u", error);
 	} else {
-		dbgPrintNoPrefix(DBGLVL_INFO, "STORE RESULT: ");
+		UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
 		printArgument(result, type);
-		dbgPrintNoPrefix(DBGLVL_INFO, "\n");
+		UT_NOTIFY_NO_PRFX("\n");
 		rec->result = DBG_RETURN_VALUE;
 		rec->items[0] = (ALIGNED_DATA) result;
 		rec->items[1] = (ALIGNED_DATA) type;
@@ -749,16 +733,16 @@ void storeResultOrError(unsigned int error, void *result, int type)
 
 void stop(void)
 {
-	dbgPrint(DBGLVL_DEBUG, "RAISED STOP\n");
+	UT_NOTIFY(LV_DEBUG, "RAISED STOP");
 #ifdef _WIN32
 	if (!SetEvent(g.hEvtDebugger)) {
-		dbgPrint(DBGLVL_ERROR, "could not signal Debugger: %u\n", GetLastError());
+		UT_NOTIFY(LV_ERROR, "could not signal Debugger: %u", GetLastError());
 	}
 	if (WaitForSingleObject(g.hEvtDebugee, INFINITE) != WAIT_OBJECT_0) {
-		dbgPrint(DBGLVL_ERROR, "Waiting for continue event failed: %u\n",
+		UT_NOTIFY(LV_ERROR, "Waiting for continue event failed: %u",
 				GetLastError());
 	} else {
-		dbgPrint(DBGLVL_INFO, "continued...\n");
+		UT_NOTIFY(LV_INFO, "continued...");
 	}
 #else /* _WIN32 */
 	raise(SIGSTOP);
@@ -826,26 +810,22 @@ static void shaderStep(void)
 {
 	int error;
 
-#ifdef _WIN32
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	debug_record_t *rec = getThreadRecord(GetCurrentProcessId());
-#else /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(getpid());
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
+	debug_record_t *rec = getThreadRecord(pid);
 	const char *vshader = (const char *) rec->items[0];
 	const char *gshader = (const char *) rec->items[1];
 	const char *fshader = (const char *) rec->items[2];
 	int target = (int) rec->items[3];
 
-	dbgPrint(DBGLVL_COMPILERINFO,
-			"SHADER STEP: v=%p g=%p f=%p target=%i\n", vshader, gshader, fshader, target);
+	UT_NOTIFY(LV_INFO,
+			"SHADER STEP: v=%p g=%p f=%p target=%i", vshader, gshader, fshader, target);
 
-	dbgPrint(DBGLVL_COMPILERINFO, "############# V-Shader ##############\n%s\n"
-	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", vshader);
-	dbgPrint(DBGLVL_COMPILERINFO, "############# G-Shader ##############\n%s\n"
-	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", gshader);
-	dbgPrint(DBGLVL_COMPILERINFO, "############# F-Shader ##############\n%s\n"
-	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n", fshader);
+	UT_NOTIFY(LV_INFO, "############# V-Shader ##############\n%s\n"
+	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", vshader);
+	UT_NOTIFY(LV_INFO, "############# G-Shader ##############\n%s\n"
+	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", gshader);
+	UT_NOTIFY(LV_INFO, "############# F-Shader ##############\n%s\n"
+	"$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", fshader);
 
 	if (target == DBG_TARGET_GEOMETRY_SHADER
 			|| target == DBG_TARGET_VERTEX_SHADER) {
@@ -947,21 +927,16 @@ static void shaderStep(void)
 			rec->items[2] = (ALIGNED_DATA) height;
 		}
 	} else {
-		dbgPrint(DBGLVL_COMPILERINFO, "\n");
+		UT_NOTIFY_NO_PRFX("\n");
 		setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
 	}
 }
 
 int getDbgOperation(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
-	dbgPrint(DBGLVL_INFO, "OPERATION: %li\n", rec->operation);
+	UT_NOTIFY(LV_INFO, "OPERATION: %li", rec->operation);
 	return rec->operation;
 }
 
@@ -991,14 +966,9 @@ static int isShaderSwitch(const char *name)
 
 int keepExecuting(const char *calledName)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
-	if (rec->operation == DBG_STOP_EXECUTION) {
+	if(rec->operation == DBG_STEP || rec->operation == DBG_STOP_EXECUTION) {
 		return 0;
 	} else if (rec->operation == DBG_EXECUTE) {
 		switch (rec->items[0]) {
@@ -1021,12 +991,7 @@ int keepExecuting(const char *calledName)
 
 int checkGLErrorInExecution(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 	return rec->items[1];
 	return 1;
@@ -1034,12 +999,7 @@ int checkGLErrorInExecution(void)
 
 void setExecuting(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 	rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
@@ -1110,7 +1070,7 @@ void executeDefaultDbgOperation(int op)
 		restartQueries();
 		break;
 	default:
-		dbgPrint(DBGLVL_INFO, "UNKNOWN DEBUG OPERATION %i\n", op);
+		UT_NOTIFY(LV_INFO, "UNKNOWN DEBUG OPERATION %i", op);
 		break;
 	}
 }
@@ -1123,18 +1083,13 @@ static void dbgFunctionNOP(void)
 
 void (*getDbgFunction(void))(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
 	int i;
 
 	for (i = 0; i < g.numDbgFunctions; i++) {
 		if (!strcmp(g.dbgFunctions[i].fname, rec->fname)) {
-			dbgPrint(DBGLVL_INFO, "found special detour for %s\n", rec->fname);
+			UT_NOTIFY(LV_INFO, "found special detour for %s", rec->fname);
 			return g.dbgFunctions[i].function;
 		}
 	}
@@ -1169,7 +1124,7 @@ void (*getOrigFunc(const char *fname))(void)
 			if (!origFunc) {
 				origFunc = G.origGlXGetProcAddress((const GLubyte *)fname);
 				if (!origFunc) {
-					dbgPrint(DBGLVL_ERROR, "Error: Cannot resolve %s\n", fname);
+					UT_NOTIFY(LV_ERROR, "Cannot resolve %s", fname);
 					exit(1); /* TODO: proper error handling */
 				}
 			}
@@ -1183,7 +1138,7 @@ void (*getOrigFunc(const char *fname))(void)
 		} else if (!strcmp(fname, "glEnd")) {
 			G.errorCheckAllowed = 1;
 		}
-		dbgPrint(DBGLVL_INFO, "ORIG_GL: %s (%p)\n", fname, result);
+		UT_NOTIFY(LV_INFO, "ORIG_GL: %s (%p)", fname, result);
 		return (void (*)(void))result;
 	}
 }
@@ -1206,7 +1161,7 @@ int checkGLExtensionSupported(const char *extension)
 
     //dbgPrint(DBGLVL_INFO, "EXTENSION STRING: %s\n", extString);
     if(!extensions.table) {
-		dbgPrint(DBGLVL_DEBUG, "Creating extension hashes\n");
+		UT_NOTIFY(LV_DEBUG, "Creating extension hashes");
         hash_create(&extensions, hashString, compString, 512, 0);
         int i = 0;
         int n;
@@ -1216,7 +1171,7 @@ int checkGLExtensionSupported(const char *extension)
             // we don't need to store any relevant data. we just want a quick
             // string lookup.
             if(hash_insert(&extensions, name, &dummy) == 1) {
-            	dbgPrint(DBGLVL_ERROR, "Collision occured while hashing extensions\n");
+            	UT_NOTIFY(LV_ERROR, "Collision occured while hashing extensions");
             	exit(1);
             }
         }
@@ -1225,10 +1180,10 @@ int checkGLExtensionSupported(const char *extension)
     // check support
     void *data = hash_find(&extensions, extension);
     if(!data) {
-        dbgPrint(DBGLVL_INFO, "not found: %s\n", extension);
+        UT_NOTIFY(LV_INFO, "not found: %s", extension);
         return 0;
     }
-	dbgPrint(DBGLVL_INFO, "found: %s\n", extension);
+	UT_NOTIFY(LV_INFO, "found: %s", extension);
     return 1;
 }
 
@@ -1237,7 +1192,7 @@ int checkGLVersionSupported(int majorVersion, int minorVersion)
 	static int major = 0;
 	static int minor = 0;
 
-	dbgPrint(DBGLVL_INFO, "GL version %i.%i: ", majorVersion, minorVersion);
+	UT_NOTIFY(LV_INFO, "GL version %i.%i: ", majorVersion, minorVersion);
 	if (major == 0) {
 		const char *versionString = (char*)ORIG_GL(glGetString)(GL_VERSION);
 		const char *rendererString = (char*)ORIG_GL(glGetString)(GL_RENDERER);
@@ -1246,17 +1201,17 @@ int checkGLVersionSupported(int majorVersion, int minorVersion)
 		char  *dot = NULL;
 		major = (int)strtol(versionString, &dot, 10);
 		minor = (int)strtol(++dot, NULL, 10);
-		dbgPrint(DBGLVL_INFO, "GL VENDOR: %s\n", rendererString);
-		dbgPrint(DBGLVL_INFO, "GL RENDERER: %s\n", rendererString);
-		dbgPrint(DBGLVL_INFO, "GL VERSION: %s\n", versionString);
-		dbgPrint(DBGLVL_INFO, "GL VENDOR: %s\n", vendorString);
-		dbgPrint(DBGLVL_INFO, "GL SHADING LANGUAGE: %s: %s\n", shadingString);
+		UT_NOTIFY(LV_INFO, "GL VENDOR: %s", rendererString);
+		UT_NOTIFY(LV_INFO, "GL RENDERER: %s", rendererString);
+		UT_NOTIFY(LV_INFO, "GL VERSION: %s", versionString);
+		UT_NOTIFY(LV_INFO, "GL VENDOR: %s", vendorString);
+		UT_NOTIFY(LV_INFO, "GL SHADING LANGUAGE: %s: %s", shadingString);
 	}
 	if (majorVersion < major ||
 	    (majorVersion == major && minorVersion <= minor)) {
 		return 1;
 	}
-	dbgPrint(DBGLVL_INFO, "required GL version supported: NO\n");
+	UT_NOTIFY(LV_INFO, "required GL version supported: NO");
 	return 0;
 }
 
@@ -1283,12 +1238,12 @@ void *dlsym(void *handle, const char *symbol)
 
 		s = getenv("GLSL_DEBUGGER_LIBDLSYM");
 		if (!s) {
-			dbgPrint(DBGLVL_ERROR, "Strange, GLSL_DEBUGGER_LIBDLSYM is not set??\n");
+			UT_NOTIFY(LV_ERROR, "GLSL_DEBUGGER_LIBDLSYM is not set");
 			exit(1);
 		}
 
 	    if (! (origDlsymHandle = dlopen(s, RTLD_LAZY | RTLD_DEEPBIND))) {
-    	    dbgPrint(DBGLVL_ERROR, "getting origDlsymHandle failed %s: %s\n",
+    	    UT_NOTIFY(LV_ERROR, "getting origDlsymHandle failed %s: %s",
 			         s, dlerror());
     	}
 		dlclose(origDlsymHandle);
@@ -1296,7 +1251,7 @@ void *dlsym(void *handle, const char *symbol)
 		if (s) {
 			g.origdlsym = (void *(*)(void *, const char *))(intptr_t)strtoll(s, NULL, 16);
 		} else {
-			dbgPrint(DBGLVL_ERROR, "GLSL_DEBUGGER_DLSYM is not set??\n");
+			UT_NOTIFY(LV_ERROR, "GLSL_DEBUGGER_DLSYM is not set");
 			exit(1);
 		}
 		unsetenv("GLSL_DEBUGGER_DLSYM");

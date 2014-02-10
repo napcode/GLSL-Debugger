@@ -35,18 +35,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _DLUTILS_H
 
 #include "common.h"
+#include "../os/os.h"
 
-#ifdef _WIN32
-#include <windows.h>
-typedef HINSTANCE LibraryHandle;
-#else
-typedef void* LibraryHandle;
-#endif
-UTILSLOCAL LibraryHandle openLibrary(const char *library);
-UTILSLOCAL void closeLibrary(LibraryHandle handle);
 
-UTILSLOCAL void *resolveSymbol(LibraryHandle handle, const char *symbol);
+UTILSLOCAL os_LibraryHandle_t openLibrary(const char *library);
 
-UTILSLOCAL void *resolveSymbolNoCheck(LibraryHandle handle, const char *symbol);
+UTILSLOCAL void *resolveSymbol(os_LibraryHandle_t handle, const char *symbol);
 
 #endif

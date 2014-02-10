@@ -66,7 +66,8 @@ extern void utils_notify_startup();
 extern void utils_notify_shutdown();
 extern void utils_notify_va(const severity_t sev, const char* filename,
 		const char* func, unsigned int line, unsigned int newline, const char *fmt, ...);
-void utils_notify_out(const char* fmt, ...);
+extern void utils_notify_out(const char* fmt, ...);
+extern const char* utils_notify_strlevel(const severity_t t);
 
 #if defined(__cplusplus)
 }

@@ -93,11 +93,7 @@ DBGLIBLOCAL void (*getOrigFunc(const char *fname))(void);
 #define ORIG_GL(fname) ((PFN##fname##PROC)getOrigFunc(#fname))
 #endif /* _WIN32 */
 
-#ifdef _WIN32
-DBGLIBLOCAL debug_record_t* getThreadRecord(DWORD pid);
-#else /* _WIN32 */
-DBGLIBLOCAL debug_record_t* getThreadRecord(pid_t pid);
-#endif /* _WIN32 */
+DBGLIBLOCAL debug_record_t* getThreadRecord(os_pid_t pid);
 
 /* check GL error code */
 DBGLIBLOCAL int glError(void);
@@ -108,7 +104,8 @@ DBGLIBLOCAL void setErrorCode(int error);
 /* check GL error code and
  set shm with result == DBG_ERROR_CODE and gl error if an error has
  occured; else do nothing
- */DBGLIBLOCAL int setGLErrorCode(void);
+ */
+ DBGLIBLOCAL int setGLErrorCode(void);
 
 DBGLIBLOCAL void (*glXGetProcAddressHook(const GLubyte *n))(void);
 

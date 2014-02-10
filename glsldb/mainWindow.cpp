@@ -151,7 +151,7 @@ MainWindow::MainWindow(const QStringList& args)
     
     /* we need to register a few types for the signal/slot mechanism */
     qRegisterMetaType<Process::State>("Process::State");
-    qRegisterMetaType<PID_T>("PID_T");
+    qRegisterMetaType<os_pid_t>("os_pid_t");
 	
     
     m_pShVarModel = NULL;
@@ -472,13 +472,16 @@ void MainWindow::on_tbExecute_clicked()
 
 	ProcessPtr p = Debugger::instance().create(_debugConfig);
 	connect(p.data(), SIGNAL(stateChanged(Process::State)), this, SLOT(debuggeeStateChanged(Process::State)), Qt::QueuedConnection);
-	connect(p.data(), SIGNAL(newChild(PID_T)), this, SLOT(debuggeeForked(PID_T)), Qt::QueuedConnection);
+	connect(p.data(), SIGNAL(newChild(os_pid_t)), this, SLOT(debuggeeForked(os_pid_t)), Qt::QueuedConnection);
 	try {
-		p->launch();
-	} 
-	catch (std::exception& e) {
+		CommandFactory& c = p->commandFactory();
+		/* we don' really care for the result */
+		c.launch().get();
+	}
+	catch(std::exception& e)
+	{
 		UT_NOTIFY(LV_ERROR, e.what());
-        return;
+		return;
 	}
 	_proc = p;
     //sleep(1);
@@ -683,6 +686,10 @@ ErrorCode MainWindow::nextStep()
 
 void MainWindow::on_tbStep_clicked()
 {
+	UT_NOTIFY(LV_TRACE, "Run clicked");
+	CommandFactory& c = _proc->commandFactory();
+	auto cmd = c.execute(true, true);
+	_resultHandler.addFutureResult(cmd);
 	// leaveDBGState();
 
 	// setRunLevel(RL_TRACE_EXECUTE_RUN);
@@ -973,7 +980,12 @@ void MainWindow::on_tbJumpToUserDef_clicked()
 void MainWindow::on_tbRun_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
-    _proc->advance();
+	CommandFactory& c = _proc->commandFactory();
+	auto cmd = c.execute(false, true);
+	_resultHandler.addFutureResult(cmd);
+
+	//_resultHandler.addFutureResult(cmd);
+    //_proc->advance();
 	// /* cleanup dbg state */
 	// leaveDBGState();
 
@@ -1014,7 +1026,7 @@ void MainWindow::on_tbPause_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "pause clicked");
 
-        _proc->stop(true);
+    //    _proc->stop(true);
 	// if (_ui->tbToggleNoTrace->isChecked()) {
 	// 	_dbg->stop();
 	// } else {
@@ -3543,7 +3555,7 @@ void MainWindow::debuggeeStateChanged(Process::State s)
 		_ui->statusbar->showMessage(msg);
 		addGlTraceWarningItem(msg);
 }
-void MainWindow::debuggeeForked(PID_T pid)
+void MainWindow::debuggeeForked(os_pid_t pid)
 {
 		QString msg("child forked! " + QString::number(pid));
 		_ui->statusbar->showMessage(msg);

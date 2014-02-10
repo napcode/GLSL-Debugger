@@ -1,12 +1,12 @@
 #include "notify.h"
 #include "build-config.h"
+#include "../os/os.h"
 
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/time.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h>
 
 static struct
 {
@@ -86,7 +86,7 @@ void utils_notify_va(const severity_t sev, const char *path, const char *func,
     //snprintf(t, 22, "%4d-%02d-%02d %02d:%02d:%02d", 1900 + tp->tm_year,
     //      tp->tm_mon + 1, tp->tm_mday, tp->tm_hour, tp->tm_min, tp->tm_sec);
     /* FIXME won't work on Windows */
-    snprintf(str_time, 22, "%02d:%02d:%02d %d", tp->tm_hour, tp->tm_min, tp->tm_sec, getpid());
+    snprintf(str_time, 22, "%02d:%02d:%02d %d", tp->tm_hour, tp->tm_min, tp->tm_sec, os_getpid());
     switch (sev)
     {
     case LV_TRACE:
@@ -153,5 +153,24 @@ void output(const char* msg)
     else
         fprintf(stdout, msg);
 #endif
+}
 
+const char* utils_notify_strlevel(const severity_t t)
+{
+    switch(t) {
+        case LV_FATAL:
+            return "FATAL";
+        case LV_ERROR:
+            return "ERROR";
+        case LV_WARN:
+            return "WARN";
+        case LV_INFO:
+            return "INFO";
+        case LV_DEBUG:
+            return "DEBUG";
+        case LV_TRACE:
+            return "TRACE";
+        default:
+            return "UNDEFINED LEVEL";
+    }
 }
