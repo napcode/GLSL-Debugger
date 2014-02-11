@@ -66,6 +66,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Debugger.qt.h"
 #include "CommandImpl.h"
+#include "MainWinResultHandler.h"
 
 #include "glslSyntaxHighlighter.qt.h"
 #include "runLevel.h"
@@ -476,7 +477,7 @@ void MainWindow::on_tbExecute_clicked()
 	try {
 		CommandFactory& c = p->commandFactory();
 		/* we don' really care for the result */
-		c.launch().get();
+		c.launch()->result().get();
 	}
 	catch(std::exception& e)
 	{
@@ -484,6 +485,7 @@ void MainWindow::on_tbExecute_clicked()
 		return;
 	}
 	_proc = p;
+	_proc->resultHandler(new MainWinResultHandler);
     //sleep(1);
     //_ui->statusbar->setText(Process::strState(_proc->state()).toStdString());
     //_proc->advance();
@@ -688,8 +690,7 @@ void MainWindow::on_tbStep_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
 	CommandFactory& c = _proc->commandFactory();
-	auto cmd = c.execute(true, true);
-	_resultHandler.addFutureResult(cmd);
+	c.execute(true, true);
 	// leaveDBGState();
 
 	// setRunLevel(RL_TRACE_EXECUTE_RUN);
@@ -981,8 +982,7 @@ void MainWindow::on_tbRun_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
 	CommandFactory& c = _proc->commandFactory();
-	auto cmd = c.execute(false, true);
-	_resultHandler.addFutureResult(cmd);
+	c.execute(false, true);
 
 	//_resultHandler.addFutureResult(cmd);
     //_proc->advance();

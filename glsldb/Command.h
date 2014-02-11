@@ -39,6 +39,7 @@ public:
 	/* these just modified the shared memory */ 
 	//void overwriteFuncArguments(FunctionCallPtr call);
 
+	/* retrieve the result. can only be done once */
 	std::future<ResultPtr> result() { return _result.get_future(); }
 
 	/* these methods handle Command results */

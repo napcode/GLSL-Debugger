@@ -2,22 +2,22 @@
 #include "Debugger.qt.h"
 #include "CommandImpl.h"
 
-FutureResult CommandFactory::launch()
+CommandPtr CommandFactory::launch()
 {
 	CommandPtr cmd(new LaunchCommand(_proc));
 	Debugger::instance().enqueue(cmd);
-	return cmd->result();
+	return cmd;
 }
-FutureResult CommandFactory::checkTrapEvent(os_pid_t p, int s)
+CommandPtr CommandFactory::checkTrapEvent(os_pid_t p, int s)
 {
 	CommandPtr cmd(new CheckTrapCommand(_proc, p, s));
 	Debugger::instance().enqueue(cmd);
-	return cmd->result();
+	return cmd;
 }
 
-FutureResult CommandFactory::execute(bool step, bool stopOnGLError)
+CommandPtr CommandFactory::execute(bool step, bool stopOnGLError)
 {
 	CommandPtr cmd(new ExecuteCommand(_proc, step, stopOnGLError));
 	Debugger::instance().enqueue(cmd);
-	return cmd->result();
+	return cmd;
 }

@@ -104,7 +104,13 @@ void Debugger::run()
         cmd = _queue.dequeue();
     	lock.unlock();
         UT_NOTIFY(LV_INFO, "Command dequeued");
+        /* execute command */
         (*cmd)();
+        /* post result */
+        if(cmd->process().resultHandler()) {
+        	auto res = cmd->result();
+        	cmd->process().resultHandler()->handle(res);
+        }
     }
 }
 

@@ -64,7 +64,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "DebugConfig.h"
 #include "Process.qt.h"
-#include "MainWinResultHandler.h"
 
 #include <QtGui/QScrollArea>
 #include <QtCore/QStack>
@@ -238,7 +237,6 @@ private: /* variables */
 
     DebugConfig _debugConfig;
     ProcessPtr _proc;
-    MainWinResultHandler _resultHandler;
 
 	FunctionCallPtr _currentCall;
 
