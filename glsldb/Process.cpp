@@ -446,9 +446,8 @@ void Process::launch()
 	else 
 		UT_NOTIFY(LV_INFO, "Options have been applied. Continuing child ");
 
-    /* don't really know why we have to do that */
 	_rec = Debugger::instance().debugRecord(_pid);
-    startStatusHandler();
+    //startStatusHandler();
 	return;
 #else /* _WIN32 */
 	STARTUPINFOA startupInfo;
@@ -631,7 +630,7 @@ const QString& Process::strState(State s)
 	return m;
 }
 
-FunctionCallPtr Process::getCurrentCall(void)
+FunctionCallPtr Process::currentCall(void)
 {
 	FunctionCallPtr call(new FunctionCall(_rec->fname));
 

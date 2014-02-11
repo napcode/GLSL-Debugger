@@ -2,16 +2,18 @@
 #define MAINWINDOWRESULTHANDLER_H 1
 
 #include "Command.qt.h"
+class MainWindow;
 
 class MainWinResultHandler : QObject
 {
 	Q_OBJECT
 public:
-	MainWinResultHandler(QObject *parent);
+	MainWinResultHandler(MainWindow& win, QObject *parent = nullptr);
 	~MainWinResultHandler();
 public slots:
-	void resultAvail(CommandPtr);
-	void commandFailed(CommandPtr);
+	void resultAvailable(CommandPtr);
+private:
+	MainWindow& _win;
 };
 
 #endif

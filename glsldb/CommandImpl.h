@@ -4,6 +4,7 @@
 #include "Command.qt.h"
 #include "DebugCommand.h"
 #include "Process.qt.h"
+#include "functionCall.h"
 
 struct ExecuteCommand : public SimpleCommand
 {
@@ -11,7 +12,16 @@ struct ExecuteCommand : public SimpleCommand
 };
 struct StepCommand : public DebugCommand
 {
+	struct Result : public Command::Result
+	{
+		Result(FunctionCallPtr f)
+			: functionCall(f)
+		{}
+		virtual ~Result() {};
+		FunctionCallPtr functionCall;
+	};
 	StepCommand(Process& p);
+	void operator()();
 };
 struct LaunchCommand : public Command
 {

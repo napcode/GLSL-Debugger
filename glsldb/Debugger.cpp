@@ -111,13 +111,7 @@ void Debugger::run()
         	cmd->process().resultHandler()->handle(cmd);
         }
         else {
-        	try {
-        		auto res = cmd->result().get();
-	        	emit resultAvail(cmd);
-        	}
-        	catch(...) {
-        		emit commandFailed(cmd);
-        	}
+          	emit resultAvailable(cmd);
         }
     }
 }
@@ -457,9 +451,6 @@ debug_record_t* Debugger::debugRecord(os_pid_t pid)
 	        break;
 		}
 	}
-	UT_NOTIFY(LV_INFO, "record " << i << " for pid " << _records[i].threadId);
-	UT_NOTIFY(LV_INFO, "sizeof threadid" << sizeof(_records[i].threadId));
-	UT_NOTIFY(LV_INFO, "sizeof op" << sizeof(_records[i].operation));
 	if(i >= SHM_MAX_THREADS) {
 		UT_NOTIFY(LV_ERROR, "max. number of debuggable threads exceeded!");
 	    exit(1);

@@ -18,11 +18,8 @@ public:
 	/* types */
 	struct Result
 	{
-		Result(bool v)
-			: valid(v)
-		{}
-		virtual ~Result() {};
-		bool valid;
+		Result() {}
+		virtual ~Result() {};		
 	};
 	typedef QSharedPointer<Command::Result> ResultPtr;
 

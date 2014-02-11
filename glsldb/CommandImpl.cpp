@@ -19,13 +19,16 @@ void StepCommand::operator()()
     try {
         DebugCommand::operator()();
         process().advance();
+        process().waitForStatus();
+        if(_rec->result != DBG_FUNCTION_CALL)
+			throw std::logic_error("Result is not a function call");		
     }
     catch(...) {
         promise().set_exception(std::current_exception());
         return;
     }
 
-    ResultPtr res(new Result(true));
+    ResultPtr res(new Result(process().currentCall()));
     promise().set_value(res);
 }
 LaunchCommand::LaunchCommand(Process &p)
@@ -41,7 +44,7 @@ void LaunchCommand::operator()()
         return;
     }
 
-    ResultPtr res(new Result(true));
+    ResultPtr res(new Result);
     promise().set_value(res);
 }
 
@@ -58,6 +61,6 @@ void CheckTrapCommand::operator()()
         return;
     }
 
-    ResultPtr res(new Result(true));
+    ResultPtr res(new Result);
     promise().set_value(res);
 }

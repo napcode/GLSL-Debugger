@@ -5,22 +5,32 @@
 #include "CommandImpl.h"
 #include "Debugger.qt.h"
 
-MainWinResultHandler::MainWinResultHandler(QObject *parent) :
-	QObject(parent)
+MainWinResultHandler::MainWinResultHandler(MainWindow& win, QObject *parent) :
+	QObject(parent),
+	_win(win)
 {
 	Debugger& dbg = Debugger::instance();
-	connect(&dbg, SIGNAL(commandFailed(CommandPtr)), this, SLOT(commandFailed(CommandPtr)));
-	connect(&dbg, SIGNAL(resultAvail(CommandPtr)), this, SLOT(resultAvail(CommandPtr)));
+	connect(&dbg, SIGNAL(resultAvailable(CommandPtr)), this, SLOT(resultAvailable(CommandPtr)));
 }
 MainWinResultHandler::~MainWinResultHandler()
 {
 
 }
-void MainWinResultHandler::resultAvail(CommandPtr c)
+void MainWinResultHandler::resultAvailable(CommandPtr c)
 {
-	UT_NOTIFY(LV_INFO, c->name().toStdString() << " succeeded");
-}
-void MainWinResultHandler::commandFailed(CommandPtr c)
-{
-	UT_NOTIFY(LV_ERROR, c->name().toStdString() << " failed");
+	Command::ResultPtr result;
+	try {
+		result = std::move(c->result().get());
+		UT_NOTIFY(LV_INFO, c->name().toStdString() << " succeeded");
+	}
+	catch (std::exception& e) {
+		UT_NOTIFY(LV_ERROR, c->name().toStdString() << " failed");
+		return;
+	}
+
+	QSharedPointer<StepCommand::Result> r = qSharedPointerDynamicCast<StepCommand::Result>(result);
+	if(r) {
+		UT_NOTIFY(LV_INFO, "Function call received");
+		_win.addGlTraceItem(r->functionCall);
+	}
 }
