@@ -4,7 +4,7 @@
 #include <future>
 #include <QSharedPointer>
 
-#include "Command.h"
+#include "Command.qt.h"
 
 class DebugConfig;
 class CommandFactory
@@ -18,7 +18,8 @@ public:
 	CommandPtr launch();
 
 	/* DebugCommands */
-	CommandPtr execute(bool step, bool stopOnGLError);
+	CommandPtr execute(bool stopOnGLError);
+	CommandPtr step();
 	
 		/* these commands need to CONT the process in order to be effectual*/
 	/*void dbgExecute(bool stopOnGLError);

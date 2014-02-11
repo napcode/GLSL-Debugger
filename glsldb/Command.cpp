@@ -1,4 +1,4 @@
-#include "Command.h"
+#include "Command.qt.h"
 #include "DebugCommand.h"
 #include "Process.qt.h"
 #include "build-config.h"
@@ -7,8 +7,6 @@
 #include <cassert>
 #include <cstdlib>
 
-const QString Command::_dummy("DEFAULT");
-
 DebugCommand::DebugCommand(Process& p,  const QString& msg) :
 	Command(p, msg) 
 {
@@ -16,13 +14,12 @@ DebugCommand::DebugCommand(Process& p,  const QString& msg) :
 	/* aligned_alloc requirement */
 	assert((sizeof(debug_record_t)%MEM_ALIGNMENT) == 0);
 
-	_rec = (debug_record_t*)aligned_alloc(MEM_ALIGNMENT, sizeof(debug_record_t));
-	*_rec = *_proc.debugRecord();
+	_rec = _proc.debugRecord();
 }
 
 DebugCommand::~DebugCommand()
 {
-	free(_rec);
+	//free(_rec);
 }
 
 void DebugCommand::operator()()
@@ -33,7 +30,29 @@ void DebugCommand::operator()()
 	 */ 
 	if(!_proc.debugRecord())
 		throw std::logic_error("No debug record");
-	*_proc.debugRecord() = *_rec;
+	//*_proc.debugRecord() = *_rec;
+	UT_NOTIFY(LV_TRACE, "DebugOp: " << _proc.debugRecord()->operation << " @ " << _proc.debugRecord());
+}
+
+SimpleCommand::SimpleCommand(Process& p,  const QString& msg) :
+	DebugCommand(p, msg) 
+{
+}
+SimpleCommand::~SimpleCommand()
+{}
+void SimpleCommand::operator()()
+{
+    try {
+        DebugCommand::operator()();
+        process().advance();
+    }
+    catch(...) {
+        promise().set_exception(std::current_exception());
+        return;
+    }
+
+    ResultPtr res(new Result(true));
+    promise().set_value(res);
 }
 /*
 void Command::dbgCommandExecuteToDrawCall(bool stopOnGLError)

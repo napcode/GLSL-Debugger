@@ -1,14 +1,20 @@
 #include "CommandImpl.h"
 #include <exception>
 
-ExecuteCommand::ExecuteCommand(Process &p, bool step, bool stopOnGLError)
-    : DebugCommand(p, "DBG_EXECUTE (DBG_EXECUTE_RUN)")
+ExecuteCommand::ExecuteCommand(Process &p, bool stopOnGLError)
+    : SimpleCommand(p, "DBG_EXECUTE (DBG_EXECUTE_RUN)")
 {
     _rec->operation = DBG_EXECUTE;
-    _rec->items[0] = step ? DBG_STEP : DBG_EXECUTE_RUN;
+    _rec->items[0] = DBG_EXECUTE_RUN;
     _rec->items[1] = stopOnGLError ? 1 : 0;
 }
-void ExecuteCommand::operator()()
+
+StepCommand::StepCommand(Process &p)
+    : DebugCommand(p, "DBG_EXECUTE_STOP")
+{
+    _rec->operation = DBG_STOP_EXECUTION;
+}
+void StepCommand::operator()()
 {
     try {
         DebugCommand::operator()();
@@ -22,9 +28,8 @@ void ExecuteCommand::operator()()
     ResultPtr res(new Result(true));
     promise().set_value(res);
 }
-
 LaunchCommand::LaunchCommand(Process &p)
-    : Command(p, "LAUNCH_CMD")
+    : Command(p, "LAUNCH")
 {}
 void LaunchCommand::operator()()
 {
@@ -41,7 +46,7 @@ void LaunchCommand::operator()()
 }
 
 CheckTrapCommand::CheckTrapCommand(Process &p, os_pid_t pi, int s)
-    : Command(p, "CHECKTRAP_CMD"), _pid(pi), _status(s)
+    : Command(p, "CHECKTRAP"), _pid(pi), _status(s)
 {}
 void CheckTrapCommand::operator()()
 {

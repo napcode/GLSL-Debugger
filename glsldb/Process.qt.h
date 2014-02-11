@@ -47,8 +47,7 @@ public:
 	/* get or create a command factory
 	 * factory is associated with *this*
 	 */
-	CommandFactory& commandFactory();
-
+	CommandFactory& commandFactory() { return *_cmdFactory; }
 	/* get thread record. might be a nullptr
 	 * update is done on SIGSTOPs
 	 */

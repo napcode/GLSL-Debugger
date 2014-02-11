@@ -70,6 +70,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class QWorkspace;
 class TraceStatsDockWidget;
+class MainWinResultHandler;
 
 namespace Ui {
 	class MainWindow;
@@ -237,6 +238,7 @@ private: /* variables */
 
     DebugConfig _debugConfig;
     ProcessPtr _proc;
+    MainWinResultHandler* _resultHandler;
 
 	FunctionCallPtr _currentCall;
 

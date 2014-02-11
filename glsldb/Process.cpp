@@ -32,6 +32,7 @@ Process::Process(const DebugConfig& cfg, os_pid_t pid) :
 {
 	/* TODO check if proc is already running */
 	/* if (pid != 0) ... */
+	_cmdFactory = CommandFactoryPtr(new CommandFactory(*this));
 }
 void Process::startStatusHandler()
 {
@@ -58,12 +59,7 @@ Process::~Process()
 	UT_NOTIFY(LV_TRACE, "~Process");
     stopStatusHandler();
 }
-CommandFactory& Process::commandFactory()
-{
-	if(!_cmdFactory)
-		_cmdFactory = CommandFactoryPtr(new CommandFactory(*this));
-	return *_cmdFactory;
-}
+
 void Process::kill()
 {
 #ifdef GLSLDB_WIN

@@ -7,11 +7,13 @@
 
 #include "debuglib.h"
 #include "functionCall.h"
+#include "notify.h"
 #include <future>
 
 class Process;
-class Command
+class Command : public QObject
 {
+	Q_OBJECT
 public:
 	/* types */
 	struct Result
@@ -25,16 +27,18 @@ public:
 	typedef QSharedPointer<Command::Result> ResultPtr;
 
 public:
-	Command(Process& p, const QString& msg = _dummy) :
+	Command(Process& p, const QString& name = QString("DEFAULT")) :
 		_proc(p), 
-		_message(&msg)
+		_name(name)
 	{};
 	virtual ~Command()
-	{};
+	{
+		UT_NOTIFY(LV_TRACE, "~Command " << name().toStdString());
+	}
 
 	/* execution low level implementation */
 	virtual void operator()() = 0;
-	const QString& message() const { return *_message; }
+	const QString& name() const { return _name; }
 
 	/* these just modified the shared memory */ 
 	//void overwriteFuncArguments(FunctionCallPtr call);
@@ -47,8 +51,7 @@ public:
 	Process& process() const { return _proc; }
 protected:
 	Process& _proc;
-	static const QString _dummy;
-	const QString* _message;
+	const QString _name;
 	std::promise<ResultPtr> _result;
 
 protected:

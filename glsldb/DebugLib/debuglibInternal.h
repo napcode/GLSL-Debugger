@@ -130,7 +130,7 @@ DBGLIBLOCAL int keepExecuting(const char *calledName);
 
 DBGLIBLOCAL int checkGLErrorInExecution(void);
 
-DBGLIBLOCAL void executeDefaultDbgOperation(int op);
+DBGLIBLOCAL void executeDefaultDbgOperation(enum DBG_OPERATION op);
 
 /* work-around for external debug functions */
 /* TODO: do we need debug functions at all? */

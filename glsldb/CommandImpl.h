@@ -1,14 +1,17 @@
 #ifndef COMMANDIMPL_H
 #define COMMANDIMPL_H 1
 
-#include "Command.h"
+#include "Command.qt.h"
 #include "DebugCommand.h"
 #include "Process.qt.h"
 
-struct ExecuteCommand : public DebugCommand
+struct ExecuteCommand : public SimpleCommand
 {
-	ExecuteCommand(Process& p, bool step, bool stopOnGLError);
-	void operator()();
+	ExecuteCommand(Process& p, bool stopOnGLError);
+};
+struct StepCommand : public DebugCommand
+{
+	StepCommand(Process& p);
 };
 struct LaunchCommand : public Command
 {
@@ -22,9 +25,5 @@ struct CheckTrapCommand : public Command
 	os_pid_t _pid;
 	int _status;
 };
-struct AdvanceCommand : public Command
-{
-	AdvanceCommand(Process& p);
-	void operator()();
-};
+
 #endif

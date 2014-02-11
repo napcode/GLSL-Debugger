@@ -608,11 +608,14 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 debug_record_t *getThreadRecord(os_pid_t pid)
 {
 	int i;
-	for (i = 0; i < SHM_MAX_THREADS; i++) {
+	for (i = 0; i < SHM_MAX_THREADS; ++i) {
 		if (g.fcalls[i].threadId == 0 || g.fcalls[i].threadId == pid) {
 			break;
 		}
 	}
+	UT_NOTIFY(LV_INFO, "record %d for pid %u", i, g.fcalls[i].threadId);
+	UT_NOTIFY(LV_INFO, "sizeof threadid %u", sizeof(g.fcalls[i].threadId));
+	UT_NOTIFY(LV_INFO, "sizeof op %u", sizeof(g.fcalls[i].operation));
 	if (i == SHM_MAX_THREADS) {
 		/* TODO */
 		UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!\n");
@@ -946,7 +949,7 @@ int getDbgOperation(void)
 {
 	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
-	UT_NOTIFY(LV_INFO, "OPERATION: %li", rec->operation);
+	UT_NOTIFY(LV_INFO, "OPERATION: %u @ %p", rec->operation, rec);
 	return rec->operation;
 }
 
@@ -978,7 +981,7 @@ int keepExecuting(const char *calledName)
 {
 	os_pid_t pid = os_getpid();
 	debug_record_t *rec = getThreadRecord(pid);
-	if(rec->operation == DBG_STEP || rec->operation == DBG_STOP_EXECUTION) {
+	if(rec->operation == DBG_STOP_EXECUTION) {
 		return 0;
 	} else if (rec->operation == DBG_EXECUTE) {
 		switch (rec->items[0]) {
@@ -1014,7 +1017,7 @@ void setExecuting(void)
 	rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
 
-void executeDefaultDbgOperation(int op)
+void executeDefaultDbgOperation(enum DBG_OPERATION op)
 {
 	switch (op) {
 	/* DBG_CALL_FUNCTION, DBG_RECORD_CALL, and DBG_CALL_ORIGFUNCTION handled
