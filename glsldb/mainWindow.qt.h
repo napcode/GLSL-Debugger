@@ -181,7 +181,7 @@ private: /* methods */
 	void setGuiUpdates(bool);
 	void updateWatchGui(int s);
 
-	void addGlTraceItem(ProcessPtr p);
+	void addGlTraceItem(FunctionCallPtr p);
 	void addGlTraceErrorItem(const QString& text);
 	void addGlTraceWarningItem(const QString& text);
 	void setGlTraceItemText(const QString& text);

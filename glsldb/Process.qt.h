@@ -53,8 +53,6 @@ public:
 	 */
 	debug_record_t* debugRecord() const { return _rec; }
 
-	/* retrieve the current/last call */
-	FunctionCallPtr getCurrentCall(void);
 
 	void copyArgumentTo(void *dst, void *src, DBG_TYPE type);
 	void* copyArgumentFrom(void *addr, DBG_TYPE type);
@@ -106,6 +104,8 @@ private:
 	 */
 	void stop(bool immediately = false);
 
+	/* retrieve the current/last call */
+	FunctionCallPtr currentCall(void);
 private:
 	/* variables */
 	os_pid_t _pid;

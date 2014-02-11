@@ -24,14 +24,8 @@ DebugCommand::~DebugCommand()
 
 void DebugCommand::operator()()
 {
-	/* TODO 
-	 * currently, we overwrite the whole process record
-	 * we might want to write only the modified parts
-	 */ 
 	if(!_proc.debugRecord())
 		throw std::logic_error("No debug record");
-	//*_proc.debugRecord() = *_rec;
-	UT_NOTIFY(LV_TRACE, "DebugOp: " << _proc.debugRecord()->operation << " @ " << _proc.debugRecord());
 }
 
 SimpleCommand::SimpleCommand(Process& p,  const QString& msg) :
@@ -51,7 +45,7 @@ void SimpleCommand::operator()()
         return;
     }
 
-    ResultPtr res(new Result(true));
+    ResultPtr res(new Result);
     promise().set_value(res);
 }
 /*

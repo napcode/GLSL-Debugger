@@ -66,8 +66,7 @@ signals:
 	void runLevelChanged(RunLevel rl);
 	void error(Error e);
 	void newChild();
-	void resultAvail(CommandPtr);
-	void commandFailed(CommandPtr);
+	void resultAvailable(CommandPtr);
 private:
 	/* variables */
 	static Debugger *_instance;

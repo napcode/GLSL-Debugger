@@ -155,7 +155,7 @@ MainWindow::MainWindow(const QStringList& args)
     qRegisterMetaType<os_pid_t>("os_pid_t");
     qRegisterMetaType<CommandPtr>("CommandPtr");
 	
-	_resultHandler = new MainWinResultHandler(this);
+	_resultHandler = new MainWinResultHandler(*this, this);
     
     m_pShVarModel = NULL;
 
@@ -523,11 +523,11 @@ void MainWindow::on_tbExecute_clicked()
 	// }
 }
 
-void MainWindow::addGlTraceItem(ProcessPtr p)
+void MainWindow::addGlTraceItem(FunctionCallPtr func)
 {
-	// QIcon icon;
-	// QString iconText;
-	// GlTraceListItem::IconType iconType;
+	 QIcon icon;
+	 QString iconText;
+	 GlTraceListItem::IconType iconType = GlTraceListItem::IT_OK;
 
 	// if (_currentRunLevel == RL_TRACE_EXECUTE_NO_DEBUGABLE
 	// 		|| _currentRunLevel == RL_TRACE_EXECUTE_IS_DEBUGABLE) {
@@ -538,12 +538,12 @@ void MainWindow::addGlTraceItem(ProcessPtr p)
 	// 	iconType = GlTraceListItem::IT_EMPTY;
 	// }
 	// FunctionCallPtr func = p->getCurrentCall();
-	// _traceStatsWidget->addGlTraceItem(*func);
+	 _traceStatsWidget->addGlTraceItem(*func);
 
 	// if (_glTraceModel) {
-	// 	_glTraceModel->addGlTraceItem(iconType, func->asString());
+	_glTraceModel->addGlTraceItem(iconType, func->asString());
 	// }
-	// _ui->lvGlTrace->scrollToBottom();
+	_ui->lvGlTrace->scrollToBottom();
 }
 
 void MainWindow::addGlTraceErrorItem(const QString& text)

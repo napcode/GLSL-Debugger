@@ -603,9 +603,6 @@ debug_record_t *getThreadRecord(os_pid_t pid)
 			break;
 		}
 	}
-	UT_NOTIFY(LV_INFO, "record %d for pid %u", i, g.fcalls[i].threadId);
-	UT_NOTIFY(LV_INFO, "sizeof threadid %u", sizeof(g.fcalls[i].threadId));
-	UT_NOTIFY(LV_INFO, "sizeof op %u", sizeof(g.fcalls[i].operation));
 	if (i == SHM_MAX_THREADS) {
 		/* TODO */
 		UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!\n");
