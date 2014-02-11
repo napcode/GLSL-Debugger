@@ -112,7 +112,6 @@ include_directories(
     ${X11_INCLUDE_DIR}
 )
 
-
 add_library(glenumerants STATIC ${ENUMERANTS_SRC})
 
 add_executable(beginEndFunctionTest ${BEGINENDTEST_SRC})
@@ -121,7 +120,7 @@ target_link_libraries(beginEndFunctionTest ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
 add_library(functionList SHARED ${GENERATOR_OUTPUT_DIR}/functionList.c)
 
 add_library(glsldebug SHARED ${GLSLDEBUG_SRC})
-target_link_libraries(glsldebug utils glenumerants ${DL_LIBRARIES})
+target_link_libraries(glsldebug utils glenumerants ${DL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 add_library(dlsym SHARED ${DLSYM_SRC})
 target_link_libraries(dlsym ${DL_LIBRARIES})

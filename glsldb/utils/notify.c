@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
 
 static struct
 {
@@ -14,6 +16,7 @@ static struct
     int log_to_file;
     FILE *file;
     char filename[256];
+    pthread_mutex_t mtx;
 } utils_notify_settings = { LV_DEBUG, 0, 0, { 0 } };
 
 void output(const char* msg);
@@ -59,6 +62,10 @@ void utils_notify_startup()
 {
     if (utils_notify_settings.log_to_file)
         check_notify_file();
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&utils_notify_settings.mtx, &attr);
 }
 void utils_notify_shutdown()
 {
@@ -67,12 +74,16 @@ void utils_notify_shutdown()
         fclose(utils_notify_settings.file);
         utils_notify_settings.file = 0;
     }
+    pthread_mutex_destroy(&utils_notify_settings.mtx);
 }
 void utils_notify_va(const severity_t sev, const char *path, const char *func,
                      unsigned int line, unsigned int newline, const char *fmt, ...)
 {
-    if (sev > utils_notify_settings.level)
+    pthread_mutex_lock(&utils_notify_settings.mtx);
+    if (sev > utils_notify_settings.level) {
+        pthread_mutex_unlock(&utils_notify_settings.mtx);
         return;
+    }
 
     va_list list;
 	static char str_sev[12];
@@ -132,19 +143,23 @@ void utils_notify_va(const severity_t sev, const char *path, const char *func,
 
     snprintf(out, MAX_NOTIFY_SIZE, out_fmt, str_prfx, str_msg);
     output(out);
+    pthread_mutex_unlock(&utils_notify_settings.mtx);
 }
 
 void utils_notify_out(const char* fmt, ...)
 {
+    pthread_mutex_lock(&utils_notify_settings.mtx);
     va_list list;
     static char msg[MAX_NOTIFY_SIZE];
     va_start(list, fmt);
     vsnprintf(msg, MAX_NOTIFY_SIZE, fmt, list);
     va_end(list);
     output(msg);
+    pthread_mutex_unlock(&utils_notify_settings.mtx);
 }
 void output(const char* msg)
 {
+    pthread_mutex_lock(&utils_notify_settings.mtx);
 #ifdef GLSLDB_WINDOWS
     OutputDebugStringA(msg);
 #else
@@ -153,6 +168,7 @@ void output(const char* msg)
     else
         fprintf(stdout, msg);
 #endif
+    pthread_mutex_unlock(&utils_notify_settings.mtx);
 }
 
 const char* utils_notify_strlevel(const severity_t t)

@@ -66,7 +66,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Debugger.qt.h"
 #include "CommandImpl.h"
-#include "MainWinResultHandler.h"
+#include "MainWinResultHandler.qt.h"
 
 #include "glslSyntaxHighlighter.qt.h"
 #include "runLevel.h"
@@ -153,7 +153,9 @@ MainWindow::MainWindow(const QStringList& args)
     /* we need to register a few types for the signal/slot mechanism */
     qRegisterMetaType<Process::State>("Process::State");
     qRegisterMetaType<os_pid_t>("os_pid_t");
+    qRegisterMetaType<CommandPtr>("CommandPtr");
 	
+	_resultHandler = new MainWinResultHandler(this);
     
     m_pShVarModel = NULL;
 
@@ -472,20 +474,12 @@ void MainWindow::on_tbExecute_clicked()
 	UT_NOTIFY(LV_INFO, "Executing");
 
 	ProcessPtr p = Debugger::instance().create(_debugConfig);
+	CommandFactory& c = p->commandFactory();
 	connect(p.data(), SIGNAL(stateChanged(Process::State)), this, SLOT(debuggeeStateChanged(Process::State)), Qt::QueuedConnection);
 	connect(p.data(), SIGNAL(newChild(os_pid_t)), this, SLOT(debuggeeForked(os_pid_t)), Qt::QueuedConnection);
-	try {
-		CommandFactory& c = p->commandFactory();
-		/* we don' really care for the result */
-		c.launch()->result().get();
-	}
-	catch(std::exception& e)
-	{
-		UT_NOTIFY(LV_ERROR, e.what());
-		return;
-	}
+	/* we don' really care for the result */
+	c.launch();
 	_proc = p;
-	_proc->resultHandler(new MainWinResultHandler);
     //sleep(1);
     //_ui->statusbar->setText(Process::strState(_proc->state()).toStdString());
     //_proc->advance();
@@ -690,7 +684,7 @@ void MainWindow::on_tbStep_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
 	CommandFactory& c = _proc->commandFactory();
-	c.execute(true, true);
+	c.step();
 	// leaveDBGState();
 
 	// setRunLevel(RL_TRACE_EXECUTE_RUN);
@@ -982,7 +976,7 @@ void MainWindow::on_tbRun_clicked()
 {
 	UT_NOTIFY(LV_TRACE, "Run clicked");
 	CommandFactory& c = _proc->commandFactory();
-	c.execute(false, true);
+	c.execute(true);
 
 	//_resultHandler.addFutureResult(cmd);
     //_proc->advance();

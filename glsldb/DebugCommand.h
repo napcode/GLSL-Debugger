@@ -1,16 +1,13 @@
 #ifndef DebugCommand_H
 #define DebugCommand_H 1
 
-#include "Command.h"
+#include "Command.qt.h"
 
 class DebugCommand : public Command
 {
 public:
-	DebugCommand(Process& p, const QString& msg = _dummy);
+	DebugCommand(Process& p, const QString& msg = QString("DEFAULT_DEBUGCMD"));
 	virtual ~DebugCommand();
-
-	void debugRecord(const debug_record_t *r);
-	const debug_record_t& debugRecord() const { return *_rec; }
 
 	/* execution low level implementation */
 	virtual void operator()();
@@ -19,7 +16,14 @@ public:
 	//void overwriteFuncArguments(FunctionCallPtr call);
 protected:
 	debug_record_t *_rec;
+};
 
+class SimpleCommand : public DebugCommand
+{
+public:
+	SimpleCommand(Process& p, const QString& msg = QString("SIMPLE_DEBUGCMD"));
+	virtual ~SimpleCommand();
+	void operator()();
 };
 
 #endif

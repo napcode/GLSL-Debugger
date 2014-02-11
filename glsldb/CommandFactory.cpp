@@ -15,9 +15,15 @@ CommandPtr CommandFactory::checkTrapEvent(os_pid_t p, int s)
 	return cmd;
 }
 
-CommandPtr CommandFactory::execute(bool step, bool stopOnGLError)
+CommandPtr CommandFactory::execute(bool stopOnGLError)
 {
-	CommandPtr cmd(new ExecuteCommand(_proc, step, stopOnGLError));
+	CommandPtr cmd(new ExecuteCommand(_proc, stopOnGLError));
+	Debugger::instance().enqueue(cmd);
+	return cmd;
+}
+CommandPtr CommandFactory::step()
+{
+	CommandPtr cmd(new StepCommand(_proc));
 	Debugger::instance().enqueue(cmd);
 	return cmd;
 }

@@ -4,7 +4,7 @@
 #include <QtCore/QObject>
 
 #include "Process.qt.h"
-#include "Command.h"
+#include "Command.qt.h"
 #include <thread>
 
 class Error {
@@ -66,6 +66,8 @@ signals:
 	void runLevelChanged(RunLevel rl);
 	void error(Error e);
 	void newChild();
+	void resultAvail(CommandPtr);
+	void commandFailed(CommandPtr);
 private:
 	/* variables */
 	static Debugger *_instance;

@@ -5,27 +5,26 @@
 #include <deque>
 #include <QSharedPointer>
 
-#include "Command.h"
+#include "Command.qt.h"
 
 class ResultHandler
 {
 public:
 	virtual ~ResultHandler() {};
-	virtual void handle(FutureResult &f) = 0;
+	virtual void handle(CommandPtr c) = 0;
 };
 
-typedef std::deque<FutureResult> ResultQueue;
 class AsyncResultHandler
 {
 public:
 	AsyncResultHandler();
 	virtual ~AsyncResultHandler();
-	virtual void handle(FutureResult &f);	
-	virtual void handleSingleResult(FutureResult &f) = 0; 
+	virtual void handle(CommandPtr c);	
+	virtual void handleSingleResult(CommandPtr c) = 0; 
 protected:
 	virtual void run();
 protected:
-	ResultQueue _results;
+	CommandQueue _results;
 private:
 	bool _end;
 	std::thread *_handler;

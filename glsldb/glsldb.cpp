@@ -366,11 +366,11 @@ int main(int argc, char **argv)
 {
 	QStringList al = parseArguments(argc, argv);
 
-#ifndef GLSLDB_WINDOWS
-	// activate backtracing if log level is high enough
-	if (UTILS_NOTIFY_LEVEL(0) > LV_INFO)
-		signal(SIGSEGV, handler);
-#endif
+// #ifndef GLSLDB_WINDOWS
+// 	// activate backtracing if log level is high enough
+// 	if (UTILS_NOTIFY_LEVEL(0) > LV_INFO)
+// 		signal(SIGSEGV, handler);
+// #endif
 
 	QApplication app(argc, argv);
 

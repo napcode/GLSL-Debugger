@@ -3,6 +3,8 @@ friend class Debugger;
 friend class Command;
 friend class CheckTrapCommand;
 friend class ExecuteCommand;
+friend class StepCommand;
+friend class SimpleCommand;
 friend class LaunchCommand;
 friend class AdvanceCommand;
 friend class HaltCommand;
