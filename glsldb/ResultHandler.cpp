@@ -1,20 +1,20 @@
 #include "ResultHandler.h"
 #include "notify.h"
 
-ResultHandler::ResultHandler()
+AsyncResultHandler::AsyncResultHandler()
     : _end(false)
 {
-	_handler = new std::thread(&ResultHandler::run, this);
+	_handler = new std::thread(&AsyncResultHandler::run, this);
 }
-ResultHandler::~ResultHandler()
+AsyncResultHandler::~AsyncResultHandler()
 {
-    UT_NOTIFY(LV_TRACE, "~ResultHandler");
+    UT_NOTIFY(LV_TRACE, "~AsyncResultHandler");
 	_end = true;
     _resultCondition.notify_all();
 	_handler->join();
 	delete _handler;
 }
-void ResultHandler::addFutureResult(FutureResult &f)
+void AsyncResultHandler::handle(FutureResult &f)
 {
 	{
         std::lock_guard<std::mutex> lock(_mtx);
@@ -23,7 +23,7 @@ void ResultHandler::addFutureResult(FutureResult &f)
     }
     _resultCondition.notify_one();
 }
-void ResultHandler::run()
+void AsyncResultHandler::run()
 {
 	FutureResult res;
     std::unique_lock<std::mutex> lock(_mtx);
@@ -35,7 +35,7 @@ void ResultHandler::run()
             res = std::move(_results.front());
             UT_NOTIFY(LV_TRACE, "Result dequeued");
             _results.pop_front();
-            handle(res);
+            handleSingleResult(res);
         }
     }
 }

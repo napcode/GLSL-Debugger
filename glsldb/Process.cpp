@@ -193,7 +193,7 @@ void Process::waitForStatus(bool checkTrap)
             case SIGTRAP: 
             		if(checkTrap) {
 	            		try {
-	            			commandFactory().checkTrapEvent(pid, status).get();
+	            			commandFactory().checkTrapEvent(pid, status)->result().get();
 	            		} catch (std::exception& e) {
 	            			UT_NOTIFY(LV_INFO, e.what());
 	            		}

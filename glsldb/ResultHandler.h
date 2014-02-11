@@ -3,19 +3,27 @@
 
 #include <thread>
 #include <deque>
+#include <QSharedPointer>
 
 #include "Command.h"
 
-typedef std::deque<FutureResult> ResultQueue;
 class ResultHandler
 {
 public:
-	ResultHandler();
-	virtual ~ResultHandler();
-	void addFutureResult(FutureResult& f);
+	virtual ~ResultHandler() {};
+	virtual void handle(FutureResult &f) = 0;
+};
+
+typedef std::deque<FutureResult> ResultQueue;
+class AsyncResultHandler
+{
+public:
+	AsyncResultHandler();
+	virtual ~AsyncResultHandler();
+	virtual void handle(FutureResult &f);	
+	virtual void handleSingleResult(FutureResult &f) = 0; 
 protected:
 	virtual void run();
-	virtual void handle(FutureResult &f) = 0;	
 protected:
 	ResultQueue _results;
 private:
@@ -24,4 +32,5 @@ private:
 	std::mutex _mtx;
 	std::condition_variable _resultCondition;
 };
+typedef QSharedPointer<ResultHandler> ResultHandlerPtr;
 #endif

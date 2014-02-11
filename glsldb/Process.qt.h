@@ -10,6 +10,8 @@
 #include "DebugConfig.h"
 #include "functionCall.h"
 #include "CommandFactory.h"
+#include "ResultHandler.h"
+
 
 class Debugger;
 class CommandFactory;
@@ -70,6 +72,10 @@ public:
     bool isStopped() const { return _state == STOPPED; }
     bool isKilled() const { return _state == KILLED; }
     bool hasExited() const { return _state == EXITED; }
+	ResultHandlerPtr resultHandler() const { return _resultHandler; }
+	/* set a ResultHandler. Process takes ownership */
+	void resultHandler(ResultHandler* res) { _resultHandler = ResultHandlerPtr(res); }
+
 signals:
 	void stateChanged(Process::State s);
 	void newChild(os_pid_t p);
@@ -100,6 +106,7 @@ private:
 	 * @param immediately send SIGSTOP instead of waiting for next GLCall
 	 */
 	void stop(bool immediately = false);
+
 private:
 	/* variables */
 	os_pid_t _pid;
@@ -109,6 +116,7 @@ private:
     State _state;
     CommandFactoryPtr _cmdFactory;
     bool _end;
+    ResultHandlerPtr _resultHandler;
 };
 
 typedef QSharedPointer<Process> ProcessPtr;
