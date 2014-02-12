@@ -528,7 +528,7 @@ void MainWindow::addGlTraceItem(FunctionCallPtr func)
 	 QIcon icon;
 	 QString iconText;
 	 GlTraceListItem::IconType iconType = GlTraceListItem::IT_OK;
-
+	 UT_NOTIFY(LV_INFO, "func added");
 	// if (_currentRunLevel == RL_TRACE_EXECUTE_NO_DEBUGABLE
 	// 		|| _currentRunLevel == RL_TRACE_EXECUTE_IS_DEBUGABLE) {
 	// 	iconType = GlTraceListItem::IT_ACTUAL;

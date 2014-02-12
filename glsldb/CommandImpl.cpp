@@ -1,4 +1,5 @@
 #include "CommandImpl.h"
+#include "Debugger.qt.h"
 #include <exception>
 
 ExecuteCommand::ExecuteCommand(Process &p, bool stopOnGLError)
@@ -9,7 +10,7 @@ ExecuteCommand::ExecuteCommand(Process &p, bool stopOnGLError)
     _rec->items[1] = stopOnGLError ? 1 : 0;
 }
 
-StepCommand::StepCommand(Process &p)
+StepCommand::StepCommand(Process &p, bool trace, bool stopOnGLError)
     : DebugCommand(p, "DBG_EXECUTE_STOP")
 {
     _rec->operation = DBG_STOP_EXECUTION;
@@ -20,8 +21,11 @@ void StepCommand::operator()()
         DebugCommand::operator()();
         process().advance();
         process().waitForStatus();
+        /* FIXME evaluate error code then */
         if(_rec->result != DBG_FUNCTION_CALL)
-			throw std::logic_error("Result is not a function call");		
+			throw std::logic_error("Result is not a function call");
+        Debugger& dbg = Debugger::instance();
+        emit dbg.resultAvailable(CommandPtr(this));
     }
     catch(...) {
         promise().set_exception(std::current_exception());
