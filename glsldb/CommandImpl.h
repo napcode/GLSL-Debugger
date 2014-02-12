@@ -20,7 +20,7 @@ struct StepCommand : public DebugCommand
 		virtual ~Result() {};
 		FunctionCallPtr functionCall;
 	};
-	StepCommand(Process& p);
+	StepCommand(Process& p, bool trace = true, bool stopOnGlError = true);
 	void operator()();
 };
 struct LaunchCommand : public Command

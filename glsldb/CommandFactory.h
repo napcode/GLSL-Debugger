@@ -5,6 +5,7 @@
 #include <QSharedPointer>
 
 #include "Command.qt.h"
+#include "functionCall.h"
 
 class DebugConfig;
 class CommandFactory
@@ -19,7 +20,10 @@ public:
 
 	/* DebugCommands */
 	CommandPtr execute(bool stopOnGLError);
-	CommandPtr step();
+	CommandPtr step(bool trace = true);
+	CommandPtr stepToDrawCall(bool trace = true, bool stopOnGlError = true);
+	CommandPtr stepToShaderSwitch(bool trace = true, bool stopOnGlError = true);
+	CommandPtr stepToUserDefined(FunctionCallPtr func, bool trace = true, bool stopOnGlError = true);
 	
 		/* these commands need to CONT the process in order to be effectual*/
 	/*void dbgExecute(bool stopOnGLError);

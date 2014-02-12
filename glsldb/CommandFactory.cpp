@@ -21,9 +21,9 @@ CommandPtr CommandFactory::execute(bool stopOnGLError)
 	Debugger::instance().enqueue(cmd);
 	return cmd;
 }
-CommandPtr CommandFactory::step()
+CommandPtr CommandFactory::step(bool trace)
 {
-	CommandPtr cmd(new StepCommand(_proc));
+	CommandPtr cmd(new StepCommand(_proc, trace));
 	Debugger::instance().enqueue(cmd);
 	return cmd;
 }
