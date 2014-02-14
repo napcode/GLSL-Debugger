@@ -3,7 +3,7 @@ add_subdirectory(DebugFunctions)
 add_subdirectory(utils)
 
 set(QT_MIN_VERSION 4.4.0)
-find_package(Qt4 REQUIRED COMPONENTS QtCore QtGui QtOpenGL)
+find_package(Qt4 REQUIRED COMPONENTS QtCore QtNetwork QtGui QtOpenGL)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 

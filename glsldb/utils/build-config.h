@@ -4,6 +4,7 @@
 #define MAX_NOTIFY_SIZE 512
 #define MAX_BACKTRACE_DEPTH 100
 #define MEM_ALIGNMENT 8
+#define SERVER_PORT 60123
 
 #ifdef GLSLDB_WIN
 #define DEBUGLIB "\\debuglib.dll"

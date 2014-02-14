@@ -11,6 +11,7 @@
 #include "functionCall.h"
 #include "CommandFactory.h"
 #include "ResultHandler.h"
+#include "Connection.h"
 
 
 class Debugger;
@@ -106,9 +107,14 @@ private:
 
 	/* retrieve the current/last call */
 	FunctionCallPtr currentCall(void);
+
+	bool connected() const { return !_connection ? false : true; }
+	void connection(ConnectionPtr c) { _connection = c; }
+	ConnectionPtr connection() const { return _connection; }
 private:
 	/* variables */
 	os_pid_t _pid;
+	ConnectionPtr _connection;
 	debug_record_t *_rec;
     std::thread *_statusHandler;
     DebugConfig _debugConfig;

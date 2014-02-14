@@ -1,0 +1,59 @@
+function hooks:
+
+struct state {
+	mode = UNATTENDED;
+	tracing = true;
+}
+
+glFunc()
+{
+	call = create_call();
+	if(tracing)
+		write_to_history(call);
+	if(debugger_available()) {
+		send_to_debugger(call);
+		if(execution_target_reached())
+			mode == ATTENDED;
+		// immediate return if no message available
+		// might change state of debuglib
+		check_for_debugger_messages();
+	}
+	if(mode == UNATTENDED) {
+		/* no debugger -> we're done */
+		call_original(glFunc);
+		return;
+	}
+	else {
+		handle_debugger();
+	}
+}
+
+handle_debugger()
+{
+	while(true) {
+		/* read message from FIFO */
+		command = get_debugger_command()
+		switch(command)
+			case CALL:
+				/* call current function and return result 
+				 * OK or glGetError */
+			case CALL_FUNCTION:
+				/* retrieve function from debugger and 
+				 * call it (debug plugins) 
+				 */
+			case READ_MEM:
+				/* read & send memory to debugger */
+			case WRITE_MEM:
+				/* write msg from debugger to mem */
+			case READ_RENDER_BUFFER:
+				/* read & send renderbuffer to debugger */
+			case WRITE_RENDER_BUFFER:
+				/* write msg from debugger to renderbuffer */
+			case SET_CONFIG:
+				/* sets params in state */
+			case GET_CONFIG:
+				/* get params in state */
+			case PROCEED:
+				break;
+	}
+}

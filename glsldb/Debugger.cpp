@@ -5,6 +5,7 @@
 
 #include "build-config.h"
 #include "os/os.h"
+#include "proto/command.h"
 #ifndef GSLDLB_WIN
 #	include <unistd.h>
 #	include <sys/shm.h>
@@ -62,7 +63,19 @@ void Debugger::init()
 	clearSharedMem();
     setEnvironmentVars();
     _end = false;
+    if(!_server.listen(QHostAddress::Any, SERVER_PORT))
+    	throw std::runtime_error("Unable to start server on port " + SERVER_PORT);
+    connect(&_server, SIGNAL(newConnection()), this, SLOT(newDebuggeeConnection()));
     _worker = new std::thread(&Debugger::run, this);
+}
+void Debugger::newDebuggeeConnection()
+{
+	ConnectionPtr c(new Connection(_server.nextPendingConnection()));
+	cmd_announce_t t;
+	c->send(t);
+	for(auto &p : _processes) {
+	}
+	UT_NOTIFY(LV_ERROR, "No process accepted the new connection");
 }
 void Debugger::shutdown()
 {

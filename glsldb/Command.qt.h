@@ -47,8 +47,6 @@ public:
 	//void queryResult();
 	Process& process() const { return _proc; }
 
-signals:
-	void resultAvailable(CommandPtr);
 protected:
 	Process& _proc;
 	const QString _name;

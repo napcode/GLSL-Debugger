@@ -2,22 +2,11 @@
 #define DEBUGGER_H 1
 
 #include <QtCore/QObject>
+#include <QtNetwork/QTcpServer>
 
 #include "Process.qt.h"
 #include "Command.qt.h"
 #include <thread>
-
-class Error {
-	/* Error class describing error msg, error code
-	 * and debuggee information (or whether it comes from 
-	 * the debugger itself)
-	 */
-	public:
-		//origin();
-		//pid();
-		//message();
-		//code();
-};
 
 class Debugger : public QObject
 {
@@ -64,12 +53,12 @@ public slots:
 signals:
 	void message(const QString& msg);
 	void runLevelChanged(RunLevel rl);
-	void error(Error e);
 	void newChild();
 	void resultAvailable(CommandPtr);
 private:
 	/* variables */
 	static Debugger *_instance;
+	QTcpServer _server;
 	int _shmID;
 	ProcessList _processes;
 	RunLevel _runLevel;
@@ -92,6 +81,8 @@ private:
 	HANDLE _hShMem;
 #endif
 
+private slots:
+	void newDebuggeeConnection();
 private:
 	/* methods */
 	Debugger();

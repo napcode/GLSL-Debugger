@@ -24,8 +24,6 @@ void StepCommand::operator()()
         /* FIXME evaluate error code then */
         if(_rec->result != DBG_FUNCTION_CALL)
 			throw std::logic_error("Result is not a function call");
-        Debugger& dbg = Debugger::instance();
-        emit dbg.resultAvailable(CommandPtr(this));
     }
     catch(...) {
         promise().set_exception(std::current_exception());
