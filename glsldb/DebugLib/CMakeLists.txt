@@ -57,6 +57,7 @@ set(GLSLDEBUG_SRC
 	postExecution.c
 	${GLSLDEBUG_OS_SRC}
 	${GLSLDEBUG_GEN_SRC}
+    socket.c
 )
 
 

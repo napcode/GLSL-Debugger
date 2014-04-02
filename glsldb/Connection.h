@@ -3,17 +3,17 @@
 
 #include <QtNetwork/QTcpSocket>
 #include <QtCore/QSharedPointer>
-#include "proto/command.h"
+#include "glsldebug/glsldebug.h"
 
 typedef QSharedPointer<QTcpSocket> TcpSocketPtr;
+
 
 class Connection
 {
 public:
 	Connection(QTcpSocket *s);
 	~Connection();
-
-	void send(cmd_announce_t& t) {};
+	void send(msg_request_t& t);
  
 private:
 	TcpSocketPtr _socket;

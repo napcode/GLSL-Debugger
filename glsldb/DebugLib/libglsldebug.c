@@ -71,6 +71,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../utils/hash.h"
 #include "../utils/notify.h"
 #include "../utils/types.h"
+#include "../utils/build-config.h"
 #include "glenumerants.h"
 #include "debuglib.h"
 #include "debuglibInternal.h"
@@ -82,6 +83,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "shader.h"
 #include "initLib.h"
 #include "queries.h"
+#include "socket.h"
 
 #ifdef _WIN32
 #  define LIBGL "opengl32.dll"
@@ -115,6 +117,7 @@ static struct {
 	debug_function_t *dbgFunctions;
 	int numDbgFunctions;
 	Hash origFunctions;
+	socket_t *socket;
 } g = {
 	0, /* initialized */
 #ifdef USE_DLSYM_HARDCODED_LIB
@@ -128,7 +131,8 @@ static struct {
 		0,
 		NULL,
 		NULL,
-		NULL } /* origFunctions */
+		NULL },  /* origFunctions */
+	NULL
 };
 #else /* _WIN32 */
 static struct {
@@ -528,6 +532,12 @@ void __attribute__ ((constructor)) debuglib_init(void)
 		exit(1);
 	}
 #endif
+	sck_begin();
+	socket_t *s = sck_create("127.0.0.1", SERVER_PORT, SCK_INET, SCK_STREAM);
+	if(sck_connect(s) == 0) {
+		g.socket = s;
+		UT_NOTIFY(LV_INFO, "Debugger connection established");
+	} 
 
 	/* attach to shared mem segment */
 	g.fcalls = shmat(getShmid(), NULL, 0);

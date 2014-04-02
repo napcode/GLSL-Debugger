@@ -7,11 +7,15 @@ struct state {
 
 glFunc()
 {
+	// create a data structure representing the function call
 	call = create_call();
 	if(tracing)
+		// add the call to the history
 		write_to_history(call);
 	if(debugger_available()) {
+		// send the call to the debugger 
 		send_to_debugger(call);
+		// we've reached the call target so let debugger take control
 		if(execution_target_reached())
 			mode == ATTENDED;
 		// immediate return if no message available
@@ -19,7 +23,7 @@ glFunc()
 		check_for_debugger_messages();
 	}
 	if(mode == UNATTENDED) {
-		/* no debugger -> we're done */
+		// no debugger -> call the GL function & we're done
 		call_original(glFunc);
 		return;
 	}
@@ -31,7 +35,10 @@ glFunc()
 handle_debugger()
 {
 	while(true) {
-		/* read message from FIFO */
+		/* read message from SOCKET */
+		/* only looks at header. function calls shall read the msg body 
+		 * if neccessary
+		 */
 		command = get_debugger_command()
 		switch(command)
 			case CALL:

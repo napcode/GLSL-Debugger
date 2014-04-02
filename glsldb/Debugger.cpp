@@ -5,7 +5,7 @@
 
 #include "build-config.h"
 #include "os/os.h"
-#include "proto/command.h"
+#include "glsldebug/glsldebug.h"
 #ifndef GSLDLB_WIN
 #	include <unistd.h>
 #	include <sys/shm.h>
@@ -71,8 +71,8 @@ void Debugger::init()
 void Debugger::newDebuggeeConnection()
 {
 	ConnectionPtr c(new Connection(_server.nextPendingConnection()));
-	cmd_announce_t t;
-	c->send(t);
+	msg_request_t msg = {MSG_ANNOUNCE};
+	c->send(msg);
 	for(auto &p : _processes) {
 	}
 	UT_NOTIFY(LV_ERROR, "No process accepted the new connection");
