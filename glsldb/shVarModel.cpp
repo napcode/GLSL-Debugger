@@ -37,7 +37,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtCore/QEventLoop>
 #include <QtCore/QStack>
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 #ifdef _WIN32
 #include <windows.h>

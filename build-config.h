@@ -2,9 +2,11 @@
 #define BUILD_CONFIG_H
 
 #define MAX_NOTIFY_SIZE 512
+#define MAX_MESSAGE_SIZE 1024
 #define MAX_BACKTRACE_DEPTH 100
 #define MEM_ALIGNMENT 8
-#define SERVER_PORT 60123
+#define DEFAULT_SERVER_PORT_TCP 60123
+#define DEFAULT_SERVER_PORT_UNIX "/tmp/glsldb-unix-sck"
 
 #ifdef GLSLDB_WIN
 #define DEBUGLIB "\\debuglib.dll"

@@ -5,9 +5,9 @@
 #include <QtCore/QQueue>
 #include <QtCore/QSharedPointer>
 
-#include "debuglib.h"
-#include "functionCall.h"
-#include "notify.h"
+#include "DebugLib/debuglib.h"
+#include "FunctionCall.h"
+#include "utils/notify.h"
 #include <future>
 
 class Process;

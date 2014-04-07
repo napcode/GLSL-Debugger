@@ -45,7 +45,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QtCore/QVariant>
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 #ifdef _WIN32
 /*

@@ -2,10 +2,10 @@
 #define COMMANDFACTORY_H 1
 
 #include <future>
-#include <QSharedPointer>
+#include <QtCore/QSharedPointer>
 
 #include "Command.qt.h"
-#include "functionCall.h"
+#include "FunctionCall.h"
 
 class DebugConfig;
 class CommandFactory

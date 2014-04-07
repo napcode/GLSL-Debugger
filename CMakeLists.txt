@@ -114,8 +114,23 @@ else()
 	add_subdirectory(GLSLCompiler)
 endif()
 
-add_subdirectory(glsldb)
+set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
+set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 
+# GLSL compiler
+add_subdirectory(GLSLCompiler)
+# utility library
+add_subdirectory(utils)
+# debugging library
+add_subdirectory(DebugLib)
+# debug functions
+add_subdirectory(DebugFunctions)
+# debugger client library
+add_subdirectory(client)
+# debugger CLI
+add_subdirectory(client/cli)
+# debugger GUI (change to client/gui)
+add_subdirectory(glsldb)
 
 if(GLSLDB_WIN)
 	add_subdirectory(3rdparty/mhook)

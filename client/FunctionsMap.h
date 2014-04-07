@@ -1,9 +1,9 @@
 #ifndef FUNCTIONSMAP_H
 #define FUNCTIONSMAP_H
 
-#include <QString>
-#include <QHash>
-#include "debuglib.h"
+#include <QtCore/QString>
+#include <QtCore/QHash>
+#include "DebugLib/debuglib.h"
 
 typedef QHash<QString, gl_func_t*> GLFunctionsMap;
 

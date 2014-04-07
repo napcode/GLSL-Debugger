@@ -43,7 +43,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 
 #include "common.h"
-#include "../os/os.h"
+#include "os/os.h"
 
 /* copy <size> bytes from address <src> in context of process <pid> to local
  * address <dst>

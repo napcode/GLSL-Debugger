@@ -43,7 +43,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 
 #include <stdint.h>
-#include "os/os.h"
+#include "utils/os/os.h"
 
 enum DBG_ERROR_CODE {
 	DBG_NO_ERROR = 0,

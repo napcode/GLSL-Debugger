@@ -1,5 +1,8 @@
 #include "FunctionsMap.h"
-#include "notify.h"
+#include "utils/notify.h"
+
+#include "DebugLib/generated/functionList.c"
+
 FunctionsMap* FunctionsMap::_instance = 0;
 
 FunctionsMap& FunctionsMap::instance()

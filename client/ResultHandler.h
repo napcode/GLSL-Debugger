@@ -3,7 +3,7 @@
 
 #include <thread>
 #include <deque>
-#include <QSharedPointer>
+#include <QtCore/QSharedPointer>
 
 #include "Command.qt.h"
 

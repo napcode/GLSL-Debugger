@@ -51,7 +51,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "shVarModel.qt.h"
 #include "errorCodes.h"
 #include "runLevel.h"
-#include "functionCall.h"
+#include "client/FunctionCall.h"
 #include "pixelBox.qt.h"
 #include "loopDialog.qt.h"
 #include "loopData.qt.h"
@@ -62,8 +62,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "glTraceListModel.qt.h"
 #include "glTraceSettingsDialog.qt.h"
 
-#include "DebugConfig.h"
-#include "Process.qt.h"
+#include "client/DebugConfig.h"
+#include "client/Process.qt.h"
 
 #include <QtGui/QScrollArea>
 #include <QtCore/QStack>

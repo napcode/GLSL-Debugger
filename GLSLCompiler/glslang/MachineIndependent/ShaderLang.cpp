@@ -38,7 +38,7 @@
 //
 #include "SymbolTable.h"
 #include "ParseHelper.h"
-#include "../glsldb/utils/dbgprint.h"
+#include "utils/dbgprint.h"
 #include "../Include/ShHandle.h"
 #include "InitializeDll.h"
 

@@ -1,5 +1,5 @@
-#include "ResultHandler.h"
-#include "notify.h"
+#include "client/ResultHandler.h"
+#include "utils/notify.h"
 
 AsyncResultHandler::AsyncResultHandler()
     : _end(false)

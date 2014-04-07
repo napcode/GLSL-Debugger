@@ -35,7 +35,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <float.h>
 
 #include "vertexBox.qt.h"
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 VertexBox::VertexBox(QObject *i_qParent) :
 		QObject(i_qParent)

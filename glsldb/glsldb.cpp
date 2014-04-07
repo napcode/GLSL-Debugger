@@ -49,16 +49,16 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtGui/QApplication>
 #include <QtCore/QStringList>
 #include "mainWindow.qt.h"
-#include "notify.h"
+#include "utils/notify.h"
+#include "client/FunctionsMap.h"
 #include "build-config.h"
-#include "FunctionsMap.h"
 
 extern "C" {
-  #include "GL/gl.h"
-  #include "GL/glext.h"
-  #include "debuglib.h"
-  #include "DebugLib/glenumerants.h"
-  #include "utils/p2pcopy.h"
+#include "GL/gl.h"
+#include "GL/glext.h"
+#include "DebugLib/debuglib.h"
+#include "utils/glenumerants.h"
+#include "utils/p2pcopy.h"
 }
 /*
 static struct {

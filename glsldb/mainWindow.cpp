@@ -64,13 +64,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "aboutBox.qt.h"
 #include "TraceStatsDockWidget.h"
 
-#include "Debugger.qt.h"
-#include "CommandImpl.h"
+#include "client/Debugger.qt.h"
+#include "client/CommandImpl.h"
 #include "MainWinResultHandler.qt.h"
 
 #include "glslSyntaxHighlighter.qt.h"
 #include "runLevel.h"
-#include "debuglib.h"
+#include "DebugLib/debuglib.h"
 #include "utils/dbgprint.h"
 #include "utils/notify.h"
 

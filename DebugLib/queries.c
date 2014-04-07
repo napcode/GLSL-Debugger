@@ -42,8 +42,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debuglib.h"
 #include "debuglibInternal.h"
 #include "queries.h"
-#include "glenumerants.h"
-#include "dbgprint.h"
+#include "utils/glenumerants.h"
+#include "utils/dbgprint.h"
 
 #ifdef _WIN32
 #include "generated/trampolines.h"

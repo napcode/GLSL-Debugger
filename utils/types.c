@@ -1,6 +1,6 @@
 #include "types.h"
 #include "notify.h"
-#include "../DebugLib/glenumerants.h"
+#include "glenumerants.h"
 #include "../GL/gl.h"
 
 size_t sizeof_dbg_type(enum DBG_TYPE d)

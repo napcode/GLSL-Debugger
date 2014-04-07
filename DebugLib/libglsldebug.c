@@ -57,22 +57,23 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <dirent.h>
 #endif /* _WIN32 */
 
-#include "../GL/gl.h"
+#include "GL/gl.h"
 //#include "../GL/glext.h"
 #ifndef _WIN32
 //#include "../GL/glx.h"
 #else /* _WIN32 */
+
 #include "../GL/WinGDI.h"
 #include "../GL/wglext.h"
 #include "generated/trampolines.h"
 #endif /* !_WIN32 */
 
-#include "../utils/dlutils.h"
-#include "../utils/hash.h"
-#include "../utils/notify.h"
-#include "../utils/types.h"
-#include "../utils/build-config.h"
-#include "glenumerants.h"
+#include "utils/dlutils.h"
+#include "utils/hash.h"
+#include "utils/notify.h"
+#include "utils/types.h"
+#include "build-config.h"
+#include "utils/glenumerants.h"
 #include "debuglib.h"
 #include "debuglibInternal.h"
 #include "glstate.h"
@@ -83,7 +84,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "shader.h"
 #include "initLib.h"
 #include "queries.h"
-#include "socket.h"
+#include "utils/socket.h"
+#include "utils/server.h"
+#include "utils/queue.h"
+#include "proto/protocol.h"
 
 #ifdef _WIN32
 #  define LIBGL "opengl32.dll"
@@ -157,6 +161,7 @@ static struct {
 /* global data */
 DBGLIBLOCAL Globals G;
 
+static int new_connection_callback(socket_t *s);
 
 #ifndef _WIN32
 static int getShmid()
@@ -507,7 +512,7 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 		break;
 
 		case DLL_PROCESS_DETACH:
-		UT_NOTIFY(LV_INFO, "DLL_PROCESS_DETACH\n");
+		UT_NOTIFY(LV_INFO, "DLL_PROCESS_DETACH");
 		EnterCriticalSection(&G.lock);
 		retval = uninitialiseDll();
 		DeleteCriticalSection(&G.lock);
@@ -528,25 +533,50 @@ void __attribute__ ((constructor)) debuglib_init(void)
 
 #ifdef USE_DLSYM_HARDCODED_LIB
 	if (!(g.libgl = openLibrary(LIBGL))) {
-		UT_NOTIFY(LV_ERROR, "Error opening OpenGL library\n");
+		UT_NOTIFY(LV_ERROR, "Error opening OpenGL library");
 		exit(1);
 	}
 #endif
-	sck_begin();
-	socket_t *s = sck_create("127.0.0.1", SERVER_PORT, SCK_INET, SCK_STREAM);
-	if(sck_connect(s) == 0) {
-		g.socket = s;
-		UT_NOTIFY(LV_INFO, "Debugger connection established");
-	} 
+    // create debugger listener
+    {
+   		char *comm = getenv("GLSL_DEBUGGER_COMM");
+   		char *strport = getenv("GLSL_DEBUGGER_PORT");
+		if (comm && strcmp(comm, "tcp") == 0) {
+   			int port = (strport == NULL) ? DEFAULT_SERVER_PORT_TCP : atoi(strport);
+    		cn_acceptor_start_tcp(port, new_connection_callback);
+    		UT_NOTIFY(LV_INFO, "Server uses TCP and port %d", port);
+    	}
+    	else if (comm && strcmp(comm, "unix") == 0) {
+    		char* port = (strport == NULL) ? DEFAULT_SERVER_PORT_UNIX : strport;
+    		cn_acceptor_start_unix(port, new_connection_callback);
+    		UT_NOTIFY(LV_INFO, "Server uses Unix domain sockets. Socket is %s", port);
+    	}
+    	else {
+    		cn_acceptor_start_tcp(DEFAULT_SERVER_PORT_TCP, new_connection_callback);
+    		UT_NOTIFY(LV_INFO, "TCP Server started on port %d", DEFAULT_SERVER_PORT_TCP);
+    	}
+	}
 
 	/* attach to shared mem segment */
-	g.fcalls = shmat(getShmid(), NULL, 0);
-	if ((long)g.fcalls == -1) {
-		UT_NOTIFY(LV_ERROR, "Could not attach to shared memory segment: %s\n", strerror(errno));
-		exit(1);
+	//g.fcalls = shmat(getShmid(), NULL, 0);
+	//if ((long)g.fcalls == -1) {
+	//	UT_NOTIFY(LV_ERROR, "Could not attach to shared memory segment: %s\n", strerror(errno));
+	//	exit(1);
+	//}
+	// for now:
+	g.fcalls = malloc(sizeof(debug_record_t));
+	if(getenv("GLSL_DEBUGGER_RUN")) {
+		g.fcalls ->operation = DBG_EXECUTE;
+		g.fcalls ->items[0] = DBG_EXECUTE_RUN;
+	} 
+	else {
+		g.fcalls->operation = DBG_STOP_EXECUTION;
 	}
 
 	pthread_mutex_init(&G.lock, NULL);
+	pthread_cond_init(&G.cond, NULL);
+	
+	G.cmdqueue = queue_create();
 
 	hash_create(&g.origFunctions, hashString, compString, 512, 0);
 
@@ -563,7 +593,7 @@ void __attribute__ ((constructor)) debuglib_init(void)
 				(void (*(*)(const GLubyte*))(void)) g.origdlsym(g.libgl,
 						"glXGetProcAddressARB");
 		if (!G.origGlXGetProcAddress) {
-			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
+			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress");
 			exit(1);
 		}
 	}
@@ -575,7 +605,7 @@ void __attribute__ ((constructor)) debuglib_init(void)
 	if (!G.origGlXGetProcAddress) {
 		G.origGlXGetProcAddress = g.origdlsym(RTLD_NEXT, "glXGetProcAddressARB");
 		if (!G.origGlXGetProcAddress) {
-			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress\n");
+			UT_NOTIFY(LV_ERROR, "Hmm, cannot resolve glXGetProcAddress");
 			exit(1);
 		}
 	}
@@ -593,7 +623,8 @@ void __attribute__ ((constructor)) debuglib_init(void)
 void __attribute__ ((destructor)) debuglib_fini(void)
 {
 	/* detach shared mem segment */
-	shmdt(g.fcalls);
+	//shmdt(g.fcalls);
+	cn_acceptor_stop();
 
 #ifdef USE_DLSYM_HARDCODED_LIB
 	if (g.libgl) {
@@ -625,7 +656,7 @@ debug_record_t *getThreadRecord(os_pid_t pid)
 	}
 	if (i == SHM_MAX_THREADS) {
 		/* TODO */
-		UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!\n");
+		UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!");
 		exit(1);
 	}
 	return &g.fcalls[i];
@@ -751,6 +782,7 @@ void storeResultOrError(unsigned int error, void *result, int type)
 	}
 }
 
+/*
 void stop(void)
 {
 	UT_NOTIFY(LV_DEBUG, "RAISED STOP");
@@ -764,9 +796,17 @@ void stop(void)
 	} else {
 		UT_NOTIFY(LV_INFO, "continued...");
 	}
-#else /* _WIN32 */
+#else // _WIN32 
 	raise(SIGSTOP);
-#endif /* _WIN32 */
+#endif // _WIN32 
+}
+*/
+void stop(void)
+{
+ 	pthread_mutex_lock(&G.lock);
+    while (queue_empty(G.cmdqueue))
+        pthread_cond_wait(&G.cond, &G.lock);
+    pthread_mutex_unlock(&G.lock);
 }
 
 static void startRecording(void)
@@ -1285,3 +1325,42 @@ void *dlsym(void *handle, const char *symbol)
 }
 #endif
 
+static int new_connection_callback(socket_t *s) 
+{
+	UT_NOTIFY(LV_INFO, "New connection request");
+
+	MsgAnnounce *msg;
+    static uint8_t buf[MAX_MESSAGE_SIZE];
+    size_t num_bytes;
+    if ((num_bytes = sck_recv(s, buf, MAX_MESSAGE_SIZE) ) <= 0) {
+        UT_NOTIFY(LV_ERROR, "could not read message");
+        return -1;
+    }
+    if ((msg = msg_announce__unpack(NULL, num_bytes, buf)) == NULL) {
+        UT_NOTIFY(LV_ERROR, "could not unpack announce message");
+        return -1;
+    }
+    UT_NOTIFY(LV_INFO, "announce");
+    if (msg->id != PROTO_ID) {
+        UT_NOTIFY(LV_ERROR, "erroneous announcement received");
+        msg_announce__free_unpacked(msg, NULL);
+        return -1;
+    }
+    UT_NOTIFY(LV_INFO, "checking version");
+    MsgVersion *version = msg->version;
+    if (version->major != PROTO_MAJOR || version->minor != PROTO_MINOR) {
+        UT_NOTIFY(LV_ERROR, "version mismatch");
+	 	num_bytes = proto_get_announce_response(buf, 0, "version mismatch");
+	} 
+	else {
+	 	num_bytes = proto_get_announce_response(buf, 1, "welcome");
+	}
+    msg_announce__free_unpacked(msg, NULL);
+    if ((num_bytes = sck_send(s, buf, num_bytes) ) == -1) {
+        UT_NOTIFY(LV_ERROR, "unable to send announce response");
+	    return -1;
+    }
+	UT_NOTIFY(LV_INFO, "sending %d bytes response", num_bytes);
+	UT_NOTIFY(LV_INFO, "New connection accepted");
+    return 0;
+}

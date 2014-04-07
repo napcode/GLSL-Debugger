@@ -1,7 +1,3 @@
-add_subdirectory(DebugLib)
-add_subdirectory(DebugFunctions)
-add_subdirectory(utils)
-
 set(QT_MIN_VERSION 4.4.0)
 find_package(Qt4 REQUIRED COMPONENTS QtCore QtNetwork QtGui QtOpenGL)
 find_package(OpenGL REQUIRED)
@@ -76,6 +72,7 @@ target_link_libraries(glsldb
 	glenumerants
 	functionList
 	utils
+    client
 	${QT_LIBRARIES}
 	${OPENGL_LIBRARIES}
 	${GLEW_LIBRARIES}

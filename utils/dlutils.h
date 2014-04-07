@@ -35,7 +35,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _DLUTILS_H
 
 #include "common.h"
-#include "../os/os.h"
+#include "os/os.h"
 
 
 UTILSLOCAL os_LibraryHandle_t openLibrary(const char *library);

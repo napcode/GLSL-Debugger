@@ -38,6 +38,8 @@ namespace os
 	#define os_getpid GetCurrentProcessId
 	#define os_dlclose FreeLibrary
 	#define os_dlsym GetProcAddress
+	#define os_write _write
+	#define os_read _read
 #else /* GLSLDB_WIN */
 	/* defines */
 	#define OS_PATH_SEPARATOR "/"
@@ -46,6 +48,8 @@ namespace os
 	#define os_getpid getpid
 	#define os_dlclose dlclose
 	#define os_dlsym dlsym
+	#define os_write write
+	#define os_read read
 #endif /* GLSLDB_WIN */
 
 

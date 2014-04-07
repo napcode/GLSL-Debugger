@@ -36,7 +36,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mappings.h"
 #include "glScatter.qt.h"
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 static void clearData(float *data, int count, int dataStride, float clearValue)
 {

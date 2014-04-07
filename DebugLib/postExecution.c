@@ -32,7 +32,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
 #include "postExecution.h"
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 #include "queries.h"
 
 extern Globals G;

@@ -37,10 +37,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "watchGeoDataTree.qt.h"
 #include "geoShaderDataModel.qt.h"
 #include "mappings.h"
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 extern "C" {
-#include "DebugLib/glenumerants.h"
+#include "utils/glenumerants.h"
 }
 
 

@@ -1,6 +1,6 @@
 #include "TraceStatsDockWidget.h"
 #include "glCallStatistics.qt.h"
-#include "functionCall.h"
+#include "client/FunctionCall.h"
 #include "ui_TraceStatsDockWidget.h"
 
 #include <iostream>

@@ -34,10 +34,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _FUNCTION_CALL_H_
 #define _FUNCTION_CALL_H_
 
-#include <QString>
+#include <QtCore/QString>
 
 #include "FunctionArgument.h"
-#include <QSharedPointer>
+#include <QtCore/QSharedPointer>
 
 class FunctionCall {
 public:

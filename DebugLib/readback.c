@@ -44,9 +44,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "readback.h"
 #include "glstate.h"
 #include "shader.h"
-#include "glenumerants.h"
-#include "dbgprint.h"
-#include "pfm.h"
+#include "utils/glenumerants.h"
+#include "utils/dbgprint.h"
+#include "utils/pfm.h"
 
 #ifdef _WIN32
 #include "generated/trampolines.h"

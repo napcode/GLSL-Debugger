@@ -1,6 +1,6 @@
 #include "notify.h"
 #include "build-config.h"
-#include "../os/os.h"
+#include "os/os.h"
 
 #include <stdio.h>
 #include <stdarg.h>

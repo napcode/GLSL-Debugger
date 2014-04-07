@@ -4,7 +4,7 @@
 #include "Command.qt.h"
 #include "DebugCommand.h"
 #include "Process.qt.h"
-#include "functionCall.h"
+#include "FunctionCall.h"
 
 struct ExecuteCommand : public SimpleCommand
 {

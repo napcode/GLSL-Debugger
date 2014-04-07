@@ -11,10 +11,6 @@
 #include <cassert>
 #include <exception>
 
-extern "C" {
-#include "utils/p2pcopy.h"
-}
-
 Process::Process() : 
 	_pid(0),
 	_rec(nullptr), 
@@ -588,14 +584,14 @@ bool Process::isAlive(void)
 void* Process::copyArgumentFrom(void *addr, DBG_TYPE type)
 {
 	void *r = NULL;
-	r = malloc(sizeof_dbg_type(type));
-	cpyFromProcess(_pid, r, addr, sizeof_dbg_type(type));
+	//r = malloc(sizeof_dbg_type(type));
+	//cpyFromProcess(_pid, r, addr, sizeof_dbg_type(type));
 	return r;
 }
 
 void Process::copyArgumentTo(void *dst, void *src, DBG_TYPE type)
 {
-	cpyToProcess(_pid, dst, src, sizeof_dbg_type(type));
+	//cpyToProcess(_pid, dst, src, sizeof_dbg_type(type));
 }
 
 void Process::state(State s)

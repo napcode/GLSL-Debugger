@@ -38,8 +38,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 
 #define DBGLIB_EXTERNAL
-#include "../DebugLib/debuglib.h"
-#include "../DebugLib/debuglibInternal.h"
+#include "DebugLib/debuglib.h"
+#include "DebugLib/debuglibInternal.h"
 #include "GL/gl.h"
 #include "GL/glext.h"
 //typedef GLint GLfixed;
@@ -51,7 +51,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef _WIN32
 #include "GL/wglext.h"
 #include "GL/WinGDI.h"
-#include "../DebugLib/generated/trampolines.h"
+#include "DebugLib/generated/trampolines.h"
 #endif /* _WIN32 */
 
 /*

@@ -36,7 +36,7 @@
 #include "Include/InitializeParseContext.h"
 #include "osinclude.h"
 #include <stdarg.h>
-#include "../glsldb/utils/dbgprint.h"
+#include "utils/dbgprint.h"
 
 ///////////////////////////////////////////////////////////////////////
 //

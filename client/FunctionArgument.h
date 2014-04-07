@@ -4,9 +4,9 @@
 extern "C" {
 #include "utils/types.h"
 }
-#include <QVector>
-#include <QString>
-#include <QSharedPointer>
+#include <QtCore/QVector>
+#include <QtCore/QString>
+#include <QtCore/QSharedPointer>
 
 class FunctionArgument 
 {

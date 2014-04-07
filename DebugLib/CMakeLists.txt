@@ -155,7 +155,14 @@ add_library(glenumerants STATIC ${ENUMERANTS_SRC})
 add_library(functionList STATIC "${GENERATOR_OUTPUT_DIR}/functionList.c")
 
 add_library(glsldebug SHARED ${GLSLDEBUG_SRC})
-target_link_libraries(glsldebug utils glenumerants ${DEBUGLIB_OS_DEPENDENT_LIBS})
+
+target_link_libraries(glsldebug 
+    utils 
+    glenumerants
+    ${DEBUGLIB_OS_DEPENDENT_LIBS}
+    ${DL_LIBRARIES} 
+    ${CMAKE_THREAD_LIBS_INIT}
+)
 
 if(GLSLDB_LINUX OR GLSLDB_OSX)
 	add_library(dlsym SHARED ${DLSYM_SRC})

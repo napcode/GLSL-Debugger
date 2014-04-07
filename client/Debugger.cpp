@@ -1,11 +1,12 @@
 #include "Debugger.qt.h"
-#include "notify.h"
+#include "utils/notify.h"
 
 #include <QtCore/QFileInfo>
+#include <QtNetwork/QTcpSocket>
 
+#include "proto/protocol.h"
 #include "build-config.h"
-#include "os/os.h"
-#include "glsldebug/glsldebug.h"
+#include "utils/os/os.h"
 #ifndef GSLDLB_WIN
 #	include <unistd.h>
 #	include <sys/shm.h>
@@ -15,6 +16,8 @@ Debugger* Debugger::_instance = nullptr;
 
 Debugger& Debugger::instance()
 {
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
+
 	if(!_instance) {
 		_instance = new Debugger();
 	}
@@ -25,6 +28,7 @@ void Debugger::release()
 {
 	delete _instance;
 	_instance = nullptr;
+	google::protobuf::ShutdownProtobufLibrary();
 }
 
 Debugger::Debugger()
@@ -63,19 +67,33 @@ void Debugger::init()
 	clearSharedMem();
     setEnvironmentVars();
     _end = false;
-    if(!_server.listen(QHostAddress::Any, SERVER_PORT))
-    	throw std::runtime_error("Unable to start server on port " + SERVER_PORT);
-    connect(&_server, SIGNAL(newConnection()), this, SLOT(newDebuggeeConnection()));
+  //  if(!_server.listen(QHostAddress::Any, DEFAULT_SERVER_PORT_TCP))
+   // 	throw std::runtime_error("Unable to start server on port " + SERVER_PORT);
+  //  connect(&_server, SIGNAL(newConnection()), this, SLOT(newDebuggeeConnection()));
     _worker = new std::thread(&Debugger::run, this);
 }
-void Debugger::newDebuggeeConnection()
+ProcessPtr Debugger::connect(QString& path, int port, int timeout)
 {
-	ConnectionPtr c(new Connection(_server.nextPendingConnection()));
-	msg_request_t msg = {MSG_ANNOUNCE};
-	c->send(msg);
-	for(auto &p : _processes) {
-	}
-	UT_NOTIFY(LV_ERROR, "No process accepted the new connection");
+    static QByteArray buf(MAX_MESSAGE_SIZE, '\0');
+	QSharedPointer<QTcpSocket> s(new QTcpSocket);
+	s->connectToHost(path, port);
+	if(!s->waitForConnected(timeout))
+		throw std::runtime_error("Unable to connect to debuggee @ " + path.toStdString());
+	int num_bytes = proto_get_announce(buf.data(), "DEFAULT CLIENT");
+	s->write(buf.data(), num_bytes);
+	s->waitForReadyRead(timeout);
+	UT_NOTIFY(LV_INFO, "bytes read: " << s->bytesAvailable());
+	MsgAnnounceResponse response;
+	QByteArray ba = s->readAll();
+	std::string msg(ba.data(), ba.size());
+	if(!response.ParseFromString(msg))
+		throw std::runtime_error("Handshake failed");
+
+	if(!response.accepted())
+		throw std::runtime_error("Handshake failed: " + response.message());
+	ProcessPtr p(new Process());
+	_processes.push_back(p);
+	return p;
 }
 void Debugger::shutdown()
 {

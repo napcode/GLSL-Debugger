@@ -51,10 +51,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "GL/gl.h"
 #include "GL/glext.h"
-#include "debuglib.h"
 
 extern "C" {
-#include "DebugLib/glenumerants.h"
+#include "DebugLib/debuglib.h"
+#include "utils/glenumerants.h"
 #include "DebugLib/generated/glenumerants.h"
 }
 

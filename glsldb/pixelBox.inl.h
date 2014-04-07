@@ -41,7 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtGui/QMessageBox>
 #include <QtCore/QVariant>
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 #define CLAMP(x, min, max) ((x) < (min) ? (min) : (x) > (max) ? (max) : (x))
 

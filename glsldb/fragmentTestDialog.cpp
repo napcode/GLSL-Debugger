@@ -32,7 +32,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
 #include "fragmentTestDialog.qt.h"
-#include "debuglib.h"
+#include "DebugLib/debuglib.h"
 
 static int mapPFTToIndex(int pftOption)
 {

@@ -40,7 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "vertexTableModel.qt.h"
 #include "geoShaderDataModel.qt.h"
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 /* Fragment Shader */
 SelectionDialog::SelectionDialog(PixelBoxFloat *fb, bool elseBranch,

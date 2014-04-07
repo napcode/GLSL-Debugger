@@ -1,7 +1,7 @@
 #ifndef MAINWINDOWRESULTHANDLER_H
 #define MAINWINDOWRESULTHANDLER_H 1
 
-#include "Command.qt.h"
+#include "client/Command.qt.h"
 class MainWindow;
 
 class MainWinResultHandler : QObject

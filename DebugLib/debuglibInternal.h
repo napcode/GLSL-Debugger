@@ -48,7 +48,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debuglib.h"
 #include "streamRecorder.h"
 #include "queries.h"
-#include "../utils/hash.h"
+#include "utils/hash.h"
+#include "utils/queue.h"
+#include "GL/glx.h"
 
 #include "generated/functionPointerTypes.inc"
 
@@ -58,11 +60,13 @@ typedef struct {
     void (*(*origGlXGetProcAddress)(const GLubyte *))(void);StreamRecorder recordedStream;
     int errorCheckAllowed;
 #ifndef _WIN32
-    pthread_mutex_t lock;
+	pthread_mutex_t lock;
+    pthread_cond_t cond; 
 #else /* _WIN32 */
     CRITICAL_SECTION lock;
 #endif /* _WIN32 */
     Hash queries;
+    queue_t* cmdqueue;
 } Globals;
 
 DBGLIBLOCAL int checkGLVersionSupported(int majorVersion, int minorVersion);

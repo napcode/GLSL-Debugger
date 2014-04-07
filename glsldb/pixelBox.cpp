@@ -33,7 +33,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "pixelBox.qt.h"
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 PixelBox::PixelBox(QObject *i_qParent) :
 		QObject(i_qParent)

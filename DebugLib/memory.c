@@ -41,7 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debuglib.h"
 #include "debuglibInternal.h"
 #include "memory.h"
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 void allocMem(void)
 {

@@ -3,15 +3,15 @@
 
 #include <QtCore/QStringList>
 #include <QtCore/QList>
-#include <QSharedPointer>
+#include <QtCore/QSharedPointer>
 
-#include "os/os.h"
+#include "utils/os/os.h"
+#include "Connection.h"
 #include "DebugLib/debuglib.h"
 #include "DebugConfig.h"
-#include "functionCall.h"
+#include "FunctionCall.h"
 #include "CommandFactory.h"
 #include "ResultHandler.h"
-#include "Connection.h"
 
 
 class Debugger;

@@ -41,7 +41,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QtCore/QList>
 #include <QtCore/QHash>
 
-#include "debuglib.h"
+#include "DebugLib/debuglib.h"
 
 class GlTraceFilterModel: public QAbstractItemModel {
 public:

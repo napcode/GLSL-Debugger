@@ -40,7 +40,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../GL/glext.h"
 
 #include "streamRecording.h"
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 
 static int getTypeSize(GLenum type)
 {

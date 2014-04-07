@@ -1,9 +1,9 @@
 #include "MainWinResultHandler.qt.h"
 #include "mainWindow.qt.h"
-#include "notify.h"
-#include "Command.qt.h"
-#include "CommandImpl.h"
-#include "Debugger.qt.h"
+#include "utils/notify.h"
+#include "client/Command.qt.h"
+#include "client/CommandImpl.h"
+#include "client/Debugger.qt.h"
 
 MainWinResultHandler::MainWinResultHandler(MainWindow& win, QObject *parent) :
 	QObject(parent),

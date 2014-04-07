@@ -2,10 +2,10 @@
 #define DEBUGGER_H 1
 
 #include <QtCore/QObject>
-#include <QtNetwork/QTcpServer>
 
 #include "Process.qt.h"
 #include "Command.qt.h"
+#include "build-config.h"
 #include <thread>
 
 class Debugger : public QObject
@@ -35,7 +35,11 @@ public:
 	void init();
 	/* end all debugging sessions and wait for them to finish */
 	void shutdown();
+	/* create a local debuggee. does not launch or anything */
 	ProcessPtr create(const DebugConfig& cfg);
+
+	/* connect to a running debuggee */
+	ProcessPtr connect(QString& path, int port = DEFAULT_SERVER_PORT_TCP, int timeout = 30000);
 
 	void waitForEndOfExecution();
 
@@ -58,7 +62,6 @@ signals:
 private:
 	/* variables */
 	static Debugger *_instance;
-	QTcpServer _server;
 	int _shmID;
 	ProcessList _processes;
 	RunLevel _runLevel;
@@ -81,8 +84,6 @@ private:
 	HANDLE _hShMem;
 #endif
 
-private slots:
-	void newDebuggeeConnection();
 private:
 	/* methods */
 	Debugger();

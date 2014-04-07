@@ -3,7 +3,7 @@
 #include <cassert>
 #include "GL/gl.h"
 extern "C" {
-#include "DebugLib/glenumerants.h"
+#include "utils/glenumerants.h"
 }
 
 FunctionArgument::FunctionArgument(DBG_TYPE type)

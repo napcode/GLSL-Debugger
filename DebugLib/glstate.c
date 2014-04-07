@@ -34,7 +34,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "dbgprint.h"
+#include "utils/dbgprint.h"
 #include "debuglib.h"
 #include "debuglibInternal.h"
 #include "glstate.h"

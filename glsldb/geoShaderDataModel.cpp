@@ -37,8 +37,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #include "GL/gl.h"
 #include "GL/glext.h"
-#include "DebugLib/glenumerants.h"
-#include "dbgprint.h"
+#include "utils/glenumerants.h"
+#include "utils/dbgprint.h"
 }
 
 #include "vertexBox.qt.h"
