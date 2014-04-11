@@ -1,17 +1,81 @@
-message MsgVersion
+package proto;
+
+message Version
 {
-    optional int32 major=1;
-    optional int32 minor=2;
-    optional int32 revision=3;
+    required int32 major=1;
+    required int32 minor=2;
+    required int32 revision=3;
 }
-message MsgAnnounce
+message Announce
 {
-    optional int32 id=1;
-    optional string client_name=2;
-    optional MsgVersion version=3;
+    required int32 id=1;
+    required string client_name=2;
+    required Version version=3;
 }
-message MsgAnnounceResponse
+message ClientRequest
 {
-	optional bool accepted = 1;
-	optional string message = 2;
+    enum Type {
+        ANNOUNCE = 0;
+        PROCESS_INFO = 1;
+        FUNCTION_CALL = 2;
+        CONTINUE = 3;
+        STOP = 4;
+        STEP = 5;
+    } 
+    required Type type = 1; 
+    required uint64 id = 2;
+    optional Announce announce = 3;
 }
+message ProcessInfo
+{
+    optional string executable = 1;
+    optional int32 pid = 2;
+    optional bool is64bit = 3;
+}
+enum ArgumentType {
+    CHAR = 0;
+    UNSIGNED_CHAR = 1;
+    SHORT = 2;
+    UNSIGNED_SHORT = 3;
+    INT = 4;
+    UNSIGNED_INT = 5;
+    LONG = 6;
+    UNSIGNED_LONG = 7;
+    LONGLONG = 8;
+    UNSIGNED_LONGLONG = 9;
+    FLOAT = 10;
+    DOUBLE = 11;
+    LONGDOUBLE = 12;
+    POINTER = 13;
+    STRUCT = 14;
+    BITFIELD = 15;
+    ENUM = 16;
+    BOOL = 17;
+}
+message FunctionArgument
+{
+    required ArgumentType type = 1;
+    optional uint64 size = 2;
+    required string data = 3;
+}
+message FunctionCall
+{
+    required string name = 1;
+    optional int32 threadId = 2;
+    repeated FunctionArgument arguments = 3; 
+}
+enum ErrorCode {
+    NONE = 0;
+    HEADER_MISMATCH = 1;
+    VERSION_MISMATCH = 2;
+    AUTH_FAILED = 3;
+}
+message ServerResponse
+{
+	required ErrorCode error_code = 1 [default = NONE];
+    required uint64 id = 2;
+    optional string message = 3;
+    optional ProcessInfo proc_info = 4;
+    optional FunctionCall function_call = 5;
+}
+

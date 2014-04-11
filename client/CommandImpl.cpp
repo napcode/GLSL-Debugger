@@ -1,68 +1,33 @@
 #include "CommandImpl.h"
 #include "Debugger.qt.h"
+#include "proto/protocol.h"
 #include <exception>
 
-ExecuteCommand::ExecuteCommand(Process &p, bool stopOnGLError)
-    : SimpleCommand(p, "DBG_EXECUTE (DBG_EXECUTE_RUN)")
+AnnounceCommand::AnnounceCommand(Process &p, const std::string& client_name)
+    : Command(p, proto::ClientRequest::ANNOUNCE)
 {
-    _rec->operation = DBG_EXECUTE;
-    _rec->items[0] = DBG_EXECUTE_RUN;
-    _rec->items[1] = stopOnGLError ? 1 : 0;
+    _message.mutable_announce()->set_id(PROTO_ID);
+    _message.mutable_announce()->set_client_name(_client_name);
+    _message.mutable_announce()->mutable_version()->set_major(PROTO_MAJOR);
+    _message.mutable_announce()->mutable_version()->set_minor(PROTO_MINOR);
+    _message.mutable_announce()->mutable_version()->set_revision(PROTO_REVISION); 
 }
-
+void AnnounceCommand::result(const proto::ServerResponse& response)
+{
+    ResultPtr res(new Result);
+    if(response.error_code() != proto::ErrorCode::NONE) {
+        res->ok = false;
+        res->message = response.message();
+    }
+    promise().set_value(res);
+}
 StepCommand::StepCommand(Process &p, bool trace, bool stopOnGLError)
-    : DebugCommand(p, "DBG_EXECUTE_STOP")
+    : Command(p, proto::ClientRequest::STEP)
 {
-    _rec->operation = DBG_STOP_EXECUTION;
+    //_rec->operation = DBG_STOP_EXECUTION;
 }
-void StepCommand::operator()()
+void StepCommand::result(const proto::ServerResponse& response)
 {
-    try {
-        DebugCommand::operator()();
-        process().advance();
-        process().waitForStatus();
-        /* FIXME evaluate error code then */
-        if(_rec->result != DBG_FUNCTION_CALL)
-			throw std::logic_error("Result is not a function call");
-    }
-    catch(...) {
-        promise().set_exception(std::current_exception());
-        return;
-    }
-
-    ResultPtr res(new Result(process().currentCall()));
-    promise().set_value(res);
-}
-LaunchCommand::LaunchCommand(Process &p)
-    : Command(p, "LAUNCH")
-{}
-void LaunchCommand::operator()()
-{
-    try {
-        process().launch();
-    }
-    catch(...) {
-        promise().set_exception(std::current_exception());
-        return;
-    }
-
-    ResultPtr res(new Result);
-    promise().set_value(res);
-}
-
-CheckTrapCommand::CheckTrapCommand(Process &p, os_pid_t pi, int s)
-    : Command(p, "CHECKTRAP"), _pid(pi), _status(s)
-{}
-void CheckTrapCommand::operator()()
-{
-    try {
-        process().checkTrapEvent(_pid, _status);
-    }
-    catch(...) {
-        promise().set_exception(std::current_exception());
-        return;
-    }
-
-    ResultPtr res(new Result);
-    promise().set_value(res);
+    /* parse server response, create a result and store it in the promise */
+    // promise().set_value();
 }

@@ -3,6 +3,8 @@ project(glsldb)
 
 option(USE_MESA "Use mesa glsl compiler" OFF)
 option(TESTS "Build tests" OFF)
+option(BUILD_CLIENT_CLI "Build the commandline client" ON)
+option(BUILD_CLIENT_GUI "Build the QT4 GUI client" OFF)
 
 if(TESTS)
 	enable_testing()
@@ -127,10 +129,15 @@ add_subdirectory(DebugLib)
 add_subdirectory(DebugFunctions)
 # debugger client library
 add_subdirectory(client)
+
 # debugger CLI
-add_subdirectory(client/cli)
+if(BUILD_CLIENT_CLI)
+    add_subdirectory(client/cli)
+endif()
 # debugger GUI (change to client/gui)
-add_subdirectory(glsldb)
+if(BUILD_CLIENT_GUI)
+    add_subdirectory(glsldb)
+endif()
 
 if(GLSLDB_WIN)
 	add_subdirectory(3rdparty/mhook)

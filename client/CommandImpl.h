@@ -6,11 +6,18 @@
 #include "Process.qt.h"
 #include "FunctionCall.h"
 
-struct ExecuteCommand : public SimpleCommand
+struct AnnounceCommand : public Command
 {
-	ExecuteCommand(Process& p, bool stopOnGLError);
+	AnnounceCommand(Process& p, const std::string& client_name );
+	void result(const proto::ServerResponse& response);
+	std::string _client_name;
 };
-struct StepCommand : public DebugCommand
+struct StepCommand : public Command
+{
+	StepCommand(Process& p, bool trace = true, bool stopOnGlError = true);
+	void result(const proto::ServerResponse& response);
+};
+struct GetCallCommand : public Command
 {
 	struct Result : public Command::Result
 	{
@@ -20,20 +27,8 @@ struct StepCommand : public DebugCommand
 		virtual ~Result() {};
 		FunctionCallPtr functionCall;
 	};
-	StepCommand(Process& p, bool trace = true, bool stopOnGlError = true);
-	void operator()();
+	void result(const proto::ServerResponse& response);
 };
-struct LaunchCommand : public Command
-{
-	LaunchCommand(Process& p);
-	void operator()();
-};
-struct CheckTrapCommand : public Command
-{
-	CheckTrapCommand(Process& p, os_pid_t, int);
-	void operator()();
-	os_pid_t _pid;
-	int _status;
-};
+
 
 #endif

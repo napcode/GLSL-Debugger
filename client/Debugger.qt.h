@@ -39,7 +39,7 @@ public:
 	ProcessPtr create(const DebugConfig& cfg);
 
 	/* connect to a running debuggee */
-	ProcessPtr connect(QString& path, int port = DEFAULT_SERVER_PORT_TCP, int timeout = 30000);
+	ProcessPtr connectTo(QString& path, int port = DEFAULT_SERVER_PORT_TCP, int timeout_s = NETWORK_TIMEOUT);
 
 	void waitForEndOfExecution();
 
@@ -48,33 +48,24 @@ public:
 	static const QString& strRunLevel(RunLevel rl);
 	RunLevel runLevel() const { return _runLevel; }
 
-	debug_record_t* debugRecord(os_pid_t pid);
-
-	void enqueue(CommandPtr cmd);
-public slots:
-	void childBecameParent(os_pid_t p);
-
+	const std::string& clientName() { return _client_name; }
+	void clientName(const std::string& client_name ) { _client_name = client_name; }
 signals:
 	void message(const QString& msg);
 	void runLevelChanged(RunLevel rl);
 	void newChild();
-	void resultAvailable(CommandPtr);
 private:
 	/* variables */
 	static Debugger *_instance;
-	int _shmID;
+	std::string _client_name;
 	ProcessList _processes;
 	RunLevel _runLevel;
 	debug_record_t *_records;
-	CommandQueue _queue;
 	std::string _pathDbgLib;
 	std::string _pathDbgFuncs;
 	std::string _pathLibDlSym;
 	std::string _pathLog;
-    std::thread *_worker;
-    std::mutex _mtxWork;
     std::mutex _mtxCmd;
-    std::condition_variable _workCondition;
     bool _end;
 #ifdef GLSLDB_WIN
 	HANDLE _hEvtDebuggee;

@@ -49,9 +49,10 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "debuglibInternal.h"
 #include "streamRecording.h"
-#include "../utils/dbgprint.h"
-#include "../utils/types.h"
-#include "../utils/notify.h"
+#include "utils/dbgprint.h"
+#include "utils/types.h"
+#include "utils/notify.h"
+#include "proto/protocol.h"
 
 extern Globals G;
 

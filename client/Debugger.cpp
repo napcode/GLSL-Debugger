@@ -31,9 +31,8 @@ void Debugger::release()
 	google::protobuf::ShutdownProtobufLibrary();
 }
 
-Debugger::Debugger()
-	: _shmID(0),
-    _worker(nullptr), 
+Debugger::Debugger() : 
+	_client_name("unknown"), 
     _end(true)
 {
 #ifdef _WIN32
@@ -50,7 +49,6 @@ Debugger::~Debugger()
 {
 	UT_NOTIFY(LV_TRACE, "~Debugger");
 	shutdown();
-	freeSharedMem();
 #ifdef _WIN32
 	this->closeEvents();
 	if (_hDebuggedProgram != NULL) {
@@ -63,47 +61,22 @@ void Debugger::init()
 {
 	shutdown();
 	buildEnvironmentVars();
-	initSharedMem();
-	clearSharedMem();
     setEnvironmentVars();
     _end = false;
   //  if(!_server.listen(QHostAddress::Any, DEFAULT_SERVER_PORT_TCP))
    // 	throw std::runtime_error("Unable to start server on port " + SERVER_PORT);
   //  connect(&_server, SIGNAL(newConnection()), this, SLOT(newDebuggeeConnection()));
-    _worker = new std::thread(&Debugger::run, this);
 }
-ProcessPtr Debugger::connect(QString& path, int port, int timeout)
+ProcessPtr Debugger::connectTo(QString& path, int port, int timeout)
 {
-    static QByteArray buf(MAX_MESSAGE_SIZE, '\0');
-	QSharedPointer<QTcpSocket> s(new QTcpSocket);
-	s->connectToHost(path, port);
-	if(!s->waitForConnected(timeout))
-		throw std::runtime_error("Unable to connect to debuggee @ " + path.toStdString());
-	int num_bytes = proto_get_announce(buf.data(), "DEFAULT CLIENT");
-	s->write(buf.data(), num_bytes);
-	s->waitForReadyRead(timeout);
-	UT_NOTIFY(LV_INFO, "bytes read: " << s->bytesAvailable());
-	MsgAnnounceResponse response;
-	QByteArray ba = s->readAll();
-	std::string msg(ba.data(), ba.size());
-	if(!response.ParseFromString(msg))
-		throw std::runtime_error("Handshake failed");
-
-	if(!response.accepted())
-		throw std::runtime_error("Handshake failed: " + response.message());
-	ProcessPtr p(new Process());
+    ConnectionPtr con(new TcpConnection(path, port, timeout));
+	ProcessPtr p(new Process(con));
+	p->init();
 	_processes.push_back(p);
 	return p;
 }
 void Debugger::shutdown()
 {
-    _end = true;
-    if(_worker) {
-        _workCondition.notify_all();
-        _worker->join();
-        delete _worker;
-        _worker = nullptr;
-    }
 	_processes.clear();
 }
 
@@ -113,39 +86,6 @@ ProcessPtr Debugger::create(const DebugConfig& cfg)
 	_processes.push_back(p);
 	return p;
 }
-void Debugger::enqueue(CommandPtr cmd)
-{
-	{
-    	std::lock_guard<std::mutex> lock(_mtxCmd);
-		_queue.enqueue(cmd);
-		UT_NOTIFY(LV_INFO, "Command enqueued");	
-	}
-    _workCondition.notify_one();
-}
-void Debugger::run()
-{
-    CommandPtr cmd;
-    std::unique_lock<std::mutex> lock(_mtxWork, std::defer_lock);
-    while(!_end) {
-    	lock.lock();
-        _workCondition.wait(lock, 
-        	[this] { return !_queue.empty() || _end; });
-		if(_end)
-			break;
-        cmd = _queue.dequeue();
-    	lock.unlock();
-        UT_NOTIFY(LV_INFO, "Command dequeued");
-        /* execute command */
-        (*cmd)();
-        /* post result */
-        if(cmd->process().resultHandler()) {
-        	cmd->process().resultHandler()->handle(cmd);
-        }
-        else {
-          	emit resultAvailable(cmd);
-        }
-    }
-}
 
 void Debugger::setEnvironmentVars(void)
 {
@@ -154,14 +94,6 @@ void Debugger::setEnvironmentVars(void)
 		UT_NOTIFY(LV_ERROR, "setenv LD_PRELOAD failed: " << strerror(errno));
 	UT_NOTIFY(LV_INFO, "env dbglib: " << _pathDbgLib);
 
-	{
-		std::stringstream s;
-		s << _shmID;
-		if (setenv("GLSL_DEBUGGER_SHMID", s.str().c_str(), 1))
-			UT_NOTIFY(LV_ERROR,
-					"setenv GLSL_DEBUGGER_SHMID failed: " << strerror(errno));
-		UT_NOTIFY(LV_INFO, "env shmid: " << s.str());
-	}
 
 	if (setenv("GLSL_DEBUGGER_DBGFCTNS_PATH", _pathDbgFuncs.c_str(), 1))
 		UT_NOTIFY(LV_ERROR,
@@ -285,117 +217,6 @@ void Debugger::buildEnvironmentVars()
 	}
 }
 
-void Debugger::initSharedMem(void)
-{
-#ifdef _WIN32
-#define SHMEM_NAME_LEN 64
-	char shmemName[SHMEM_NAME_LEN];
-
-	_snprintf(shmemName, SHMEM_NAME_LEN, "%uSHM", GetCurrentProcessId());
-	/* this creates a non-inheritable shared memory mapping! */
-	_hShMem = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, SHM_SIZE, shmemName);
-	if (_hShMem == NULL || _hShMem == INVALID_HANDLE_VALUE) {
-		UT_NOTIFY(LV_ERROR, "Creation of shared mem segment " << shmemName << " failed: " << GetLastError());
-		exit(1);
-	}
-	/* FILE_MAP_WRITE implies read */
-	_records = (debug_record_t*)MapViewOfFile(_hShMem, FILE_MAP_WRITE, 0, 0, SHM_SIZE);
-	if (_records == NULL) {
-		UT_NOTIFY(LV_ERROR, "View mapping of shared mem segment " << shmemName << " failed: " << GetLastError());
-		exit(1);
-	}
-#undef SHMEM_NAME_LEN
-#else /* _WIN32 */
-	_shmID = shmget(IPC_PRIVATE, SHM_SIZE, SHM_R | SHM_W);
-
-	if (_shmID == -1) {
-		UT_NOTIFY(LV_ERROR,
-				"Creation of shared mem segment failed: " << strerror(errno));
-		exit(1);
-	}
-
-	_records = (debug_record_t*) shmat(_shmID, NULL, 0);
-
-	if ((void*) _records == (void*) -1) {
-		UT_NOTIFY(LV_ERROR,
-				"Attaching to shared mem segment failed: " << strerror(errno));
-		exit(1);
-	}
-#endif /* _WIN32 */
-}
-
-void Debugger::clearSharedMem(void)
-{
-	memset(_records, 0, SHM_SIZE);
-}
-
-void Debugger::freeSharedMem(void)
-{
-#ifdef _WIN32
-	if (_records != NULL) {
-		if (!UnmapViewOfFile(_records)) {
-			UT_NOTIFY(LV_ERROR, "View unmapping of shared mem segment failed: " << GetLastError());
-			exit(1);
-		}
-		fcalls = NULL;
-	}
-	if (_hShMem != INVALID_HANDLE_VALUE && _hShMem != NULL) {
-		if (CloseHandle(_hShMem) == 0) {
-			UT_NOTIFY(LV_ERROR, "Closing handle of shared mem segment failed: " << GetLastError());
-			exit(1);
-		}
-		_hShMem = INVALID_HANDLE_VALUE;
-	}
-#else /* _WIN32 */
-	shmctl(_shmID, IPC_RMID, 0);
-
-	if (shmdt(_records) == -1) {
-		UT_NOTIFY(LV_ERROR,
-				"Deleting shared mem segment failed: " << strerror(errno));
-	}
-#endif /* _WIN32 */
-}
-
-#ifdef _WIN32
-void Debugger::createEvents(const DWORD processId) {
-#define EVENT_NAME_LEN (32)
-	wchar_t eventName[EVENT_NAME_LEN];
-
-	this->closeEvents();
-
-	_snwprintf(eventName, EVENT_NAME_LEN, L"%udbgee", processId);
-	_hEvtDebuggee = ::CreateEventW(NULL, FALSE, FALSE, eventName);
-	if (_hEvtDebuggee == NULL) {
-		dbgPrint(DBGLVL_ERROR, "creating %s failed\n", eventName);
-		::exit(1);
-	}
-
-	_snwprintf(eventName, EVENT_NAME_LEN, L"%udbgr", processId);
-	_hEvtDebugger = ::CreateEventW(NULL, FALSE, FALSE, eventName);
-	if (_hEvtDebugger == NULL) {
-		dbgPrint(DBGLVL_ERROR, "creating %s failed\n", eventName);
-		::exit(1);
-	}
-}
-
-void Debugger::closeEvents(void) {
-	dbgPrint(DBGLVL_INFO, "Closing events ...\n");
-
-	if (_hEvtDebugger != NULL) {
-		::CloseHandle(_hEvtDebugger);
-		_hEvtDebugger = NULL;
-	}
-
-	if (_hEvtDebuggee != NULL) {
-		::CloseHandle(_hEvtDebuggee);
-		_hEvtDebuggee = NULL;
-	}
-
-	dbgPrint(DBGLVL_INFO, "Events closed.\n");
-}
-
-#endif /* _WIN32 */
-
 const QString& Debugger::strRunLevel(RunLevel rl)
 {
 	switch(rl) {
@@ -428,10 +249,6 @@ const QString& Debugger::strRunLevel(RunLevel rl)
 	return dummy;
 }
 
-void Debugger::childBecameParent(os_pid_t p)
-{
-	UT_NOTIFY(LV_INFO, "Child forked!");
-}
 
 // void Debugger::setRunLevel(RunLevel rl)
 // {
@@ -472,22 +289,7 @@ void Debugger::childBecameParent(os_pid_t p)
 // 	}
 // }
 
-debug_record_t* Debugger::debugRecord(os_pid_t pid)
-{
-	int i;
-	debug_record_t *rec = nullptr;
-	for (i = 0; i < SHM_MAX_THREADS; ++i) {
-		if (_records[i].threadId == 0 || _records[i].threadId == pid) {
-	        rec = &_records[i];
-	        break;
-		}
-	}
-	if(i >= SHM_MAX_THREADS) {
-		UT_NOTIFY(LV_ERROR, "max. number of debuggable threads exceeded!");
-	    exit(1);
-	}
-	return rec;
-}
+
 void Debugger::waitForEndOfExecution()
 {
 // 	ErrorCode error;

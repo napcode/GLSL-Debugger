@@ -137,7 +137,7 @@ sub stripStorageQualifiers
 sub getBasicTypeId
 {
     my $arg = shift;
-    my $id = "DBG_TYPE";
+    my $id = "PROTO__ARGUMENT_TYPE_";
     if ($arg =~ /[*]|[\[]/) {
         $id .= "_POINTER";
     } elsif ($arg =~ /struct|union/) {
@@ -180,17 +180,17 @@ sub getTypeId
     my $arg = stripStorageQualifiers(shift);
     #print "STRIPED ARG: ##$arg##\n";
     if ($arg =~ /[*]|[\[]/) {
-        return "DBG_TYPE_POINTER";
+        return "PROTO__ARGUMENT_TYPE__POINTER";
     } elsif ($arg =~ /GLbitfield/) {
-        return "DBG_TYPE_BITFIELD";
+        return "PROTO__ARGUMENT_TYPE__BITFIELD";
     } elsif ($arg =~ /GLenum/) {
-        return "DBG_TYPE_ENUM";
+        return "PROTO__ARGUMENT_TYPE__ENUM";
     } elsif ($arg =~ /GLboolean/) {
-        return "DBG_TYPE_BOOLEAN";
+        return "PROTO__ARGUMENT_TYPE__BOOL";
     } elsif ($arg =~ /struct|union/) {
-        return "DBG_TYPE_STRUCT";
+        return "PROTO__ARGUMENT_TYPE__STRUCT";
     } elsif ($arg =~ /enum/) {
-        return "DBG_TYPE_INT";
+        return "PROTO__ARGUMENT_TYPE__INT";
     } elsif ($typeMap{$arg}) {
         return getBasicTypeId($typeMap{$arg});
     } else {

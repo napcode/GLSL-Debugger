@@ -15,15 +15,15 @@ public:
 		_proc(p)
 	{}
 	/* Commands */
-	CommandPtr checkTrapEvent(os_pid_t p, int s);
-	CommandPtr launch();
+	//CommandPtr checkTrapEvent(os_pid_t p, int s);
+	////CommandPtr launch();
 
 	/* DebugCommands */
-	CommandPtr execute(bool stopOnGLError);
-	CommandPtr step(bool trace = true);
-	CommandPtr stepToDrawCall(bool trace = true, bool stopOnGlError = true);
-	CommandPtr stepToShaderSwitch(bool trace = true, bool stopOnGlError = true);
-	CommandPtr stepToUserDefined(FunctionCallPtr func, bool trace = true, bool stopOnGlError = true);
+	//CommandPtr execute(bool stopOnGLError);
+	//CommandPtr step(bool trace = true);
+	//CommandPtr stepToDrawCall(bool trace = true, bool stopOnGlError = true);
+	//CommandPtr stepToShaderSwitch(bool trace = true, bool stopOnGlError = true);
+	//CommandPtr stepToUserDefined(FunctionCallPtr func, bool trace = true, bool stopOnGlError = true);
 	
 		/* these commands need to CONT the process in order to be effectual*/
 	/*void dbgExecute(bool stopOnGLError);

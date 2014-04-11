@@ -2,6 +2,7 @@
 #define CONNECTION_H 1
 
 #include "server.h"
+#include "proto/protocol.h"
 
 typedef int (*cb_request_t)(socket_t*);
 typedef int (*cb_response_t)(socket_t*);
@@ -14,7 +15,7 @@ typedef struct {
 
 int cn_create_tcp(connection_t* c, const char* host, int port);
 int cn_create_unix(connection_t* c, const char* path);
-int cn_handshake(socket_t*);
+int cn_verify(socket_t*);
 int cn_destroy(connection_t* con);
 
 //int cn_send(connection_t* con, const pkg_header_t* pkg);

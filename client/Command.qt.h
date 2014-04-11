@@ -3,12 +3,15 @@
 
 #include <QtCore/QString>
 #include <QtCore/QQueue>
+#include <QtCore/QList>
 #include <QtCore/QSharedPointer>
 
 #include "DebugLib/debuglib.h"
 #include "FunctionCall.h"
 #include "utils/notify.h"
+#include "proto/protocol.h"
 #include <future>
+#include <atomic>
 
 class Process;
 class Command : public QObject
@@ -18,24 +21,24 @@ public:
 	/* types */
 	struct Result
 	{
-		Result() {}
-		virtual ~Result() {};		
+		Result() : ok(true), message(std::string()) {}
+		Result(bool done, const std::string& msg = std::string()) : 
+			ok(done), 
+			message(msg)
+		{}
+		bool ok;
+		std::string message;
+		virtual ~Result() {};	
 	};
 	typedef QSharedPointer<Command::Result> ResultPtr;
 
 public:
-	Command(Process& p, const QString& name = QString("DEFAULT")) :
-		_proc(p), 
-		_name(name)
-	{};
-	virtual ~Command()
-	{
-		UT_NOTIFY(LV_TRACE, "~Command " << name().toStdString());
-	}
+	Command(Process& p, proto::ClientRequest::Type t);
+	virtual ~Command() {};
 
-	/* execution low level implementation */
-	virtual void operator()() = 0;
-	const QString& name() const { return _name; }
+	virtual void result(const proto::ServerResponse& response) = 0;
+
+	bool operator==(uint64_t response_id) { return id() == response_id; }
 
 	/* these just modified the shared memory */ 
 	//void overwriteFuncArguments(FunctionCallPtr call);
@@ -46,17 +49,19 @@ public:
 	/* these methods handle Command results */
 	//void queryResult();
 	Process& process() const { return _proc; }
-
+	uint64_t id() const { return _message.id(); }
+	const proto::ClientRequest& message() const { return _message; }
 protected:
+	proto::ClientRequest _message;
 	Process& _proc;
-	const QString _name;
 	std::promise<ResultPtr> _result;
-
+	static std::atomic<uint64_t> _seq_number;
 protected:
 	std::promise<ResultPtr>& promise() { return _result; }
 };
 typedef QSharedPointer<Command> CommandPtr;
 typedef QQueue<CommandPtr> CommandQueue;
+typedef QList<CommandPtr> CommandList;
 typedef std::future<Command::ResultPtr> FutureResult;
 
 #endif

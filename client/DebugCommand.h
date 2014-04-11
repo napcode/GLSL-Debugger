@@ -15,7 +15,6 @@ public:
 	/* these just modified the shared memory */ 
 	//void overwriteFuncArguments(FunctionCallPtr call);
 protected:
-	debug_record_t *_rec;
 };
 
 class SimpleCommand : public DebugCommand

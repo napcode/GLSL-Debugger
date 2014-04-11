@@ -16,11 +16,11 @@
 
 class Debugger;
 class CommandFactory;
+typedef QSharedPointer<proto::ServerResponse> ServerResponsePtr;
 
 class Process : public QObject
 {
 	Q_OBJECT
-#	include "ProcessFriends.inc.h"
 public:
 	/* types */
 	/* Reminder: change strState() if enum changes */
@@ -37,23 +37,41 @@ public:
 public:
 	/* methods */
 	Process();
+	Process(ConnectionPtr c);
 	Process(const DebugConfig& config, os_pid_t pid = 0);
 	~Process();
 
 	const DebugConfig& config() { return _debugConfig; }
+    bool init();
 
 	/* check if the child is alive */
 	bool isAlive();
+	/* continue the process */
+	void advance();
 
-	/* get or create a command factory
-	 * factory is associated with *this*
+	CommandPtr announce();
+	CommandPtr step();
+	/* kill the process */
+	CommandPtr kill();
+	/* launches process, applies options if needed & leaves
+	 * process in STOPPED state if everything went well
 	 */
-	CommandFactory& commandFactory() { return *_cmdFactory; }
-	/* get thread record. might be a nullptr
-	 * update is done on SIGSTOPs
-	 */
-	debug_record_t* debugRecord() const { return _rec; }
+	void launchLocal();
 
+	/* synchroneously waits for status change */
+	void waitForStatus(bool checkTrap = false);
+
+	/* halt/stop
+	 * @param immediately send SIGSTOP instead of waiting for next GLCall
+	 */
+	void stop(bool immediately = false);
+
+	/* retrieve the current/last call */
+	FunctionCallPtr currentCall(void);
+
+	bool connected() const { return !_connection ? false : true; }
+	void connection(ConnectionPtr c) { _connection = c; }
+	ConnectionPtr connection() const { return _connection; }
 
 	void copyArgumentTo(void *dst, void *src, DBG_TYPE type);
 	void* copyArgumentFrom(void *addr, DBG_TYPE type);
@@ -73,53 +91,32 @@ public:
 	ResultHandlerPtr resultHandler() const { return _resultHandler; }
 	/* set a ResultHandler. Process takes ownership */
 	void resultHandler(ResultHandler* res) { _resultHandler = ResultHandlerPtr(res); }
-
 signals:
 	void stateChanged(Process::State s);
 	void newChild(os_pid_t p);
+	void resultAvailable(CommandPtr);
 private:
 	/* methods */
-	bool checkTrapEvent(os_pid_t pid, int status);
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
-    void init();
-    void handleStatusUpdates();
-    void startStatusHandler();
-    void stopStatusHandler();
-
-	/* continue the process */
-	void advance();
-
-	/* kill the process */
-	void kill();
-	/* launches process, applies options if needed & leaves
-	 * process in STOPPED state if everything went well
-	 */
-	void launch();
-
-	/* synchroneously waits for status change */
-	void waitForStatus(bool checkTrap = false);
-
-	/* halt/stop
-	 * @param immediately send SIGSTOP instead of waiting for next GLCall
-	 */
-	void stop(bool immediately = false);
-
-	/* retrieve the current/last call */
-	FunctionCallPtr currentCall(void);
-
-	bool connected() const { return !_connection ? false : true; }
-	void connection(ConnectionPtr c) { _connection = c; }
-	ConnectionPtr connection() const { return _connection; }
+    void startReceiver();
+    void stopReceiver();
+    void receiveResults();
+    void storeCommand(CommandPtr& cmd);
+    ServerResponsePtr readResponse(QByteArray& ba);
+    //ServerResponsePtr readEvent(QByteArray& ba);
 private:
 	/* variables */
 	os_pid_t _pid;
-	ConnectionPtr _connection;
-	debug_record_t *_rec;
-    std::thread *_statusHandler;
+    std::thread *_responseReceiver;
+    std::mutex _mtxWork;
+    std::condition_variable _workCondition;
+
+	CommandList _commands;
+
     DebugConfig _debugConfig;
     State _state;
-    CommandFactoryPtr _cmdFactory;
+	ConnectionPtr _connection;
     bool _end;
     ResultHandlerPtr _resultHandler;
 };

@@ -44,6 +44,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
 #include "utils/os/os.h"
+#include "proto/protocol.h"
 
 enum DBG_ERROR_CODE {
 	DBG_NO_ERROR = 0,
@@ -438,11 +439,12 @@ typedef intptr_t ALIGNED_DATA;
 #pragma pack(8)
 typedef struct {
 	os_pid_t threadId;
+	Proto__FunctionCall* current_call;
 	enum DBG_OPERATION operation;
 	enum DBG_RETURN result;
-	char fname[SHM_MAX_FUNCNAME];
-	unsigned int numItems;
-	ALIGNED_DATA items[SHM_MAX_ITEMS];
+	//char fname[SHM_MAX_FUNCNAME];
+	//unsigned int numItems;
+	//ALIGNED_DATA items[SHM_MAX_ITEMS];
 #ifdef _WIN32
 	ALIGNED_DATA isRecursing;
 #endif /* _WIN32 */

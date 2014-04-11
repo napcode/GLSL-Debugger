@@ -1,5 +1,6 @@
 #include "socket.h"
 #include "notify.h"
+#include "build-config.h"
 #include <stdio.h>
 
 #include <stdlib.h>
@@ -222,7 +223,7 @@ int sck_accept(socket_t* listen, socket_t** out)
     (*out)->fd = res;
 
     struct timeval tv;
-    tv.tv_sec = 5;  /* 5 Secs Timeout */
+    tv.tv_sec = NETWORK_TIMEOUT;  /* 5 Secs Timeout */
     tv.tv_usec = 0;      
     if(setsockopt((*out)->fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval)) == -1) {
         UT_NOTIFY(LV_ERROR, "Setting socket timeout failed: %s", strerror(errno));
@@ -283,7 +284,11 @@ int sck_send(socket_t* s, const void* msg, uint32_t len)
 int sck_recv(socket_t* s, void* msg, uint32_t len)
 {
     int ret;
-    ret = recv(s->fd, msg, len, 0);
+    /* receive as long as the error is timeout */
+    do {
+        ret = recv(s->fd, msg, len, 0);
+    } while(ret == -1 && errno == EAGAIN);
+
     if(ret == -1) {
         UT_NOTIFY(LV_ERROR, "Receive failed: %s", strerror(errno));
     }
