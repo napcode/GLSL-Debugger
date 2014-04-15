@@ -118,7 +118,7 @@ static struct {
 #endif
     void *(*origdlsym)(void *, const char *);
 
-    debug_record_t *fcalls;
+    thread_state_t *thread;
     debug_function_t *dbgFunctions;
     int numDbgFunctions;
     Hash origFunctions;
@@ -145,7 +145,7 @@ static struct {
     HANDLE hEvtDebugee; /* wait for debugger */
     HANDLE hEvtDebugger; /* signal debugger */
     HANDLE hShMem; /* shared memory handle */
-    debug_record_t *fcalls;
+    thread_state_t *thread;
     debug_function_t *dbgFunctions;
     int numDbgFunctions;
 } g = {NULL, NULL, NULL, NULL, NULL, 0};
@@ -163,7 +163,7 @@ static struct {
 /* global data */
 DBGLIBLOCAL Globals G;
 
-typedef struct {    
+typedef struct {
     socket_t *sock;
     int end_connection;
     Proto__ClientRequest *request;
@@ -171,9 +171,16 @@ typedef struct {
 } handlerstate_t;
 #define HANDLERSTATE_INIT {NULL, 0, NULL, NULL}
 
+extern Proto__GLFunction glFunctions[];
+
+/* internal functions */
 static int new_connection_callback(socket_t *s);
-static void verify_client(handlerstate_t* state);
-static void send_response(handlerstate_t* state);
+static void handle_request_announce(handlerstate_t *state);
+static void handle_request_execution(handlerstate_t *state);
+static void send_response(handlerstate_t *state);
+static Proto__FunctionCall *fcall_create(const char *funcname, int num_args);
+static void fcall_destroy(Proto__FunctionCall *pc);
+
 #ifndef _WIN32
 static int getShmid()
 {
@@ -434,10 +441,21 @@ BOOL APIENTRY DllMain(HANDLE hModule,
                       DWORD reason_for_call,
                       LPVOID lpReserved)
 {
+<<<<<<< HEAD
 	BOOL retval = TRUE;
 	switch (reason_for_call) {
 		case DLL_PROCESS_ATTACH:
 		setLogging();
+=======
+    BOOL retval = TRUE;
+    //GlInitContext initCtx;
+    //   thread_state_t *rec = NULL;
+
+    switch (reason_for_call) {
+    case DLL_PROCESS_ATTACH:
+
+        setLogging();
+>>>>>>> basic communication should work
 
 #ifdef DEBUG
 		//AllocConsole();     /* Force availability of console in debug mode. */
@@ -461,7 +479,35 @@ BOOL APIENTRY DllMain(HANDLE hModule,
 			return FALSE;
 #endif
 
+<<<<<<< HEAD
 		dbgPrint(DBGLVL_DEBUG, "Events opened.\n");
+=======
+        // TODO: This is part of the extension detours initialisation
+        // (replacing) current lazy initialisation. However, I think this
+        // is even unsafer than the current solution.
+        //* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
+        //rec = getThreadState(GetCurrentProcessId());
+        //rec->isRecursing = 1;
+        //if (!releaseGlInitContext(&initCtx)) {
+        //  return FALSE;
+        //}
+        //rec->isRecursing = 0;
+
+        G.errorCheckAllowed = 1;
+        initStreamRecorder(&G.recordedStream);
+
+        initQueryStateTracker();
+
+        /* __asm int 3 FTW! */
+        //__asm int 3
+        /*
+         * HAZARD: This is dangerous to public safety, we must remove it.
+         * MSDN says "It [DllMain] must not call the LoadLibrary or
+         * LoadLibraryEx function (or a function that calls  these functions),
+         * ..."
+         */
+        loadDbgFunctions();
+>>>>>>> basic communication should work
 
 
 		/* Create global crit section. */
@@ -577,12 +623,16 @@ void __attribute__ ((constructor)) debuglib_init(void)
     //  exit(1);
     //}
     // for now:
-    g.fcalls = malloc(sizeof(debug_record_t));
-    if (getenv("GLSL_DEBUGGER_RUN")) {
-        g.fcalls ->operation = DBG_EXECUTE;
-        g.fcalls ->items[0] = DBG_EXECUTE_RUN;
+    g.thread = malloc(MAX_THREADS * sizeof(thread_state_t));
+    memset(g.thread, 0, MAX_THREADS * sizeof(thread_state_t));
+    thread_state_t *this = getThreadState(os_getpid());
+    if (getenv("GLSL_DEBUGGER_INTERACTIVE")) {
+        this->mode = EX_MODE_INTERACTIVE;
+        this->halt_on = EX_HALT_ALL;
+        UT_NOTIFY(LV_INFO, "Library starts in interactive mode");
     } else {
-        g.fcalls->operation = DBG_STOP_EXECUTION;
+        this->mode = EX_MODE_UNATTENDED;
+        UT_NOTIFY(LV_INFO, "Library starts in unattended mode");
     }
 
     pthread_mutex_init(&G.lock, NULL);
@@ -655,23 +705,27 @@ void __attribute__ ((destructor)) debuglib_fini(void)
     UTILS_NOTIFY_SHUTDOWN();
 
     pthread_mutex_destroy(&G.lock);
+
+    free(g.thread);
 }
 #endif
 
-debug_record_t *getThreadRecord(os_pid_t pid)
+thread_state_t *getThreadState(os_pid_t pid)
 {
     int i;
-    for (i = 0; i < SHM_MAX_THREADS; ++i) {
-        if (g.fcalls[i].threadId == 0 || g.fcalls[i].threadId == pid) {
+    for (i = 0; i < MAX_THREADS; ++i) {
+        if (g.thread[i].threadId == 0 || g.thread[i].threadId == pid) {
             break;
         }
     }
-    if (i == SHM_MAX_THREADS) {
+    if (i == MAX_THREADS) {
         /* TODO */
-        UT_NOTIFY(LV_ERROR, "Error: max. number of debugable threads exceeded!");
+        UT_NOTIFY(LV_ERROR, "Error: max. number of debuggable threads exceeded!");
         exit(1);
     }
-    return &g.fcalls[i];
+    if (g.thread[i].threadId == 0)
+        g.thread[i].threadId = pid;
+    return &g.thread[i];
 }
 
 static void printArgument(void *addr, int type)
@@ -742,24 +796,20 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
     int i;
     va_list argp;
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    free(rec->current_call);
-    rec->current_call = malloc(sizeof(Proto__FunctionCall));;
-    call.name = fname;
-    call.n_arguments = numArgs;
-    call.threadid = pid; call.has_threadid = 1;
-    call.arguments = malloc(numArgs * sizeof(call.arguments));
-    UT_NOTIFY_NL(LV_INFO, "STORE CALL: %s(", rec->fname);
+    thread_state_t *rec = getThreadState(pid);
+    fcall_destroy(rec->current_call);
+    rec->current_call = fcall_create(fname, numArgs);
+    rec->current_call->thread_id = pid; rec->current_call->has_thread_id = 1;
+    UT_NOTIFY_NL(LV_INFO, "STORE CALL %s(", fname);
     va_start(argp, numArgs);
     for (i = 0; i < numArgs;) {
-        call.arguments[i] = malloc(sizeof(Proto__FunctionArgument));
-        proto__function_argument__init(call.arguments[i]);
-        call.arguments[i]->data = va_arg(argp, void *);
-        call.arguments[i]->type = va_arg(argp, int);
+        rec->current_call->arguments[i]->data = va_arg(argp, void *);
+        rec->current_call->arguments[i]->type = va_arg(argp, int);
 
         //rec->items[2 * i] = (ALIGNED_DATA) va_arg(argp, void *);
         //rec->items[2 * i + 1] = (ALIGNED_DATA) va_arg(argp, int);
-        printArgument((void *) call.arguments[i]->data, call.arguments[i]->type);
+        printArgument((void *) rec->current_call->arguments[i]->data,
+                      rec->current_call->arguments[i]->type);
         ++i;
         if (i != numArgs)
             UT_NOTIFY_NO_PRFX(", ");
@@ -771,20 +821,22 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
 void storeResult(void *result, int type)
 {
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
+    thread_state_t *rec = getThreadState(pid);
 
     UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
     printArgument(result, type);
     UT_NOTIFY_NO_PRFX("\n");
-    rec->result = DBG_RETURN_VALUE;
-    rec->items[0] = (ALIGNED_DATA) result;
-    rec->items[1] = (ALIGNED_DATA) type;
+    rec->current_call->return_type = type;
+    rec->current_call->has_return_type = 1;
+    rec->current_call->return_data = result;
 }
 
+
+/* FIXME noone actually calls this anymore
 void storeResultOrError(unsigned int error, void *result, int type)
 {
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
+    thread_state_t *rec = getThreadState(pid);
 
     if (error) {
         setErrorCode(error);
@@ -798,26 +850,8 @@ void storeResultOrError(unsigned int error, void *result, int type)
         rec->items[1] = (ALIGNED_DATA) type;
     }
 }
-
-/*
-void stop(void)
-{
-    UT_NOTIFY(LV_DEBUG, "RAISED STOP");
-#ifdef _WIN32
-    if (!SetEvent(g.hEvtDebugger)) {
-        UT_NOTIFY(LV_ERROR, "could not signal Debugger: %u", GetLastError());
-    }
-    if (WaitForSingleObject(g.hEvtDebugee, INFINITE) != WAIT_OBJECT_0) {
-        UT_NOTIFY(LV_ERROR, "Waiting for continue event failed: %u",
-                GetLastError());
-    } else {
-        UT_NOTIFY(LV_INFO, "continued...");
-    }
-#else // _WIN32
-    raise(SIGSTOP);
-#endif // _WIN32
-}
 */
+
 void stop(void)
 {
     pthread_mutex_lock(&G.lock);
@@ -885,144 +919,151 @@ static void endReplay(void)
  */
 static void shaderStep(void)
 {
-    int error;
+    // int error;
 
-    os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    const char *vshader = (const char *) rec->items[0];
-    const char *gshader = (const char *) rec->items[1];
-    const char *fshader = (const char *) rec->items[2];
-    int target = (int) rec->items[3];
+    // os_pid_t pid = os_getpid();
+    // thread_state_t *rec = getThreadState(pid);
+    // const char *vshader = (const char *) rec->items[0];
+    // const char *gshader = (const char *) rec->items[1];
+    // const char *fshader = (const char *) rec->items[2];
+    // int target = (int) rec->items[3];
 
-    UT_NOTIFY(LV_INFO,
-              "SHADER STEP: v=%p g=%p f=%p target=%i", vshader, gshader, fshader, target);
+    // UT_NOTIFY(LV_INFO,
+    //           "SHADER STEP: v=%p g=%p f=%p target=%i", vshader, gshader, fshader, target);
 
-    UT_NOTIFY(LV_INFO, "############# V-Shader ##############\n%s\n"
-              "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", vshader);
-    UT_NOTIFY(LV_INFO, "############# G-Shader ##############\n%s\n"
-              "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", gshader);
-    UT_NOTIFY(LV_INFO, "############# F-Shader ##############\n%s\n"
-              "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", fshader);
+    // UT_NOTIFY(LV_INFO, "############# V-Shader ##############\n%s\n"
+    //           "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", vshader);
+    // UT_NOTIFY(LV_INFO, "############# G-Shader ##############\n%s\n"
+    //           "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", gshader);
+    // UT_NOTIFY(LV_INFO, "############# F-Shader ##############\n%s\n"
+    //           "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", fshader);
 
-    if (target == DBG_TARGET_GEOMETRY_SHADER
-            || target == DBG_TARGET_VERTEX_SHADER) {
-        int primitiveMode = (int) rec->items[4];
-        int forcePointPrimitiveMode = (int) rec->items[5];
-        int numFloatsPerVertex = (int) rec->items[6];
-        int numVertices;
-        int numPrimitives;
-        float *buffer;
+    // if (target == DBG_TARGET_GEOMETRY_SHADER
+    //         || target == DBG_TARGET_VERTEX_SHADER) {
+    //     int primitiveMode = (int) rec->items[4];
+    //     int forcePointPrimitiveMode = (int) rec->items[5];
+    //     int numFloatsPerVertex = (int) rec->items[6];
+    //     int numVertices;
+    //     int numPrimitives;
+    //     float *buffer;
 
-        /* set debug shader code */
-        error = loadDbgShader(vshader, gshader, fshader, target,
-                              forcePointPrimitiveMode);
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     /* set debug shader code */
+    //     error = loadDbgShader(vshader, gshader, fshader, target,
+    //                           forcePointPrimitiveMode);
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        /* replay recorded drawcall */
-        error = setSavedGLState(target);
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     /* replay recorded drawcall */
+    //     error = setSavedGLState(target);
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        /* output primitive mode from (geometry) shader program over writtes
-         * primitive mode of draw call!
-         */
-        if (target == DBG_TARGET_GEOMETRY_SHADER) {
-            if (forcePointPrimitiveMode) {
-                primitiveMode = GL_POINTS;
-            } else {
-                primitiveMode = getShaderPrimitiveMode();
-            }
-        }
+    //     /* output primitive mode from (geometry) shader program over writtes
+    //      * primitive mode of draw call!
+    //      */
+    //     if (target == DBG_TARGET_GEOMETRY_SHADER) {
+    //         if (forcePointPrimitiveMode) {
+    //             primitiveMode = GL_POINTS;
+    //         } else {
+    //             primitiveMode = getShaderPrimitiveMode();
+    //         }
+    //     }
 
-        /* begin transform feedback */
-        error = beginTransformFeedback(primitiveMode);
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     /* begin transform feedback */
+    //     error = beginTransformFeedback(primitiveMode);
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        replayFunctionCalls(&G.recordedStream, 0);
-        error = glError();
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     replayFunctionCalls(&G.recordedStream, 0);
+    //     error = glError();
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        /* readback feedback buffer */
-        error = endTransformFeedback(primitiveMode, numFloatsPerVertex, &buffer,
-                                     &numPrimitives, &numVertices);
-        if (error) {
-            setErrorCode(error);
-        } else {
-            rec->result = DBG_READBACK_RESULT_VERTEX_DATA;
-            rec->items[0] = (ALIGNED_DATA) buffer;
-            rec->items[1] = (ALIGNED_DATA) numVertices;
-            rec->items[2] = (ALIGNED_DATA) numPrimitives;
-        }
-    } else if (target == DBG_TARGET_FRAGMENT_SHADER) {
-        int numComponents = (int) rec->items[4];
-        int format = (int) rec->items[5];
-        int width, height;
-        void *buffer;
+    //     /* readback feedback buffer */
+    //     error = endTransformFeedback(primitiveMode, numFloatsPerVertex, &buffer,
+    //                                  &numPrimitives, &numVertices);
+    //     if (error) {
+    //         setErrorCode(error);
+    //     } else {
+    //         rec->result = DBG_READBACK_RESULT_VERTEX_DATA;
+    //         rec->items[0] = (ALIGNED_DATA) buffer;
+    //         rec->items[1] = (ALIGNED_DATA) numVertices;
+    //         rec->items[2] = (ALIGNED_DATA) numPrimitives;
+    //     }
+    // } else if (target == DBG_TARGET_FRAGMENT_SHADER) {
+    //     int numComponents = (int) rec->items[4];
+    //     int format = (int) rec->items[5];
+    //     int width, height;
+    //     void *buffer;
 
-        /* set debug shader code */
-        error = loadDbgShader(vshader, gshader, fshader, target, 0);
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     /* set debug shader code */
+    //     error = loadDbgShader(vshader, gshader, fshader, target, 0);
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        /* replay recorded drawcall */
-        error = setSavedGLState(target);
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
-        replayFunctionCalls(&G.recordedStream, 0);
-        error = glError();
-        if (error) {
-            setErrorCode(error);
-            return;
-        }
+    //     /* replay recorded drawcall */
+    //     error = setSavedGLState(target);
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
+    //     replayFunctionCalls(&G.recordedStream, 0);
+    //     error = glError();
+    //     if (error) {
+    //         setErrorCode(error);
+    //         return;
+    //     }
 
-        /* readback framebuffer */
-        DMARK
-        error = readBackRenderBuffer(numComponents, format, &width, &height,
-                                     &buffer);
-        DMARK
-        if (error) {
-            setErrorCode(error);
-        } else {
-            rec->result = DBG_READBACK_RESULT_FRAGMENT_DATA;
-            rec->items[0] = (ALIGNED_DATA) buffer;
-            rec->items[1] = (ALIGNED_DATA) width;
-            rec->items[2] = (ALIGNED_DATA) height;
-        }
-    } else {
-        UT_NOTIFY_NO_PRFX("\n");
-        setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
-    }
+    //     /* readback framebuffer */
+    //     DMARK
+    //     error = readBackRenderBuffer(numComponents, format, &width, &height,
+    //                                  &buffer);
+    //     DMARK
+    //     if (error) {
+    //         setErrorCode(error);
+    //     } else {
+    //         rec->result = DBG_READBACK_RESULT_FRAGMENT_DATA;
+    //         rec->items[0] = (ALIGNED_DATA) buffer;
+    //         rec->items[1] = (ALIGNED_DATA) width;
+    //         rec->items[2] = (ALIGNED_DATA) height;
+    //     }
+    // } else {
+    //     UT_NOTIFY_NO_PRFX("\n");
+    //     setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
+    // }
 }
 
-int getDbgOperation(void)
+enum DBG_OPERATION getDbgOperation(const char* func)
 {
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    UT_NOTIFY(LV_INFO, "OPERATION: %u @ %p", rec->operation, rec);
-    return rec->operation;
+    thread_state_t *rec = getThreadState(pid);
+    enum DBG_OPERATION ret = DBG_CALL_ORIGFUNCTION_AND_PROCEED;
+    if (!keepExecuting(func)) {
+        stop();
+    }
+    /* read dbg command from queue and return it */
+    UT_NOTIFY(LV_INFO, "OPERATION: %u @ %p", rec->mode, rec);
+    // FIXME 
+    //return rec->operation;
+    return ret;
 }
 
 static int isDebuggableDrawCall(const char *name)
 {
     int i = 0;
-    while (glFunctions[i].fname != NULL) {
-        if (!strcmp(name, glFunctions[i].fname)) {
-            return glFunctions[i].isDebuggableDrawCall;
+    while (glFunctions[i].name != NULL) {
+        if (!strcmp(name, glFunctions[i].name)) {
+            return glFunctions[i].is_debuggable;
         }
         i++;
     }
@@ -1032,34 +1073,33 @@ static int isDebuggableDrawCall(const char *name)
 static int isShaderSwitch(const char *name)
 {
     int i = 0;
-    while (glFunctions[i].fname != NULL) {
-        if (!strcmp(name, glFunctions[i].fname)) {
-            return glFunctions[i].isShaderSwitch;
+    while (glFunctions[i].name != NULL) {
+        if (!strcmp(name, glFunctions[i].name)) {
+            return glFunctions[i].is_shader_switch;
         }
         i++;
     }
     return 0;
 }
 
-int keepExecuting(const char *calledName)
+int keepExecuting(const char *func)
 {
-    // FIXME
-    return 0;
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    if (rec->operation == DBG_STOP_EXECUTION) {
-        return 0;
-    } else if (rec->operation == DBG_EXECUTE) {
-        switch (rec->items[0]) {
-        case DBG_EXECUTE_RUN:
-            return 1;
-        case DBG_JUMP_TO_SHADER_SWITCH:
-            return !isShaderSwitch(calledName);
-        case DBG_JUMP_TO_DRAW_CALL:
-            /* TODO:  allow also jumps to non-debuggable draw calls */
-            return !isDebuggableDrawCall(calledName);
-        case DBG_JUMP_TO_USER_DEFINED:
-            return strcmp(rec->fname, calledName);
+    thread_state_t *rec = getThreadState(pid);
+    if (rec->mode == EX_MODE_UNATTENDED) {
+        return 1;
+    } else if (rec->mode == EX_MODE_INTERACTIVE) {
+        switch (rec->halt_on) {
+        case EX_HALT_ALL:
+            return 0;
+        case EX_HALT_ON_SHADER_SWITCH:
+            return !isShaderSwitch(func);
+        case EX_HALT_ON_DRAW_CALL:
+            //TODO:  allow also jumps to non-debuggable draw calls
+            return !isDebuggableDrawCall(func);
+        case EX_HALT_ON_USER_DEFINED:
+            // FIXME do a hash comparison here
+            return strcmp(rec->halt_on_function, func);
         default:
             break;
         }
@@ -1071,87 +1111,87 @@ int keepExecuting(const char *calledName)
 int checkGLErrorInExecution(void)
 {
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    return rec->items[1];
-    return 1;
+    thread_state_t *rec = getThreadState(pid);
+    return *rec->current_call->return_data;
 }
 
 void setExecuting(void)
 {
-    os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
-    rec->result = DBG_EXECUTE_IN_PROGRESS;
+    // FIXME still usefull?
+    // os_pid_t pid = os_getpid();
+    // thread_state_t *rec = getThreadState(pid);
+    // rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
 
 void executeDefaultDbgOperation(enum DBG_OPERATION op)
 {
-    switch (op) {
-    /* DBG_CALL_FUNCTION, DBG_RECORD_CALL, and DBG_CALL_ORIGFUNCTION handled
-     * directly in functionHooks.inc
-     */
-    case DBG_ALLOC_MEM:
-            allocMem();
-        break;
-    case DBG_FREE_MEM:
-        freeMem();
-        break;
-    case DBG_READ_RENDER_BUFFER:
-        if (G.errorCheckAllowed) {
-            readRenderBuffer();
-        } else {
-            setErrorCode(DBG_ERROR_READBACK_NOT_ALLOWED);
-        }
-        break;
-    case DBG_CLEAR_RENDER_BUFFER:
-        if (G.errorCheckAllowed) {
-            clearRenderBuffer();
-        } else {
-            setErrorCode(DBG_ERROR_OPERATION_NOT_ALLOWED);
-        }
-        break;
-    case DBG_SET_DBG_TARGET:
-        setDbgOutputTarget();
-        break;
-    case DBG_RESTORE_RENDER_TARGET:
-        restoreOutputTarget();
-        break;
-    case DBG_START_RECORDING:
-        startRecording();
-        break;
-    case DBG_REPLAY:
-        /* should be obsolete: we use a invalid debug target to avoid
-         * interference with debug state
-         */
-        replayRecording(DBG_TARGET_FRAGMENT_SHADER + 1);
-        break;
-    case DBG_END_REPLAY:
-        endReplay();
-        break;
-    case DBG_STORE_ACTIVE_SHADER:
-        storeActiveShader();
-        break;
-    case DBG_RESTORE_ACTIVE_SHADER:
-        restoreActiveShader();
-        break;
-    case DBG_SET_DBG_SHADER:
-        setDbgShader();
-        break;
-    case DBG_GET_SHADER_CODE:
-        getShaderCode();
-        break;
-    case DBG_SHADER_STEP:
-        shaderStep();
-        break;
-    case DBG_SAVE_AND_INTERRUPT_QUERIES:
-        interruptAndSaveQueries();
-        break;
-    case DBG_RESTART_QUERIES:
-        restartQueries();
-        break;
-    default:
-        UT_NOTIFY(LV_INFO, "UNKNOWN DEBUG OPERATION %i", op);
-        break;
-    }
+    // switch (op) {
+    // /* DBG_CALL_FUNCTION, DBG_RECORD_CALL, and DBG_CALL_ORIGFUNCTION handled
+    //  * directly in functionHooks.inc
+    //  */
+    // case DBG_ALLOC_MEM:
+    //         allocMem();
+    //     break;
+    // case DBG_FREE_MEM:
+    //     freeMem();
+    //     break;
+    // case DBG_READ_RENDER_BUFFER:
+    //     if (G.errorCheckAllowed) {
+    //         readRenderBuffer();
+    //     } else {
+    //         setErrorCode(DBG_ERROR_READBACK_NOT_ALLOWED);
+    //     }
+    //     break;
+    // case DBG_CLEAR_RENDER_BUFFER:
+    //     if (G.errorCheckAllowed) {
+    //         clearRenderBuffer();
+    //     } else {
+    //         setErrorCode(DBG_ERROR_OPERATION_NOT_ALLOWED);
+    //     }
+    //     break;
+    // case DBG_SET_DBG_TARGET:
+    //     setDbgOutputTarget();
+    //     break;
+    // case DBG_RESTORE_RENDER_TARGET:
+    //     restoreOutputTarget();
+    //     break;
+    // case DBG_START_RECORDING:
+    //     startRecording();
+    //     break;
+    // case DBG_REPLAY:
+    //     /* should be obsolete: we use a invalid debug target to avoid
+    //      * interference with debug state
+    //      */
+    //     replayRecording(DBG_TARGET_FRAGMENT_SHADER + 1);
+    //     break;
+    // case DBG_END_REPLAY:
+    //     endReplay();
+    //     break;
+    // case DBG_STORE_ACTIVE_SHADER:
+    //     storeActiveShader();
+    //     break;
+    // case DBG_RESTORE_ACTIVE_SHADER:
+    //     restoreActiveShader();
+    //     break;
+    // case DBG_SET_DBG_SHADER:
+    //     setDbgShader();
+    //     break;
+    // case DBG_GET_SHADER_CODE:
+    //     getShaderCode();
+    //     break;
+    // case DBG_SHADER_STEP:
+    //     shaderStep();
+    //     break;
+    // case DBG_SAVE_AND_INTERRUPT_QUERIES:
+    //     interruptAndSaveQueries();
+    //     break;
+    // case DBG_RESTART_QUERIES:
+    //     restartQueries();
+    //     break;
+    // default:
+    //     UT_NOTIFY(LV_INFO, "UNKNOWN DEBUG OPERATION %i", op);
+    //     break;
+    // }
 }
 
 static void dbgFunctionNOP(void)
@@ -1163,12 +1203,13 @@ static void dbgFunctionNOP(void)
 void (*getDbgFunction(void))(void)
 {
     os_pid_t pid = os_getpid();
-    debug_record_t *rec = getThreadRecord(pid);
+    thread_state_t *rec = getThreadState(pid);
     int i;
 
-    for (i = 0; i < g.numDbgFunctions; i++) {
-        if (!strcmp(g.dbgFunctions[i].fname, rec->fname)) {
-            UT_NOTIFY(LV_INFO, "found special detour for %s", rec->fname);
+    for (i = 0; i < g.numDbgFunctions; ++i) {
+        /* FIXME do lookup using hash tables */
+        if (!strcmp(g.dbgFunctions[i].fname, rec->current_call->name)) {
+            UT_NOTIFY(LV_INFO, "found special detour for %s", rec->current_call->name);
             return g.dbgFunctions[i].function;
         }
     }
@@ -1367,7 +1408,7 @@ static void *connection_handler(void *args)
         }
         num_bytes = 0;
         do {
-            UT_NOTIFY(LV_INFO, "Receiving message of size %d", length);
+            UT_NOTIFY(LV_DEBUG, "Receiving message of size %d", length);
             size_t read = sck_recv(state.sock, buf, length);
             if (read < 0) {
                 UT_NOTIFY(LV_ERROR, "Receiving request failed");
@@ -1384,7 +1425,7 @@ static void *connection_handler(void *args)
         switch (state.request->type) {
         case PROTO__CLIENT_REQUEST__TYPE__ANNOUNCE:
             UT_NOTIFY(LV_INFO, "announce received");
-            verify_client(&state);
+            handle_request_announce(&state);
             break;
         case PROTO__CLIENT_REQUEST__TYPE__PROCESS_INFO:
             UT_NOTIFY(LV_INFO, "process info request received");
@@ -1392,8 +1433,9 @@ static void *connection_handler(void *args)
         case PROTO__CLIENT_REQUEST__TYPE__FUNCTION_CALL:
             UT_NOTIFY(LV_WARN, "current function call requested");
             break;
-        case PROTO__CLIENT_REQUEST__TYPE__STEP:
-            UT_NOTIFY(LV_WARN, "version info requested");
+        case PROTO__CLIENT_REQUEST__TYPE__EXECUTION:
+            UT_NOTIFY(LV_INFO, "exec details received");
+            handle_request_execution(&state);
             break;
         default:
             UT_NOTIFY(LV_WARN, "Unknown request received");
@@ -1419,12 +1461,12 @@ static int new_connection_callback(socket_t *s)
     pthread_detach(thread);
     return 0;
 }
-static void verify_client(handlerstate_t* state)
+static void handle_request_announce(handlerstate_t *state)
 {
     state->response = malloc(sizeof(Proto__ServerResponse));
     proto__server_response__init(state->response);
     state->response->id = state->request->id;
-    Proto__Announce *msg = state->request->announce;
+    Proto__AnnounceRequestDetails *msg = state->request->announce;
     state->response->error_code = PROTO__ERROR_CODE__NONE;
     state->response->message = "Welcome dude!";
     if (msg->id != PROTO_ID) {
@@ -1441,7 +1483,7 @@ static void verify_client(handlerstate_t* state)
         state->end_connection = 1;
     }
 }
-static void send_response(handlerstate_t* state)
+static void send_response(handlerstate_t *state)
 {
     UT_NOTIFY(LV_TRACE, "Sending response");
     msg_size_t len = proto__server_response__get_packed_size(state->response);
@@ -1454,3 +1496,39 @@ static void send_response(handlerstate_t* state)
     assert(num_bytes == len);
     free(buffer);
 }
+<<<<<<< HEAD
+=======
+static Proto__FunctionCall *fcall_create(const char *funcname, int num_args)
+{
+    Proto__FunctionCall *fc = malloc(sizeof(Proto__FunctionCall));
+    assert(fc);
+    fc->n_arguments = num_args;
+    fc->arguments = malloc(num_args * sizeof(fc->arguments));
+    assert(fc->arguments);
+    for (int i = 0; i < num_args; ++i) {
+        fc->arguments[i] = malloc(sizeof(Proto__FunctionArgument));
+        assert(fc->arguments[i]);
+        proto__function_argument__init(fc->arguments[i]);
+    }
+    return fc;
+}
+static void fcall_destroy(Proto__FunctionCall *fc)
+{
+    if (!fc)
+        return;
+    for (int i = 0; i < fc->n_arguments; ++i) {
+        free(fc->arguments[i]);
+    }
+    free(fc->arguments);
+    free(fc);
+}
+static void handle_request_execution(handlerstate_t *state)
+{
+    /* create response */
+    state->response = malloc(sizeof(Proto__ServerResponse));
+    proto__server_response__init(state->response);
+
+    Proto__ExecutionRequestDetails *msg = state->request->execution;
+    state->response->error_code = PROTO__ERROR_CODE__NONE;
+}
+>>>>>>> basic communication should work

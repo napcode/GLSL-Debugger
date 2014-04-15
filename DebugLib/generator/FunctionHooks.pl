@@ -249,6 +249,7 @@ sub createBody
 {
     ${retval_init}int op, error;${thread_statement}
 	ENTER_CS(&G.lock);
+    int end = 0;
     if (keepExecuting(\"$fname\")) {
         EXIT_CS(&G.lock);
         ${preexec}${retval_assign}ORIG_GL($fname)($argstring);
@@ -262,10 +263,12 @@ sub createBody
     }
     //fprintf(stderr, \"ThreadID: %li\\n\", (unsigned long)pthread_self());
     storeFunctionCall(\"$fname\", ${argcount}${argtypes});
-    stop();
-    op = getDbgOperation();
-    while (op != DBG_DONE) {
+    do {
+        op = getDbgOperation(\"$fname\");
         switch (op) {
+        case DBG_DONE:
+            end = 1;
+            break;
         case DBG_CALL_FUNCTION:
             ${retval_assign}(($pfname)getDbgFunction())($argstring);";
     if (not $return_void) {
@@ -285,6 +288,8 @@ sub createBody
             /* FALLTHROUGH!!!! */
 #  endif
 #endif
+        case DBG_CALL_ORIGFUNCTION_AND_PROCEED:
+            end = 1;
         case DBG_CALL_ORIGFUNCTION:
             ${preexec}${retval_assign}ORIG_GL($fname)($argstring);
 %s
@@ -304,9 +309,7 @@ sub createBody
         default:
             executeDefaultDbgOperation(op);
         }
-        stop();
-        op = getDbgOperation();
-    }
+    } while (!end);
     setErrorCode(DBG_NO_ERROR);
     EXIT_CS(&G.lock);
     ${win_recursing}return $return_name;

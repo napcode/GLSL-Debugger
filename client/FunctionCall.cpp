@@ -47,7 +47,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "FunctionsMap.h"
 
 extern "C" {
-#include "DebugLib/debuglib.h"
 #include "utils/glenumerants.h"
 #include "errno.h"
 #include "utils/types.h"
@@ -76,9 +75,8 @@ void FunctionCall::name(const QString& name)
 {
 	_name = name;
 	/* reload extension since name has changed */
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if(f)
-		_extension = f->extname;
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	_extension = QString::fromStdString(f.extname());
 }
 
 void FunctionCall::addArgument(DBG_TYPE type, void *data, void *address)
@@ -154,17 +152,17 @@ bool FunctionCall::isDebuggable(int *primitiveMode) const
 
 bool FunctionCall::isDebuggableDrawCall(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && f->isDebuggableDrawCall)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.is_debuggable())
 		return true;
 	return false;
 }
 
 bool FunctionCall::isDebuggableDrawCall(int *primitiveMode) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && f->isDebuggableDrawCall) {
-		int idx = f->primitiveModeIndex;
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.is_debuggable()) {
+		int idx = f.primitive_mode_index();
 		*primitiveMode = *(GLenum*) _arguments[idx]->data();
 		return true;
 	}
@@ -179,48 +177,48 @@ bool FunctionCall::isEditable(void) const
 
 bool FunctionCall::isShaderSwitch(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && f->isShaderSwitch)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.is_shader_switch())
 		return true;
 	return false;
 }
 
 bool FunctionCall::isGlFunc(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && strcmp("GL", f->prefix) == 0)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.prefix().compare("GL") == 0)
 		return true;
 	return false;
 }
 
 bool FunctionCall::isGlxFunc(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && strcmp("GLX", f->prefix) == 0)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.prefix().compare("GLX") == 0)
 		return true;
 	return false;
 }
 
 bool FunctionCall::isWglFunc(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && strcmp("WGL", f->prefix) == 0)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.prefix().compare("WGL") == 0)
 		return true;
 	return false;
 }
 
 bool FunctionCall::isFrameEnd(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && f->isFrameEnd)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.is_frame_end())
 		return true;
 	return false;
 }
 
 bool FunctionCall::isFramebufferChange(void) const
 {
-	gl_func_t *f = FunctionsMap::instance()[_name];
-	if (f && f->isFramebufferChange)
+	const proto::GLFunction& f = FunctionsMap::instance()[_name];
+	if (f.is_framebuffer_change())
 		return true;
 	return false;
 }

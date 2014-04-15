@@ -6,43 +6,58 @@ message Version
     required int32 minor=2;
     required int32 revision=3;
 }
-message Announce
+message AnnounceRequestDetails
 {
     required int32 id=1;
     required string client_name=2;
     required Version version=3;
+}
+message ExecutionRequestDetails
+{
+    enum Mode {
+        CONTINUE = 0;
+        HALT = 1;
+        STEP = 2;
+        TO_SHADER_SWITCH = 3;
+        TO_DRAW_CALL = 4;
+        TO_USER_DEFINED = 5;
+    }
+    required Operation operation = 1;
+    required int32 thread_id = 2;
+    optional FunctionCall call = 3;
 }
 message ClientRequest
 {
     enum Type {
         ANNOUNCE = 0;
         PROCESS_INFO = 1;
-        FUNCTION_CALL = 2;
-        CONTINUE = 3;
-        STOP = 4;
-        STEP = 5;
+        GL_FUNCTIONS = 2;
+        FUNCTION_CALL = 3;
+        EXECUTION = 4;
     } 
     required Type type = 1; 
     required uint64 id = 2;
-    optional Announce announce = 3;
+    optional AnnounceRequestDetails announce = 3;
+    optional ExecutionRequestDetails execution = 4;
 }
 message ProcessInfo
 {
     optional string executable = 1;
     optional int32 pid = 2;
     optional bool is64bit = 3;
+    repeated int32 thread_id = 4;
 }
-enum ArgumentType {
+enum DebugType {
     CHAR = 0;
     UNSIGNED_CHAR = 1;
     SHORT = 2;
     UNSIGNED_SHORT = 3;
     INT = 4;
     UNSIGNED_INT = 5;
-    LONG = 6;
-    UNSIGNED_LONG = 7;
-    LONGLONG = 8;
-    UNSIGNED_LONGLONG = 9;
+    LONG_INT = 6;
+    UNSIGNED_LONG_INT = 7;
+    LONG_LONG_INT = 8;
+    UNSIGNED_LONG_LONG_INT = 9;
     FLOAT = 10;
     DOUBLE = 11;
     LONGDOUBLE = 12;
@@ -54,21 +69,39 @@ enum ArgumentType {
 }
 message FunctionArgument
 {
-    required ArgumentType type = 1;
+    required DebugType type = 1;
     optional uint64 size = 2;
     required string data = 3;
 }
 message FunctionCall
 {
     required string name = 1;
-    optional int32 threadId = 2;
-    repeated FunctionArgument arguments = 3; 
+    optional int32 thread_id = 2;
+    optional DebugType return_type = 3;
+    optional string return_data = 4;
+    repeated FunctionArgument arguments = 5;
 }
-enum ErrorCode {
+enum ErrorCode 
+{
     NONE = 0;
     HEADER_MISMATCH = 1;
     VERSION_MISMATCH = 2;
     AUTH_FAILED = 3;
+}
+message GLFunction
+{
+    required string prefix = 1; 
+    required string extname = 2;
+    required string name = 3;
+    required bool is_debuggable = 4;
+    required int32 primitive_mode_index = 5;
+    required bool is_shader_switch = 6;
+    required bool is_frame_end = 7;
+    required bool is_framebuffer_change = 8;
+}
+message GLFunctions
+{
+    repeated GLFunction function = 1;
 }
 message ServerResponse
 {
@@ -77,5 +110,6 @@ message ServerResponse
     optional string message = 3;
     optional ProcessInfo proc_info = 4;
     optional FunctionCall function_call = 5;
+    optional GLFunctions gl_functions = 6;
 }
 

@@ -45,7 +45,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "glstate.h"
 #include "shader.h"
 #include "utils/glenumerants.h"
-#include "utils/dbgprint.h"
+#include "utils/notify.h"
 #include "utils/pfm.h"
 
 #ifdef _WIN32
@@ -333,7 +333,7 @@ static int setDbgRenderState(int target, int alphaTestOption,
 		/* set state */ORIG_GL(glDrawBuffer)(GL_COLOR_ATTACHMENT0_EXT);
 		ORIG_GL(glReadBuffer)(GL_COLOR_ATTACHMENT0_EXT);
 		ORIG_GL(glColorMask)(GL_TRUE, GL_FALSE, GL_FALSE, g.activeColorMask[3]);
-		dbgPrint(DBGLVL_INFO,
+		UT_NOTIFY(LV_INFO,
 				"setDbgRenderState: stencilTestOption: %i "
 				"alphaTestOption: %i depthTestOption: %i "
 				"blendingOption: %i\n", stencilTestOption, alphaTestOption, depthTestOption, blendingOption);
@@ -389,19 +389,19 @@ static int setDbgRenderState(int target, int alphaTestOption,
 /* save transform feedback state */
 static void saveTransformFeedbackState(TFBState *tfbState)
 {
-	dbgPrint(DBGLVL_INFO, "Saving TFB state:\n");
+	UT_NOTIFY(LV_INFO, "Saving TFB state:\n");
 
 #if 0
 	ORIG_GL(glGetIntegerv)(GL_TRANSFORM_FEEDBACK_BUFFER_MODE_NV,
 			&tfbState->mode);
-	dbgPrint(DBGLVL_INFO,"\tmode: %i\n", tfbState->mode);
+	UT_NOTIFY(LV_INFO,"\tmode: %i\n", tfbState->mode);
 
 	ORIG_GL(glGetIntegerv)(GL_TRANSFORM_FEEDBACK_ATTRIBS_NV, &tfbState->attribs);
-	dbgPrint(DBGLVL_INFO,"\tattribs: %i\n", tfbState->attribs);
+	UT_NOTIFY(LV_INFO,"\tattribs: %i\n", tfbState->attribs);
 
 	ORIG_GL(glGetIntegerv)(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING_NV,
 			&tfbState->buffer_binding);
-	dbgPrint(DBGLVL_INFO,"\tbuffer_binding: %i\n", tfbState->buffer_binding);
+	UT_NOTIFY(LV_INFO,"\tbuffer_binding: %i\n", tfbState->buffer_binding);
 
 	ORIG_GL(glGetIntegerIndexedvEXT)(GL_TRANSFORM_FEEDBACK_RECORD_NV,XXXXXX);
 
@@ -412,14 +412,14 @@ static void saveTransformFeedbackState(TFBState *tfbState)
 
 	ORIG_GL(glGetIntegerIndexedvEXT)(GL_TRANSFORM_FEEDBACK_BUFFER_SIZE_NV,XXXXXX);
 #else
-	dbgPrint(DBGLVL_INFO, "\tTODO!!!!!!!!!!!!!!!!!!!!!!!\n");
+	UT_NOTIFY(LV_INFO, "\tTODO!!!!!!!!!!!!!!!!!!!!!!!\n");
 #endif
 }
 
 static void restoreTransformFeedbackState(TFBState *tfbState)
 {
-	dbgPrint(DBGLVL_INFO, "Restoring TFB state:\n");
-	dbgPrint(DBGLVL_INFO, "\tTODO!!!!!!!!!!!!!!!!!!!!!!!\n");
+	UT_NOTIFY(LV_INFO, "Restoring TFB state:\n");
+	UT_NOTIFY(LV_INFO, "\tTODO!!!!!!!!!!!!!!!!!!!!!!!\n");
 }
 
 static int restoreDbgRenderState(int target)
@@ -504,7 +504,7 @@ DMARK	/* setup queries for number of generated/written primitives */
 				g.tfbBuffer);
 		break;
 	default:
-		dbgPrint(DBGLVL_ERROR, "Unhandled TFB version!\n");
+		UT_NOTIFY(LV_ERROR, "Unhandled TFB version!\n");
 		setErrorCode(DBG_ERROR_INVALID_OPERATION);
 		return;
 	}
@@ -530,7 +530,7 @@ int beginTransformFeedback(int primitiveType)
 	int error;
 
 DMARK
-		dbgPrint(DBGLVL_INFO,
+		UT_NOTIFY(LV_INFO,
 			"glBeginTransformFeedback expecting %s\n", lookupEnum(primitiveType));
 
 	switch (getTFBVersion()) {
@@ -567,7 +567,7 @@ DMARK
 		error = glError();
 		break;
 	default:
-		dbgPrint(DBGLVL_ERROR, "Unhandled TFB version!\n");
+		UT_NOTIFY(LV_ERROR, "Unhandled TFB version!\n");
 		error = GL_INVALID_OPERATION;
 		break;
 	}
@@ -616,7 +616,7 @@ int endTransformFeedback(int primitiveType, int numFloatsPerVertex,
 		}
 		break;
 	default:
-		dbgPrint(DBGLVL_ERROR, "Unhandled TFB version!\n");
+		UT_NOTIFY(LV_ERROR, "Unhandled TFB version!\n");
 		return GL_INVALID_OPERATION;
 	}
 
@@ -632,11 +632,11 @@ int endTransformFeedback(int primitiveType, int numFloatsPerVertex,
 	if (error) {
 		return error;
 	}
-	dbgPrint(DBGLVL_INFO,
+	UT_NOTIFY(LV_INFO,
 			"PRIMITIVES GENERATED/WRITTEN = %d/%d\n", primitivesGenerated, primitivesWritten);
 
 	if (primitivesWritten != primitivesGenerated) {
-		dbgPrint(DBGLVL_WARNING, "PRIMITIVES GENERATED > PRIMITIVES WRITTEN -> "
+		UT_NOTIFY(LV_WARN, "PRIMITIVES GENERATED > PRIMITIVES WRITTEN -> "
 		"FEEDBACKBUFFER TOO SMALL!\n");
 	}
 
@@ -728,13 +728,13 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 		return;
 	}
 
-	dbgPrint(DBGLVL_INFO,
+	UT_NOTIFY(LV_INFO,
 			"ACTIVE BUFFER: %s r=%i g=%i b=%i a=%i i=%i d=%i s=%i\n", lookupEnum(g.activeDrawbuffer), g.activeRedBits, g.activeGreenBits, g.activeBlueBits, g.activeAlphaBits, g.activeIndexBits, g.activeDepthBits, g.activeStencilBits);
 
 	/* store color buffer content */
 	if (!(g.colorBuffer = (GLfloat*) malloc(
 			4 * viewport[2] * viewport[3] * sizeof(GLfloat)))) {
-		dbgPrint(DBGLVL_WARNING, "ALLOCATION OF COLOR BUFFER BACKUP FAILED\n");
+		UT_NOTIFY(LV_WARN, "ALLOCATION OF COLOR BUFFER BACKUP FAILED\n");
 		setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
 		return;
 	}
@@ -750,7 +750,7 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 	if (g.activeDepthBits) {
 		if (!(g.depthBuffer = (GLfloat*) malloc(
 				viewport[2] * viewport[3] * sizeof(GLfloat)))) {
-			dbgPrint(DBGLVL_WARNING,
+			UT_NOTIFY(LV_WARN,
 					"ALLOCATION OF DEPTH BUFFER BACKUP FAILED\n");
 			free(g.colorBuffer);
 			setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
@@ -772,7 +772,7 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 	if (g.activeStencilBits) {
 		if (!(g.stencilBuffer = (GLint*) malloc(
 				viewport[2] * viewport[3] * sizeof(GLint)))) {
-			dbgPrint(DBGLVL_WARNING,
+			UT_NOTIFY(LV_WARN,
 					"ALLOCATION OF STENCIL BUFFER BACKUP FAILED\n");
 			free(g.colorBuffer);
 			free(g.depthBuffer);
@@ -825,7 +825,7 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 					case 8: internalFormat = GL_STENCIL_INDEX8_EXT; break;
 					case 16: internalFormat = GL_STENCIL_INDEX16_EXT; break;
 					default:
-					dbgPrint(DBGLVL_WARNING, "UNSUPPORTED STENCIL BUFFER BIT DEPTH: %i\n",
+					UT_NOTIFY(LV_WARN, "UNSUPPORTED STENCIL BUFFER BIT DEPTH: %i\n",
 							g.activeStencilBits);
 					setErrorCode(DBG_ERROR_INVALID_VALUE);
 					return;
@@ -902,28 +902,24 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 
 void setDbgOutputTarget(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
+	os_pid_t pid = os_getpid();
+	thread_state_t *rec = getThreadState(pid);
 
 	DMARK
-	switch (rec->items[0]) {
-	case DBG_TARGET_VERTEX_SHADER:
-	case DBG_TARGET_GEOMETRY_SHADER:
-		setDbgOutputTargetVertexData();
-		break;
-	case DBG_TARGET_FRAGMENT_SHADER:
-		setDbgOutputTargetFragmentData((int) rec->items[1], (int) rec->items[2],
-				(int) rec->items[3], (int) rec->items[4]);
-		break;
-	default:
-		setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
-		return;
-	}
+	// FIXME
+	// switch (rec->items[0]) {
+	// case DBG_TARGET_VERTEX_SHADER:
+	// case DBG_TARGET_GEOMETRY_SHADER:
+	// 	setDbgOutputTargetVertexData();
+	// 	break;
+	// case DBG_TARGET_FRAGMENT_SHADER:
+	// 	setDbgOutputTargetFragmentData((int) rec->items[1], (int) rec->items[2],
+	// 			(int) rec->items[3], (int) rec->items[4]);
+	// 	break;
+	// default:
+	// 	setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
+	// 	return;
+	// }
 }
 
 static void restoreOutputTargetFragmentData(void)
@@ -977,18 +973,29 @@ DMARK	ORIG_GL(glDeleteBuffers)(1, &g.tfbBuffer);
 	if (error) {
 		setErrorCode(error);
 		return;
-	}
+	}	
+	// FIXME
+	// int numComponents = (int) rec->items[0];
+	// int width, height, error;
+	// void *buffer;
+
+	// DMARK
+	// error = readBackRenderBuffer(numComponents, GL_FLOAT, &width, &height,
+	// 		&buffer);
+	// if (error != DBG_NO_ERROR) {
+	// 	setErrorCode(error);
+	// } else {
+	// 	rec->result = DBG_READBACK_RESULT_FRAGMENT_DATA;
+	// 	rec->items[0] = (ALIGNED_DATA) buffer;
+	// 	rec->items[1] = (ALIGNED_DATA) width;
+	// 	rec->items[2] = (ALIGNED_DATA) height;
+	// }
 }
 
 void restoreOutputTarget(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
+	os_pid_t pid = os_getpid();
+	thread_state_t *rec = getThreadState(pid);
 	int error;
 
 	DMARK
@@ -999,18 +1006,19 @@ void restoreOutputTarget(void)
 		return;
 	}
 
-	switch (rec->items[0]) {
-	case DBG_TARGET_VERTEX_SHADER:
-	case DBG_TARGET_GEOMETRY_SHADER:
-		restoreOutputTargetVertexData();
-		break;
-	case DBG_TARGET_FRAGMENT_SHADER:
-		restoreOutputTargetFragmentData();
-		break;
-	default:
-		setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
-		return;
-	}
+	// FIXME
+	// switch (rec->items[0]) {
+	// case DBG_TARGET_VERTEX_SHADER:
+	// case DBG_TARGET_GEOMETRY_SHADER:
+	// 	restoreOutputTargetVertexData();
+	// 	break;
+	// case DBG_TARGET_FRAGMENT_SHADER:
+	// 	restoreOutputTargetFragmentData();
+	// 	break;
+	// default:
+	// 	setErrorCode(DBG_ERROR_INVALID_DBG_TARGET);
+	// 	return;
+	// }
 
 }
 
@@ -1038,7 +1046,7 @@ DMARK	ORIG_GL(glGetIntegerv)(GL_VIEWPORT, viewport);
 		format = GL_RGBA;
 		break;
 	default:
-		dbgPrint(DBGLVL_WARNING, "readBackRenderBuffer "
+		UT_NOTIFY(LV_WARN, "readBackRenderBuffer "
 		"Error: requested %i components\n", numComponents);
 		return DBG_ERROR_READBACK_INVALID_COMPONENTS;
 	}
@@ -1053,7 +1061,7 @@ DMARK	ORIG_GL(glGetIntegerv)(GL_VIEWPORT, viewport);
 		formatSize = sizeof(GLuint);
 		break;
 	default:
-		dbgPrint(DBGLVL_WARNING, "readBackRenderBuffer "
+		UT_NOTIFY(LV_WARN, "readBackRenderBuffer "
 		"Error: requested format %i invalid\n", format);
 		return DBG_ERROR_READBACK_INVALID_FORMAT;
 	}
@@ -1061,7 +1069,7 @@ DMARK	ORIG_GL(glGetIntegerv)(GL_VIEWPORT, viewport);
 	if (!(*buffer = malloc(
 			numComponents * viewport[2] * viewport[3] * formatSize)) || !(line =
 			malloc(numComponents * viewport[2] * formatSize))) {
-		dbgPrint(DBGLVL_WARNING,
+		UT_NOTIFY(LV_WARN,
 				"readBackRenderBuffer: Allocation of %i bytes failed\n", numComponents*viewport[2]*viewport[3]*formatSize);
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
 	}
@@ -1124,28 +1132,24 @@ DMARK	ORIG_GL(glGetIntegerv)(GL_VIEWPORT, viewport);
  */
 void readRenderBuffer(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
-	int numComponents = (int) rec->items[0];
-	int width, height, error;
-	void *buffer;
+	os_pid_t pid = os_getpid();
+	thread_state_t *rec = getThreadState(pid);
+	// FIXME
+	// int numComponents = (int) rec->items[0];
+	// int width, height, error;
+	// void *buffer;
 
-	DMARK
-	error = readBackRenderBuffer(numComponents, GL_FLOAT, &width, &height,
-			&buffer);
-	if (error != DBG_NO_ERROR) {
-		setErrorCode(error);
-	} else {
-		rec->result = DBG_READBACK_RESULT_FRAGMENT_DATA;
-		rec->items[0] = (ALIGNED_DATA) buffer;
-		rec->items[1] = (ALIGNED_DATA) width;
-		rec->items[2] = (ALIGNED_DATA) height;
-	}
+	// DMARK
+	// error = readBackRenderBuffer(numComponents, GL_FLOAT, &width, &height,
+	// 		&buffer);
+	// if (error != DBG_NO_ERROR) {
+	// 	setErrorCode(error);
+	// } else {
+	// 	rec->result = DBG_READBACK_RESULT_FRAGMENT_DATA;
+	// 	rec->items[0] = (ALIGNED_DATA) buffer;
+	// 	rec->items[1] = (ALIGNED_DATA) width;
+	// 	rec->items[2] = (ALIGNED_DATA) height;
+	// }
 }
 
 typedef struct {
@@ -1387,13 +1391,8 @@ static void setCopyState(copyStateTarget csTarget)
  */
 void clearRenderBuffer(void)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
+	os_pid_t pid = os_getpid();
+	thread_state_t *rec = getThreadState(pid);
 	GLbitfield clearBits = 0;
 
 	GLfloat clearColor[4];
@@ -1425,10 +1424,22 @@ void clearRenderBuffer(void)
 	ORIG_GL(glRasterPos2i)(viewport[0], viewport[1]);
 	ORIG_GL(glWindowPos2i)(viewport[0], viewport[1]);
 
-	dbgPrint(DBGLVL_INFO,
-			"clearRenderBuffer: clearRGB: %li (%f %f %f) "
-			"clearAlpha: %li (%f) "
-			"clearDepth: %li (%f) clearStencil: %li (%i)\n", rec->items[0] & DBG_CLEAR_RGB, *(float*)&rec->items[1], *(float*)&rec->items[2], *(float*)&rec->items[3], rec->items[0] & DBG_CLEAR_ALPHA, *(float*)&rec->items[4], rec->items[0] & DBG_CLEAR_DEPTH, *(float*)&rec->items[5], rec->items[0] & DBG_CLEAR_STENCIL, (GLint)rec->items[6]);
+	// FIXME
+	// UT_NOTIFY(LV_INFO,
+	// 		"clearRenderBuffer: clearRGB: %li (%f %f %f) "
+	// 		"clearAlpha: %li (%f) "
+	// 		"clearDepth: %li (%f) clearStencil: %li (%i)\n", 
+	// 		rec->items[0] & DBG_CLEAR_RGB, 
+	// 		*(float*)&rec->items[1], 
+	// 		*(float*)&rec->items[2], 
+	// 		*(float*)&rec->items[3], 
+	// 		rec->items[0] & DBG_CLEAR_ALPHA, 
+	// 		*(float*)&rec->items[4], 
+	// 		rec->items[0] & DBG_CLEAR_DEPTH, 
+	// 		*(float*)&rec->items[5], 
+	// 		rec->items[0] & DBG_CLEAR_STENCIL, 
+	// 		(GLint)rec->items[6]
+	// 	);
 
 	/* check gl error */
 	if (setGLErrorCode()) {
@@ -1437,108 +1448,109 @@ void clearRenderBuffer(void)
 	}
 
 	/* depth buffer */
-	if (g.activeDepthBits > 0) {
-		if (rec->items[0] & DBG_CLEAR_DEPTH) {
-			clearBits |= GL_DEPTH_BUFFER_BIT;
-			ORIG_GL(glGetFloatv)(GL_DEPTH_CLEAR_VALUE, &clearDepth);
-			ORIG_GL(glClearDepth)(*(float*) &rec->items[5]);
-		} else {
-			/* copy depth buffer content */
-			setCopyState(CS_DEPTH);
-			ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_DEPTH_COMPONENT,
-					GL_FLOAT, g.depthBuffer);
-#ifdef DEBUG
-			{
-				float *data = (float*)malloc(viewport[2]*viewport[3]*sizeof(GLfloat));
-				ORIG_GL(glReadPixels)(viewport[0], viewport[1], viewport[2], viewport[3],
-						GL_DEPTH_COMPONENT, GL_FLOAT, data);
-				fprintf(stderr, "XXXXXXXXXXXXXX %f %f %f\n",
-						g.depthBuffer[512*256-1], g.depthBuffer[512*256], g.depthBuffer[512*256+1]);
-				writeDbgImage("DBG-STORED-DEPTHBUFFER.pfm", viewport[2], viewport[3], 1, g.depthBuffer);
-				fprintf(stderr, "XXXXXXXXXXXXXX %f %f %f\n", data[512*256-1], data[512*256], data[512*256+1]);
-				writeDbgImage("DBG-FBO-DEPTHBUFFER.pfm", viewport[2], viewport[3], 1, data);
-				free(data);
-			}
-#endif
-		}
-	}
+	// FIXME
+// 	if (g.activeDepthBits > 0) {
+// 		if (rec->items[0] & DBG_CLEAR_DEPTH) {
+// 			clearBits |= GL_DEPTH_BUFFER_BIT;
+// 			ORIG_GL(glGetFloatv)(GL_DEPTH_CLEAR_VALUE, &clearDepth);
+// 			ORIG_GL(glClearDepth)(*(float*) &rec->items[5]);
+// 		} else {
+// 			/* copy depth buffer content */
+// 			setCopyState(CS_DEPTH);
+// 			ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_DEPTH_COMPONENT,
+// 					GL_FLOAT, g.depthBuffer);
+// #ifdef DEBUG
+// 			{
+// 				float *data = (float*)malloc(viewport[2]*viewport[3]*sizeof(GLfloat));
+// 				ORIG_GL(glReadPixels)(viewport[0], viewport[1], viewport[2], viewport[3],
+// 						GL_DEPTH_COMPONENT, GL_FLOAT, data);
+// 				fprintf(stderr, "XXXXXXXXXXXXXX %f %f %f\n",
+// 						g.depthBuffer[512*256-1], g.depthBuffer[512*256], g.depthBuffer[512*256+1]);
+// 				writeDbgImage("DBG-STORED-DEPTHBUFFER.pfm", viewport[2], viewport[3], 1, g.depthBuffer);
+// 				fprintf(stderr, "XXXXXXXXXXXXXX %f %f %f\n", data[512*256-1], data[512*256], data[512*256+1]);
+// 				writeDbgImage("DBG-FBO-DEPTHBUFFER.pfm", viewport[2], viewport[3], 1, data);
+// 				free(data);
+// 			}
+// #endif
+// 		}
+// 	}
 
-	/* stencil buffer */
-	if (g.activeStencilBits > 0) {
-		if (rec->items[0] & DBG_CLEAR_STENCIL) {
-			clearBits |= GL_STENCIL_BUFFER_BIT;
-			ORIG_GL(glGetIntegerv)(GL_STENCIL_CLEAR_VALUE, &clearStencil);
-			ORIG_GL(glClearStencil)((GLint) rec->items[6]);
-		} else {
-			/* copy stencil buffer content */
-			setCopyState(CS_STENCIL);
-			ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_STENCIL_INDEX,
-					GL_INT, g.stencilBuffer);
-		}
-	}
+// 	/* stencil buffer */
+// 	if (g.activeStencilBits > 0) {
+// 		if (rec->items[0] & DBG_CLEAR_STENCIL) {
+// 			clearBits |= GL_STENCIL_BUFFER_BIT;
+// 			ORIG_GL(glGetIntegerv)(GL_STENCIL_CLEAR_VALUE, &clearStencil);
+// 			ORIG_GL(glClearStencil)((GLint) rec->items[6]);
+// 		} else {
+// 			/* copy stencil buffer content */
+// 			setCopyState(CS_STENCIL);
+// 			ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_STENCIL_INDEX,
+// 					GL_INT, g.stencilBuffer);
+// 		}
+// 	}
 
-	/* color buffer */
-	if (rec->items[0] & DBG_CLEAR_RGB) {
-		clearBits |= GL_COLOR_BUFFER_BIT;
-	}
-	if (g.activeAlphaBits && (rec->items[0] & DBG_CLEAR_ALPHA)) {
-		clearBits |= GL_COLOR_BUFFER_BIT;
-	}
-	if ((rec->items[0] & DBG_CLEAR_RGB) || (rec->items[0] & DBG_CLEAR_ALPHA)) {
-		ORIG_GL(glGetFloatv)(GL_COLOR_CLEAR_VALUE, clearColor);
-		ORIG_GL(glClearColor)(*(float*) &rec->items[1],
-				*(float*) &rec->items[2], *(float*) &rec->items[3],
-				*(float*) &rec->items[4]);
-		ORIG_GL(glColorMask)(rec->items[0] & DBG_CLEAR_RGB,
-				rec->items[0] & DBG_CLEAR_RGB, rec->items[0] & DBG_CLEAR_RGB,
-				g.activeAlphaBits && (rec->items[0] & DBG_CLEAR_ALPHA));
-	}
-	if (rec->items[0] & DBG_CLEAR_DEPTH) {
-		ORIG_GL(glDepthMask)(GL_TRUE);
-	} else {
-		ORIG_GL(glDepthMask)(GL_FALSE);
-	}
-	if (rec->items[0] & DBG_CLEAR_STENCIL) {
-		ORIG_GL(glStencilMask)(GL_TRUE);
-	} else {
-		ORIG_GL(glStencilMask)(GL_FALSE);
-	}
-	dbgPrint(DBGLVL_INFO, "glClear: %s\n", dissectBitfield(clearBits));
-	ORIG_GL(glClear)(clearBits);
+// 	/* color buffer */
+// 	if (rec->items[0] & DBG_CLEAR_RGB) {
+// 		clearBits |= GL_COLOR_BUFFER_BIT;
+// 	}
+// 	if (g.activeAlphaBits && (rec->items[0] & DBG_CLEAR_ALPHA)) {
+// 		clearBits |= GL_COLOR_BUFFER_BIT;
+// 	}
+// 	if ((rec->items[0] & DBG_CLEAR_RGB) || (rec->items[0] & DBG_CLEAR_ALPHA)) {
+// 		ORIG_GL(glGetFloatv)(GL_COLOR_CLEAR_VALUE, clearColor);
+// 		ORIG_GL(glClearColor)(*(float*) &rec->items[1],
+// 				*(float*) &rec->items[2], *(float*) &rec->items[3],
+// 				*(float*) &rec->items[4]);
+// 		ORIG_GL(glColorMask)(rec->items[0] & DBG_CLEAR_RGB,
+// 				rec->items[0] & DBG_CLEAR_RGB, rec->items[0] & DBG_CLEAR_RGB,
+// 				g.activeAlphaBits && (rec->items[0] & DBG_CLEAR_ALPHA));
+// 	}
+// 	if (rec->items[0] & DBG_CLEAR_DEPTH) {
+// 		ORIG_GL(glDepthMask)(GL_TRUE);
+// 	} else {
+// 		ORIG_GL(glDepthMask)(GL_FALSE);
+// 	}
+// 	if (rec->items[0] & DBG_CLEAR_STENCIL) {
+// 		ORIG_GL(glStencilMask)(GL_TRUE);
+// 	} else {
+// 		ORIG_GL(glStencilMask)(GL_FALSE);
+// 	}
+// 	UT_NOTIFY(LV_INFO, "glClear: %s\n", dissectBitfield(clearBits));
+// 	ORIG_GL(glClear)(clearBits);
 
-	/* copy color buffer content */
-	if (!(rec->items[0] & DBG_CLEAR_RGB)
-			|| !(rec->items[0] & DBG_CLEAR_ALPHA)) {
-		setCopyState(CS_COLOR);
-		ORIG_GL(glColorMask)(!(rec->items[0] & DBG_CLEAR_RGB),
-				!(rec->items[0] & DBG_CLEAR_RGB),
-				!(rec->items[0] & DBG_CLEAR_RGB),
-				!(rec->items[0] & DBG_CLEAR_ALPHA));
-		ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_RGBA, GL_FLOAT,
-				g.colorBuffer);
-	}
+// 	/* copy color buffer content */
+// 	if (!(rec->items[0] & DBG_CLEAR_RGB)
+// 			|| !(rec->items[0] & DBG_CLEAR_ALPHA)) {
+// 		setCopyState(CS_COLOR);
+// 		ORIG_GL(glColorMask)(!(rec->items[0] & DBG_CLEAR_RGB),
+// 				!(rec->items[0] & DBG_CLEAR_RGB),
+// 				!(rec->items[0] & DBG_CLEAR_RGB),
+// 				!(rec->items[0] & DBG_CLEAR_ALPHA));
+// 		ORIG_GL(glDrawPixels)(viewport[2], viewport[3], GL_RGBA, GL_FLOAT,
+// 				g.colorBuffer);
+// 	}
 
-	/* restore clear values and masks */
-	if ((rec->items[0] & DBG_CLEAR_RGB) || (rec->items[0] & DBG_CLEAR_ALPHA)) {
-		ORIG_GL(glClearColor)(clearColor[0], clearColor[1], clearColor[2],
-				clearColor[3]);
-		ORIG_GL(glColorMask)(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	}
-	if (g.activeDepthBits > 0 && (rec->items[0] & DBG_CLEAR_DEPTH)) {
-		ORIG_GL(glClearDepth)(clearDepth);
-	}
-	if (g.activeStencilBits > 0 && (rec->items[0] & DBG_CLEAR_STENCIL)) {
-		ORIG_GL(glClearStencil)(clearStencil);
-	}
+// 	/* restore clear values and masks */
+// 	if ((rec->items[0] & DBG_CLEAR_RGB) || (rec->items[0] & DBG_CLEAR_ALPHA)) {
+// 		ORIG_GL(glClearColor)(clearColor[0], clearColor[1], clearColor[2],
+// 				clearColor[3]);
+// 		ORIG_GL(glColorMask)(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+// 	}
+// 	if (g.activeDepthBits > 0 && (rec->items[0] & DBG_CLEAR_DEPTH)) {
+// 		ORIG_GL(glClearDepth)(clearDepth);
+// 	}
+// 	if (g.activeStencilBits > 0 && (rec->items[0] & DBG_CLEAR_STENCIL)) {
+// 		ORIG_GL(glClearStencil)(clearStencil);
+// 	}
 
-	/* restore state */
-	restoreCopyState(&copyState);
-	ORIG_GL(glRasterPos4fv)(rasterPos);
-	ORIG_GL(glMatrixMode)(GL_PROJECTION);
-	ORIG_GL(glLoadMatrixf)(projectionMatrix);
-	ORIG_GL(glMatrixMode)(GL_MODELVIEW);
-	ORIG_GL(glLoadMatrixf)(modelViewMatrix);
-	ORIG_GL(glMatrixMode)(matrixMode);
+// 	/* restore state */
+// 	restoreCopyState(&copyState);
+// 	ORIG_GL(glRasterPos4fv)(rasterPos);
+// 	ORIG_GL(glMatrixMode)(GL_PROJECTION);
+// 	ORIG_GL(glLoadMatrixf)(projectionMatrix);
+// 	ORIG_GL(glMatrixMode)(GL_MODELVIEW);
+// 	ORIG_GL(glLoadMatrixf)(modelViewMatrix);
+// 	ORIG_GL(glMatrixMode)(matrixMode);
 
 	/* check gl error */
 	if (setGLErrorCode()) {

@@ -131,15 +131,15 @@ sub createHeader
     #print "} glFunctions[] = {\n";
 
     print '#include <stdlib.h>
-#include "DebugLib/debuglib.h"
-gl_func_t glFunctions[] = {
+#include "proto/protocol.h"
+Proto__GLFunction glFunctions[] = {
 ';
 }
 
 
 sub createFooter
 {
-    print "  {NULL, NULL, NULL, 0, -1, 0, 0}
+    print "  {PROTOBUF_C_MESSAGE_INIT (&proto__glfunction__descriptor), NULL, NULL, NULL, 0, -1, 0, 0}
 };
 ";
 }
@@ -152,7 +152,7 @@ sub createListEntry
     my @abla = grep {$fname eq $_->[0]} @debuggableDrawCalls;
     my $bla = @abla ? $abla[0]->[1] : -1;
 
-    printf "  {\"$prefix\", \"$extname\", \"$fname\", %s, $bla, %s, %s, %s},
+    printf "  {PROTOBUF_C_MESSAGE_INIT (&proto__glfunction__descriptor), \"$prefix\", \"$extname\", \"$fname\", %s, $bla, %s, %s, %s},
 ", (scalar grep {$fname eq $_->[0]} @debuggableDrawCalls),
    (scalar grep {$fname eq $_} @shaderSwitches),
    (scalar grep {$fname eq $_} @frameEndMarkers),

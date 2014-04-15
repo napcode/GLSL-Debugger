@@ -110,7 +110,8 @@ enum DBG_RETURN {
 	 */
 
 	DBG_READBACK_RENDERBUFFER, 
-	DBG_EXECUTE_IN_PROGRESS
+	DBG_EXECUTE_IN_PROGRESS, 
+	DBG_CALL_ORIGFUNCTION_AND_PROCEED
 /*
  Returned if a DBG_EXECUTE is in progress
  */
@@ -428,40 +429,51 @@ typedef intptr_t ALIGNED_DATA;
 #else
 #	define SHM_SIZE (32*1024*1024)
 #endif
-#define SHM_MAX_FUNCNAME 1024
-#define SHM_MAX_THREADS	 16
 #ifdef _WIN32
 #define SHM_MAX_ITEMS ((SHM_SIZE/SHM_MAX_THREADS - SHM_MAX_FUNCNAME - 5*sizeof(ALIGNED_DATA))/sizeof(ALIGNED_DATA))
 #else /* _WIN32 */
 #define SHM_MAX_ITEMS ((SHM_SIZE/SHM_MAX_THREADS - SHM_MAX_FUNCNAME - 4*sizeof(ALIGNED_DATA))/sizeof(ALIGNED_DATA))
 #endif /* _WIN32 */
 
+enum EXECUTION_MODE
+{
+	EX_MODE_UNATTENDED, 
+	EX_MODE_INTERACTIVE
+};
+enum EXECUTION_HALT
+{
+	EX_HALT_ALL = 0,
+	EX_HALT_ON_SHADER_SWITCH = 2, 
+	EX_HALT_ON_DRAW_CALL = 4, 
+	EX_HALT_ON_USER_DEFINED = 8
+};
+
 #pragma pack(8)
 typedef struct {
 	os_pid_t threadId;
 	Proto__FunctionCall* current_call;
-	enum DBG_OPERATION operation;
-	enum DBG_RETURN result;
+	enum EXECUTION_MODE mode;
+	enum EXECUTION_HALT halt_on;
+	char* halt_on_function;
 	//char fname[SHM_MAX_FUNCNAME];
 	//unsigned int numItems;
 	//ALIGNED_DATA items[SHM_MAX_ITEMS];
 #ifdef _WIN32
 	ALIGNED_DATA isRecursing;
 #endif /* _WIN32 */
-} debug_record_t;
+} thread_state_t;
 #pragma pack()
 
-typedef struct {
-	const char *prefix;
-	const char *extname;
-	const char *fname;
-	int isDebuggableDrawCall;
-	int primitiveModeIndex;
-	int isShaderSwitch;
-	int isFrameEnd;
-	int isFramebufferChange;
-} gl_func_t;
+// typedef struct {
+// 	const char *prefix;
+// 	const char *extname;
+// 	const char *fname;
+// 	int isDebuggableDrawCall;
+// 	int primitiveModeIndex;
+// 	int isShaderSwitch;
+// 	int isFrameEnd;
+// 	int isFramebufferChange;
+// } gl_func_t;
 
-extern gl_func_t glFunctions[];
 
 #endif

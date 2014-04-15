@@ -100,7 +100,7 @@ DBGLIBLOCAL void (*getOrigFunc(const char *fname))(void);
 #define ORIG_GL(fname) ((PFN##fname##PROC)getOrigFunc(#fname))
 #endif /* _WIN32 */
 
-DBGLIBLOCAL debug_record_t* getThreadRecord(os_pid_t pid);
+DBGLIBLOCAL thread_state_t* getThreadState(os_pid_t pid);
 
 /* check GL error code */
 DBGLIBLOCAL int glError(void);
@@ -120,13 +120,13 @@ DBGLIBLOCAL void (*getDbgFunction(void))(void);
 
 DBGLIBLOCAL void storeFunctionCall(const char *fname, int numArgs, ...);
 
-DBGLIBLOCAL void storeResultOrError(unsigned int error, void *result, int type);
+//DBGLIBLOCAL void storeResultOrError(unsigned int error, void *result, int type);
 
 DBGLIBLOCAL void storeResult(void *result, int type);
 
 DBGLIBLOCAL void stop(void);
 
-DBGLIBLOCAL int getDbgOperation(void);
+DBGLIBLOCAL enum DBG_OPERATION getDbgOperation(const char* func);
 
 DBGLIBLOCAL void setExecuting(void);
 

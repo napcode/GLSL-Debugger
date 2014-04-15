@@ -6,7 +6,6 @@
 #include <QtCore/QList>
 #include <QtCore/QSharedPointer>
 
-#include "DebugLib/debuglib.h"
 #include "FunctionCall.h"
 #include "utils/notify.h"
 #include "proto/protocol.h"

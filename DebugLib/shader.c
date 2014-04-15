@@ -46,7 +46,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debuglibInternal.h"
 #include "utils/glenumerants.h"
 #include "shader.h"
-#include "utils/dbgprint.h"
+#include "utils/notify.h"
 #include "GLSLCompiler/glslang/Public/ResourceLimits.h"
 
 #ifdef _WIN32
@@ -103,17 +103,17 @@ static struct {
 
 static int getTypeId(GLint type)
 {
-	switch (type) {
-	case GL_VERTEX_SHADER:
-		return 0;
-	case GL_GEOMETRY_SHADER_EXT:
-		return 1;
-	case GL_FRAGMENT_SHADER:
-		return 2;
-	default:
-		dbgPrint(DBGLVL_ERROR, "Wow, you found a new shader type %i", type);
-		exit(1);
-	}
+    switch (type) {
+        case GL_VERTEX_SHADER:
+            return 0;
+        case GL_GEOMETRY_SHADER_EXT:
+            return 1;
+        case GL_FRAGMENT_SHADER:
+            return 2;
+        default:
+            UT_NOTIFY(LV_ERROR, "Wow, you found a new shader type %i", type);
+            exit(1);
+    }
 }
 
 int uniformNumElements(ActiveUniform *v)
@@ -184,7 +184,7 @@ int uniformNumElements(ActiveUniform *v)
 		case GL_FLOAT_MAT4:
 			return 16;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", v->type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", v->type);
 			return 0;
 	}
 }
@@ -274,7 +274,7 @@ static GLenum shaderTypeSize(GLenum type)
 		case GL_UNSIGNED_INT_VEC4_EXT:
 			return 4*sizeof(GLuint);
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", type);
 			return 0;
 	}
 }
@@ -341,7 +341,7 @@ static GLenum uniformBaseType(ActiveUniform *v)
 		case GL_UNSIGNED_INT_VEC4_EXT:
 			return GL_UNSIGNED_INT;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", v->type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", v->type);
 			return GL_BYTE;
 	}
 }
@@ -368,7 +368,7 @@ static int shaderBaseTypeSize(GLenum t)
 		case GL_UNSIGNED_SHORT:
 			return sizeof(GLushort);
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", t);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", t);
 			return 0;
 	}
 }
@@ -443,7 +443,7 @@ static int isIntType(GLenum type)
 		case GL_UNSIGNED_INT_SAMPLER_BUFFER_EXT:
 			return 1;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", type);
 			return 0;
 	}
 }
@@ -509,7 +509,7 @@ static int isUIntType(GLenum type)
 		case GL_UNSIGNED_INT_VEC4_EXT:
 			return 1;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", type);
 			return 0;
 	}
 }
@@ -575,7 +575,7 @@ static int isMatrixType(GLenum type)
 		case GL_FLOAT_MAT4x3:
 			return 1;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", type);
 			return 0;
 	}
 }
@@ -641,7 +641,7 @@ static int isSamplerType(GLenum type)
 		case GL_UNSIGNED_INT_SAMPLER_BUFFER_EXT:
 			return 1;
 		default:
-			dbgPrint(DBGLVL_ERROR, "HMM, unkown shader variable type: %i\n", type);
+			UT_NOTIFY(LV_ERROR, "HMM, unkown shader variable type: %i", type);
 			return 0;
 	}
 }
@@ -674,7 +674,7 @@ static int setUniform(GLint progHandle, ActiveUniform *u)
 	int error;
 	GLint location;
 
-	dbgPrint(DBGLVL_INFO, "setUniform(%i, %s)\n",  progHandle, u->name);
+	UT_NOTIFY(LV_INFO, "setUniform(%i, %s)",  progHandle, u->name);
 
 	/* handle the special case of a uninitialized sampler uniform */
 	if (isSamplerType(u->type)) {
@@ -685,8 +685,8 @@ static int setUniform(GLint progHandle, ActiveUniform *u)
 		numTexUnits = maxTexCoords > maxCombinedTextureImageUnits ?
 			maxTexCoords : maxCombinedTextureImageUnits;
 		if (((GLint*)u->value)[0] < 0 || ((GLint*)u->value)[0] >= numTexUnits) {
-			dbgPrint(DBGLVL_INFO,
-					"Sampler \"%s\" seems to be uninitialized (%i/%i/%i); ignoring\n",
+			UT_NOTIFY(LV_INFO,
+					"Sampler \"%s\" seems to be uninitialized (%i/%i/%i); ignoring",
 					u->name, ((GLint*)u->value)[0], maxTexCoords,
 					maxCombinedTextureImageUnits);
 			return DBG_NO_ERROR;
@@ -699,8 +699,8 @@ static int setUniform(GLint progHandle, ActiveUniform *u)
 		return error;
 	}
 	if (location < 0) {
-		dbgPrint(DBGLVL_INFO, "HMM, A UNIFORM NAMED \"%s\" IS NOT KNOWN TO "
-		                      "THE PROGRAM\n", u->name);
+		UT_NOTIFY(LV_INFO, "HMM, A UNIFORM NAMED \"%s\" IS NOT KNOWN TO "
+		                      "THE PROGRAM", u->name);
 		return DBG_NO_ERROR;
 	}
 	if (isMatrixType(u->type)) {
@@ -806,15 +806,15 @@ static int getActiveUniforms(ShaderProgram *shader)
 	}
 
 	if (!(name = (char*)malloc(maxLength*sizeof(char)))) {
-		dbgPrint(DBGLVL_ERROR, "Allocation failed: uniform name\n");
+		UT_NOTIFY(LV_ERROR, "Allocation failed: uniform name");
 		shader->numUniforms = 0;
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
 	}
 
-	dbgPrint(DBGLVL_INFO, "ACTIVE UNIFORMS: %i\n", numBaseUniforms);
+	UT_NOTIFY(LV_INFO, "ACTIVE UNIFORMS: %i", numBaseUniforms);
 
 	if (!(baseUniforms = (ActiveUniform*)malloc(numBaseUniforms*sizeof(ActiveUniform)))) {
-		dbgPrint(DBGLVL_ERROR, "Allocation failed: base uniforms\n");
+		UT_NOTIFY(LV_ERROR, "Allocation failed: base uniforms");
 		shader->numUniforms = 0;
 		free(name);
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -833,13 +833,13 @@ static int getActiveUniforms(ShaderProgram *shader)
 			shader->numUniforms = 0;
 			return error;
 		}
-		dbgPrint(DBGLVL_INFO, "FOUND UNIFORM: %s size=%i type=%s\n",
+		UT_NOTIFY(LV_INFO, "FOUND UNIFORM: %s size=%i type=%s",
 				name, u->size, lookupEnum(u->type));
 		if (!strncmp(name, "gl_", 3)) {
 			u->builtin = 1;
 		} else {
 			if (!(u->name = strdup(name))) {
-				dbgPrint(DBGLVL_ERROR, "Allocation failed: uniform name\n");
+				UT_NOTIFY(LV_ERROR, "Allocation failed: uniform name");
 				free(name);
 				free(baseUniforms);
 				shader->numUniforms = 0;
@@ -853,7 +853,7 @@ static int getActiveUniforms(ShaderProgram *shader)
 	free(name);
 
 	if (!(shader->uniforms = (ActiveUniform*)malloc(shader->numUniforms*sizeof(ActiveUniform)))) {
-		dbgPrint(DBGLVL_ERROR, "Allocation failed: uniforms\n");
+		UT_NOTIFY(LV_ERROR, "Allocation failed: uniforms");
 		shader->numUniforms = 0;
 		free(baseUniforms);
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -871,7 +871,7 @@ static int getActiveUniforms(ShaderProgram *shader)
 				u->builtin = 0;
 				u->value = NULL;
 				if (!(u->name = strdup(bu->name))) {
-					dbgPrint(DBGLVL_ERROR, "Allocation failed: uniform name\n");
+					UT_NOTIFY(LV_ERROR, "Allocation failed: uniform name");
 					free(baseUniforms);
 					shader->numUniforms = n;
 					return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -885,7 +885,7 @@ static int getActiveUniforms(ShaderProgram *shader)
 					shader->numUniforms = n;
 					return error;
 				}
-				dbgPrint(DBGLVL_INFO, "SAVE UNIFORM: %s size=%i type=%s location=%i\n",
+				UT_NOTIFY(LV_INFO, "SAVE UNIFORM: %s size=%i type=%s location=%i",
 				         u->name, u->size, lookupEnum(u->type), u->location);
 				error = getUniform(shader->programHandle, u);
 				if (error) {
@@ -904,7 +904,7 @@ static int getActiveUniforms(ShaderProgram *shader)
 					u->builtin = 0;
 					u->value = NULL;
 					if (asprintf(&u->name, "%s[%i]", bu->name, j) < 0) {
-						dbgPrint(DBGLVL_ERROR, "Allocation failed: uniform name\n");
+						UT_NOTIFY(LV_ERROR, "Allocation failed: uniform name");
 						free(baseUniforms);
 						shader->numUniforms = n;
 						return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -918,8 +918,8 @@ static int getActiveUniforms(ShaderProgram *shader)
 						shader->numUniforms = n;
 						return error;
 					}
-					dbgPrint(DBGLVL_INFO, "SAVE UNIFORM: %s size=%i type=%s location=%i\n",
-							u->name, u->size, lookupEnum(u->type), u->location);
+					UT_NOTIFY(LV_INFO, "SAVE UNIFORM: %s size=%i type=%s location=%i",
+					        u->name, u->size, lookupEnum(u->type), u->location);
 					error = getUniform(shader->programHandle, u);
 					if (error) {
 						free(u->name);
@@ -953,15 +953,15 @@ static int getActiveAttributes(ShaderProgram *shader)
 	}
 
 	if (!(name = (char*)malloc(maxLength*sizeof(char)))) {
-		dbgPrint(DBGLVL_ERROR, "Allocation failed: attrib name\n");
+		UT_NOTIFY(LV_ERROR, "Allocation failed: attrib name");
 		shader->numAttributes = 0;
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
 	}
 
-	dbgPrint(DBGLVL_INFO, "ACTIVE ATTRIBS: %i\n", shader->numAttributes);
+	UT_NOTIFY(LV_INFO, "ACTIVE ATTRIBS: %i", shader->numAttributes);
 	if (!(shader->attributes = (ActiveAttribute*)malloc(shader->numAttributes*
 	                                              sizeof(ActiveAttribute)))) {
-		dbgPrint(DBGLVL_ERROR, "Allocation failed: attributes\n");
+		UT_NOTIFY(LV_ERROR, "Allocation failed: attributes");
 		shader->numAttributes = 0;
 		free(name);
 		return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -979,7 +979,7 @@ static int getActiveAttributes(ShaderProgram *shader)
 		}
 
 		if (!(a->name = strdup(name))) {
-			dbgPrint(DBGLVL_ERROR, "Allocation failed: attribute name\n");
+			UT_NOTIFY(LV_ERROR, "Allocation failed: attribute name");
 			shader->numAttributes = i;
 			free(name);
 			return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
@@ -998,7 +998,7 @@ static int getActiveAttributes(ShaderProgram *shader)
 				return error;
 			}
 		}
-		dbgPrint(DBGLVL_INFO, "SAVED ATTRIB: %s size=%i type=%s, location=%i\n",
+		UT_NOTIFY(LV_INFO, "SAVED ATTRIB: %s size=%i type=%s, location=%i",
 		         a->name, a->size, lookupEnum(a->type), a->location);
 	}
 	free(name);
@@ -1054,12 +1054,12 @@ static int getShaderObjects(ShaderProgram *shader)
 	}
 
     if (!(objects = (GLuint*) malloc(shader->numObjects * sizeof(GLuint)))) {
-        dbgPrint(DBGLVL_ERROR, "not enough memory for temp. object handles\n");
+        UT_NOTIFY(LV_ERROR, "not enough memory for temp. object handles");
         return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
     }
     if (!(shader->objects = (ShaderObject*) malloc(shader->numObjects *
 	                                              sizeof(ShaderObject)))) {
-        dbgPrint(DBGLVL_ERROR, "not enough memory for objects\n");
+        UT_NOTIFY(LV_ERROR, "not enough memory for objects");
 		free(objects);
         return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
     }
@@ -1090,7 +1090,7 @@ static int getShaderObjects(ShaderProgram *shader)
 
 		if (!(shader->objects[i].src =
 					(char*)malloc((shader->objects[i].srcLength + 1)*sizeof(char)))) {
-			dbgPrint(DBGLVL_ERROR, "not enough memory for src string\n");
+			UT_NOTIFY(LV_ERROR, "not enough memory for src string");
 			free(objects);
 			return DBG_ERROR_MEMORY_ALLOCATION_FAILED;
 		}
@@ -1315,127 +1315,120 @@ void getShaderCode(void)
 	int error;
 
 	ShaderProgram shader;
-    debug_record_t* rec;
     int i, j;
 
-#ifdef _WIN32
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	rec = getThreadRecord(GetCurrentProcessId());
-#else /* _WIN32 */
-	rec = getThreadRecord(getpid());
-#endif /* _WIN32 */
+	os_pid_t pid = os_getpid();
+	thread_state_t *rec = getThreadState(pid);
+	// FIXME
+	// /* clear smem */
+	// rec->numItems = 0;
+	// for (i = 0; i < 9; ++i) {
+	// 	rec->items[i] = 0;
+	// }
 
-	/* clear smem */
-	rec->numItems = 0;
-	for (i = 0; i < 9; ++i) {
-		rec->items[i] = 0;
-	}
+	// error = getCurrentShader(&shader);
+	// if (error) {
+	// 	setErrorCode(error);
+	// 	return;
+	// }
 
-	error = getCurrentShader(&shader);
-	if (error) {
-		setErrorCode(error);
-		return;
-	}
+	// if (shader.programHandle == 0) {
+	// 	rec->result = DBG_SHADER_CODE;
+	// 	rec->numItems = 0;
+	// 	return;
+	// }
 
-	if (shader.programHandle == 0) {
-		rec->result = DBG_SHADER_CODE;
-		rec->numItems = 0;
-		return;
-	}
+ //    for (i = 0; i < shader.numObjects; i++) {
+	// 	void *tmpAlloc;
+ //        int typeId = getTypeId(shader.objects[i].type);
+ //        numSourceStrings[typeId]++;
+ //        lenSourceStrings[typeId] += shader.objects[i].srcLength;
+ //        tmpAlloc = realloc(source[typeId], numSourceStrings[typeId]*sizeof(char*));
+ //        if (!tmpAlloc) {
+	// 		UT_NOTIFY(LV_ERROR, "Allocating memory for shaders failed: %s",
+	// 				strerror(errno));
+	// 		freeShaderProgram(&shader);
+	// 		for (i = 0; i < 3; i++) {
+	// 			free(source[i]);
+	// 		}
+	// 		setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
+	// 		return;
+ //        }
+ //        source[typeId] = tmpAlloc;
+	// 	source[typeId][numSourceStrings[typeId] - 1] = shader.objects[i].src;
+	// 	UT_NOTIFY(LV_INFO, "source[%d][%d] = %s", typeId, numSourceStrings[typeId] - 1,
+ //            shader.objects[i].src);
+	// }
 
-	for (i = 0; i < shader.numObjects; i++) {
-		void *tmpAlloc;
-		int typeId = getTypeId(shader.objects[i].type);
-		numSourceStrings[typeId]++;
-		lenSourceStrings[typeId] += shader.objects[i].srcLength;
-		tmpAlloc = realloc(source[typeId],
-				numSourceStrings[typeId] * sizeof(char*));
-		if (!tmpAlloc) {
-			dbgPrint(DBGLVL_ERROR,
-					"Allocating memory for shaders failed: %s\n", strerror(errno));
-			freeShaderProgram(&shader);
-			for (i = 0; i < 3; i++) {
-				free(source[i]);
-			}
-			setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
-			return;
-		}
-		source[typeId] = tmpAlloc;
-		source[typeId][numSourceStrings[typeId] - 1] = shader.objects[i].src;
-		dbgPrint(DBGLVL_INFO,
-				"source[%d][%d] = %s\n", typeId, numSourceStrings[typeId] - 1, shader.objects[i].src);
-	}
+ //    /* TODO: do something better than just append!!!!
+ //     *   GLSL allows for multiple strings per objects and the order is important for reconstructing
+ //     *   a correct single file code
+ //     */
 
-	/* TODO: do something better than just append!!!!
-	 *   GLSL allows for multiple strings per objects and the order is important for reconstructing
-	 *   a correct single file code
-	 */
+ //    for (i=0; i<3; i++) {
+ //        if (numSourceStrings[i] > 0) {
+ //            lenSourceStrings[i]++;
+ //            if (!(shaderSource[i] = malloc(lenSourceStrings[i]*sizeof(char)))) {
+	// 			UT_NOTIFY(LV_ERROR, "not enough memory to combine all your shaders");
+	// 			for (i = 0; i < 3; i++) {
+	// 				free(source[i]);
+	// 				free(shaderSource[i]);
+	// 			}
+	// 			freeShaderProgram(&shader);
+	// 			setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
+	// 			return;
+ //            }
+ //            shaderSource[i][0] = '\0';
+ //            for (j=0; j<numSourceStrings[i]; j++) {
+ //                strcat(shaderSource[i], source[i][j]);
+ //            }
+ //            free(source[i]);
+	// 		source[i] = NULL;
+ //        }
+ //    }
 
-	for (i = 0; i < 3; i++) {
-		if (numSourceStrings[i] > 0) {
-			lenSourceStrings[i]++;
-			if (!(shaderSource[i] = malloc(lenSourceStrings[i] * sizeof(char)))) {
-				dbgPrint(DBGLVL_ERROR,
-						"not enough memory to combine all your shaders\n");
-				for (i = 0; i < 3; i++) {
-					free(source[i]);
-					free(shaderSource[i]);
-				}
-				freeShaderProgram(&shader);
-				setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
-				return;
-			}
-			shaderSource[i][0] = '\0';
-			for (j = 0; j < numSourceStrings[i]; j++) {
-				strcat(shaderSource[i], source[i][j]);
-			}
-			free(source[i]);
-			source[i] = NULL;
-		}
-	}
+	// if (!serializeUniforms(&shader, &serializedUniforms, &serializedUniformsSize))
+	// {
+	// 	for (i = 0; i < 3; i++) {
+	// 		free(shaderSource[i]);
+	// 	}
+	// 	setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
+	// 	return;
+	// }
+	// numUniforms = shader.numUniforms;
 
-	if (!serializeUniforms(&shader, &serializedUniforms,
-			&serializedUniformsSize)) {
-		for (i = 0; i < 3; i++) {
-			free(shaderSource[i]);
-		}
-		setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
-		return;
-	}
-	numUniforms = shader.numUniforms;
+ //    freeShaderProgram(&shader);
 
-	freeShaderProgram(&shader);
+	// /* query shader resources */
+	// if (!(shaderResources = malloc(sizeof(struct TBuiltInResource)))) {
+	// 	for (i = 0; i < 3; i++) {
+	// 		free(shaderSource[i]);
+	// 	}
+	// 	setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
+	// 	return;
+	// }
+	// error = getShaderResources(&shader, shaderResources);
+	// if (error) {
+	// 	for (i = 0; i < 3; i++) {
+	// 		free(shaderSource[i]);
+	// 	}
+	// 	free(serializedUniforms);
+	// 	free(shaderResources);
+	// 	setErrorCode(error);
+	// 	return;
+	// }
 
-	/* query shader resources */
-	if (!(shaderResources = malloc(sizeof(struct TBuiltInResource)))) {
-		for (i = 0; i < 3; i++) {
-			free(shaderSource[i]);
-		}
-		setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
-		return;
-	}
-	error = getShaderResources(&shader, shaderResources);
-	if (error) {
-		for (i = 0; i < 3; i++) {
-			free(shaderSource[i]);
-		}
-		free(serializedUniforms);
-		free(shaderResources);
-		setErrorCode(error);
-		return;
-	}
-
-	/* set results */
-	rec->result = DBG_SHADER_CODE;
-	rec->numItems = 3;
-	for (i = 0; i < 3; i++) {
-		rec->items[2 * i] = (ALIGNED_DATA) shaderSource[i];
-		rec->items[2 * i + 1] = (ALIGNED_DATA) lenSourceStrings[i];
-	}
-	rec->items[6] = (ALIGNED_DATA) shaderResources;
-	rec->items[7] = (ALIGNED_DATA) numUniforms;
-	rec->items[8] = (ALIGNED_DATA) serializedUniformsSize;
-	rec->items[9] = (ALIGNED_DATA) serializedUniforms;
+	// /* set results */
+	// rec->result = DBG_SHADER_CODE;
+ //    rec->numItems = 3;
+ //    for (i=0; i<3; i++) {
+ //        rec->items[2*i] = (ALIGNED_DATA) shaderSource[i];
+ //        rec->items[2*i+1] = (ALIGNED_DATA) lenSourceStrings[i];
+ //    }
+	// rec->items[6] = (ALIGNED_DATA)shaderResources;
+	// rec->items[7] = (ALIGNED_DATA)numUniforms;
+	// rec->items[8] = (ALIGNED_DATA)serializedUniformsSize;
+	// rec->items[9] = (ALIGNED_DATA)serializedUniforms;
 }
 
 /* TODO: error checking */
@@ -1485,11 +1478,11 @@ static void printShaderInfoLog(GLhandleARB shader)
 
 	if (length > 1) {
 		if (!(log = (GLcharARB*)malloc(length*sizeof(GLcharARB)))) {
-			dbgPrint(DBGLVL_ERROR, "Allocation of mem for GLSL info log failed\n");
+			UT_NOTIFY(LV_ERROR, "Allocation of mem for GLSL info log failed");
 			exit(1);
 		}
 		ORIG_GL(glGetShaderInfoLog)(shader, length, NULL, log);
-		dbgPrint(DBGLVL_INFO, "SHADER INFOLOG:\n%s\n", log);
+		UT_NOTIFY(LV_INFO, "SHADER INFOLOG:\n%s", log);
 		free(log);
 	}
 }
@@ -1503,11 +1496,11 @@ static void printProgramInfoLog(GLhandleARB shader)
 	ORIG_GL(glGetProgramiv)(shader, GL_INFO_LOG_LENGTH, &length);
 	if (length > 1) {
 		if (!(log = (GLcharARB*)malloc(length*sizeof(GLcharARB)))) {
-			dbgPrint(DBGLVL_ERROR, "Allocation of mem for GLSL info log failed\n");
+			UT_NOTIFY(LV_ERROR, "Allocation of mem for GLSL info log failed");
 			exit(1);
 		}
 		ORIG_GL(glGetProgramInfoLog)(shader, length, NULL, log);
-		dbgPrint(DBGLVL_INFO, "PROGRAM INFOLOG:\n%s\n", log);
+		UT_NOTIFY(LV_INFO, "PROGRAM INFOLOG:\n%s", log);
 		free(log);
 	}
 }
@@ -1518,8 +1511,8 @@ static int attachShaderObject(GLint programHandle, GLenum type, const char *src)
 	GLint shader, status;
 	int error;
 
-	dbgPrint(DBGLVL_COMPILERINFO,
-	         "ATTACH SHADER: %s\n-----------------\n%s\n--------------\n",
+	UT_NOTIFY(LV_INFO,
+	         "ATTACH SHADER: %s\n-----------------\n%s\n--------------",
 	         lookupEnum(type), src);
 
 	shader = ORIG_GL(glCreateShader)(type);
@@ -1548,7 +1541,7 @@ static int attachShaderObject(GLint programHandle, GLenum type, const char *src)
 		return error;
 	}
 	if (!status) {
-		dbgPrint(DBGLVL_ERROR, "DBG SHADER COMPILATION for %s failed!\n", lookupEnum(type));
+		UT_NOTIFY(LV_ERROR, "DBG SHADER COMPILATION for %s failed!", lookupEnum(type));
 		return DBG_ERROR_DBG_SHADER_COMPILE_FAILED;
 	}
 	ORIG_GL(glAttachShader)(programHandle, shader);
@@ -1589,7 +1582,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 		return error;
 	}
 
-	dbgPrint(DBGLVL_COMPILERINFO, "SET DBG SHADER: %p, %p, %p %i\n",
+	UT_NOTIFY(LV_INFO, "SET DBG SHADER: %p, %p, %p %i",
 	         vshader, gshader, fshader, target);
 
 	if (vshader) {
@@ -1619,7 +1612,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 	/* copy execution environment of previous active shader */
 	/* pre-link part */
 	if (g.storedShader.programHandle == 0) {
-		dbgPrint(DBGLVL_ERROR, "STORE CURRENTLY ACTIVE SHADER BEFORE SETTING DBG SHADER!\n");
+		UT_NOTIFY(LV_ERROR, "store currently active shader before setting dbg shader!");
 		freeDbgShader();
 		return DBG_ERROR_NO_STORED_SHADER;
 	}
@@ -1652,7 +1645,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 				freeDbgShader();
 				return error;
 			}
-			dbgPrint(DBGLVL_INFO, "BINDATTRIBLOCATION: %s -> %i\n", a->name, a->location);
+			UT_NOTIFY(LV_INFO, "BINDATTRIBLOCATION: %s -> %i", a->name, a->location);
 		}
 	}
 
@@ -1660,13 +1653,14 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 	/* if geometry shader is supported, set program parameters */
 	if (haveGeometryShader && gshader) {
 		DMARK
-		dbgPrint(DBGLVL_INFO, "SET PROGRAM PARAMETERS: "
+		UT_NOTIFY(LV_INFO, "SET PROGRAM PARAMETERS: "
 				"GL_GEOMETRY_VERTICES_OUT_EXT=%i "
 				"GL_GEOMETRY_INPUT_TYPE_EXT=%s "
-				"GL_GEOMETRY_OUTPUT_TYPE_EXT=%s\n",
+				"GL_GEOMETRY_OUTPUT_TYPE_EXT=%s",
 				g.storedShader.geoVerticesOut,
 				lookupEnum(g.storedShader.geoInputType),
 				lookupEnum(g.storedShader.geoOutputType));
+
 		ORIG_GL(glProgramParameteriEXT)(g.dbgShaderHandle,
 										GL_GEOMETRY_VERTICES_OUT_EXT,
 										g.storedShader.geoVerticesOut);
@@ -1717,7 +1711,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 				}
 				break;
 			default:
-				dbgPrint(DBGLVL_ERROR, "Unknown TFB version!\n");
+				UT_NOTIFY(LV_ERROR, "Unknown TFB version!");
 				return DBG_ERROR_INVALID_OPERATION;
 		}
 	}
@@ -1733,7 +1727,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 
 	printProgramInfoLog(g.dbgShaderHandle);
 	if (!status) {
-		dbgPrint(DBGLVL_ERROR, "LINKING DBG SHADER FAILED!\n");
+		UT_NOTIFY(LV_ERROR, "LINKING DBG SHADER FAILED!");
 		freeDbgShader();
 		return DBG_ERROR_DBG_SHADER_LINK_FAILED;
 	}
@@ -1750,7 +1744,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 				{
 					location = ORIG_GL(glGetVaryingLocationNV)(g.dbgShaderHandle, "dbgResult"/*TODO*/);
 					if (location < 0) {
-						dbgPrint(DBGLVL_ERROR, "dbgResult NOT ACTIVE VARYING\n");
+						UT_NOTIFY(LV_ERROR, "dbgResult NOT ACTIVE VARYING");
 						freeDbgShader();
 						return DBG_ERROR_VARYING_INACTIVE;
 					}
@@ -1812,18 +1806,14 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
  */
 void setDbgShader(void)
 {
-#ifdef _WIN32
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	debug_record_t *rec = getThreadRecord(GetCurrentProcessId());
-#else /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(getpid());
-#endif /* _WIN32 */
+    os_pid_t pid = os_getpid();
+    thread_state_t *rec = getThreadState(pid);
+    // FIXME
+	// const char *vshader = (const char *)rec->items[0];
+	// const char *gshader = (const char *)rec->items[1];
+	// const char *fshader = (const char *)rec->items[2];
+	// int target = (int)rec->items[3];
 
-	const char *vshader = (const char *)rec->items[0];
-	const char *gshader = (const char *)rec->items[1];
-	const char *fshader = (const char *)rec->items[2];
-	int target = (int)rec->items[3];
-
-	setErrorCode(loadDbgShader(vshader, gshader, fshader, target, 0));
+	// setErrorCode(loadDbgShader(vshader, gshader, fshader, target, 0));
 }
 

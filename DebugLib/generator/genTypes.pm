@@ -137,7 +137,7 @@ sub stripStorageQualifiers
 sub getBasicTypeId
 {
     my $arg = shift;
-    my $id = "PROTO__ARGUMENT_TYPE_";
+    my $id = "PROTO__DEBUG_TYPE_";
     if ($arg =~ /[*]|[\[]/) {
         $id .= "_POINTER";
     } elsif ($arg =~ /struct|union/) {
@@ -159,7 +159,7 @@ sub getBasicTypeId
         if ($arg =~ /unsigned/) {
             $id .= "_UNSIGNED";
         }
-        $id .= "_SHORT_INT";
+        $id .= "_SHORT";
     } elsif ($arg =~ /int|long|unsigned|signed/) {
         if ($arg =~ /unsigned/) {
             $id .= "_UNSIGNED";
@@ -180,17 +180,17 @@ sub getTypeId
     my $arg = stripStorageQualifiers(shift);
     #print "STRIPED ARG: ##$arg##\n";
     if ($arg =~ /[*]|[\[]/) {
-        return "PROTO__ARGUMENT_TYPE__POINTER";
+        return "PROTO__DEBUG_TYPE__POINTER";
     } elsif ($arg =~ /GLbitfield/) {
-        return "PROTO__ARGUMENT_TYPE__BITFIELD";
+        return "PROTO__DEBUG_TYPE__BITFIELD";
     } elsif ($arg =~ /GLenum/) {
-        return "PROTO__ARGUMENT_TYPE__ENUM";
+        return "PROTO__DEBUG_TYPE__ENUM";
     } elsif ($arg =~ /GLboolean/) {
-        return "PROTO__ARGUMENT_TYPE__BOOL";
+        return "PROTO__DEBUG_TYPE__BOOL";
     } elsif ($arg =~ /struct|union/) {
-        return "PROTO__ARGUMENT_TYPE__STRUCT";
+        return "PROTO__DEBUG_TYPE__STRUCT";
     } elsif ($arg =~ /enum/) {
-        return "PROTO__ARGUMENT_TYPE__INT";
+        return "PROTO__DEBUG_TYPE__INT";
     } elsif ($typeMap{$arg}) {
         return getBasicTypeId($typeMap{$arg});
     } else {

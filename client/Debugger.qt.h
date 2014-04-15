@@ -60,7 +60,6 @@ private:
 	std::string _client_name;
 	ProcessList _processes;
 	RunLevel _runLevel;
-	debug_record_t *_records;
 	std::string _pathDbgLib;
 	std::string _pathDbgFuncs;
 	std::string _pathLibDlSym;

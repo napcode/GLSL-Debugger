@@ -47,17 +47,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 void setErrorCode(int error)
 {
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
+    os_pid_t pid = os_getpid();
+    thread_state_t *rec = getThreadState(pid);
 
 	UT_NOTIFY(LV_DEBUG, "STORE ERROR: %i", error);
-	rec->result = DBG_ERROR_CODE;
-	rec->items[0] = (ALIGNED_DATA) error;
+	//FIXME
+	//rec->result = DBG_ERROR_CODE;
+	//rec->items[0] = (ALIGNED_DATA) error;
 }
 
 /* work-around for external debug functions */

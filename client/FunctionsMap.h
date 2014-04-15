@@ -3,15 +3,15 @@
 
 #include <QtCore/QString>
 #include <QtCore/QHash>
-#include "DebugLib/debuglib.h"
+#include "proto/protocol.h"
 
-typedef QHash<QString, gl_func_t*> GLFunctionsMap;
+typedef QHash<QString, proto::GLFunction> GLFunctionsMap;
 
 class FunctionsMap {
 public:
 	static FunctionsMap& instance();
-	void initialize();
-	gl_func_t* operator[](const QString& name);
+	void initialize(proto::GLFunctions& list);
+	const proto::GLFunction& operator[](const QString& name);
 private:
 	static FunctionsMap* _instance;
 	GLFunctionsMap _map;

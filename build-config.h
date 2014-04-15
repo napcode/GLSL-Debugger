@@ -4,6 +4,9 @@
 #define MAX_NOTIFY_SIZE 512
 #define MAX_MESSAGE_SIZE 1024
 #define MAX_BACKTRACE_DEPTH 100
+#define MAX_FUNCNAME 1024
+#define MAX_THREADS	 16
+
 #define MEM_ALIGNMENT 8
 /* timeout in seconds */
 #define NETWORK_TIMEOUT 2 

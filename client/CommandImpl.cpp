@@ -22,8 +22,10 @@ void AnnounceCommand::result(const proto::ServerResponse& response)
     promise().set_value(res);
 }
 StepCommand::StepCommand(Process &p, bool trace, bool stopOnGLError)
-    : Command(p, proto::ClientRequest::STEP)
+    : Command(p, proto::ClientRequest::EXECUTION)
 {
+    _message.mutable_execution()->set_operation(proto::ExecutionRequestDetails_Operation_STEP);
+    _message.mutable_execution()->set_thread_id(0);
     //_rec->operation = DBG_STOP_EXECUTION;
 }
 void StepCommand::result(const proto::ServerResponse& response)

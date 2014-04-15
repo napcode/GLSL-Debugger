@@ -1,8 +1,6 @@
 #include "FunctionsMap.h"
 #include "utils/notify.h"
 
-#include "DebugLib/generated/functionList.c"
-
 FunctionsMap* FunctionsMap::_instance = 0;
 
 FunctionsMap& FunctionsMap::instance()
@@ -13,20 +11,20 @@ FunctionsMap& FunctionsMap::instance()
 	return *_instance;
 }
 
-void FunctionsMap::initialize()
+void FunctionsMap::initialize(proto::GLFunctions& list)
 {
-	uint32_t i = 0;
-	while (glFunctions[i].fname) {
-		_map[glFunctions[i].fname] = &glFunctions[i];
+	int32_t i = 0;
+	_map.clear();
+	while (list.function_size() > i) {
+		_map[QString::fromStdString(list.function(i).name())] = list.function(i);
 		++i;
 	}
 	UT_NOTIFY(LV_INFO, _map.size() << " registered GL-Functions");
 }
-gl_func_t* FunctionsMap::operator[](const QString& name)
+const proto::GLFunction& FunctionsMap::operator[](const QString& name)
 {
-	gl_func_t* func = nullptr;
 	GLFunctionsMap::const_iterator it = _map.find(name);
 	if (it != _map.end())
-		func = it.value();
-	return func;
+		throw std::logic_error("no such GL-function");
+	return it.value();
 }

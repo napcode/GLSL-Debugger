@@ -41,48 +41,40 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "debuglib.h"
 #include "debuglibInternal.h"
 #include "memory.h"
-#include "utils/dbgprint.h"
+#include "utils/notify.h"
 
 void allocMem(void)
 {
 	int i;
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
-
-	for (i = 0; i < rec->numItems; i++) {
-		rec->items[i] = (ALIGNED_DATA) malloc(rec->items[i] * sizeof(char));
-		if (!rec->items[i]) {
-			dbgPrint(DBGLVL_WARNING,
-					"allocMem: Allocation of scratch mem failed\n");
-			for (i--; i >= 0; i--) {
-				free((void*) rec->items[i]);
-			}
-			setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
-			return;
-		}
-	}
-	rec->result = DBG_ALLOCATED;
+    os_pid_t pid = os_getpid();
+    thread_state_t *rec = getThreadState(pid);
+    //FIXME
+    UT_NOTIFY(LV_INFO, "needs fixing");
+	// for (i = 0; i < rec->numItems; i++) {
+	// 	rec->items[i] = (ALIGNED_DATA) malloc(rec->items[i] * sizeof(char));
+	// 	if (!rec->items[i]) {
+	// 		dbgPrint(DBGLVL_WARNING,
+	// 				"allocMem: Allocation of scratch mem failed\n");
+	// 		for (i--; i >= 0; i--) {
+	// 			free((void*) rec->items[i]);
+	// 		}
+	// 		setErrorCode(DBG_ERROR_MEMORY_ALLOCATION_FAILED);
+	// 		return;
+	// 	}
+	// }
+	// rec->result = DBG_ALLOCATED;
 }
 
 void freeMem(void)
 {
 	int i;
-#ifndef _WIN32
-	pid_t pid = getpid();
-#else /* _WIN32 */
-	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-	DWORD pid = GetCurrentProcessId();
-#endif /* _WIN32 */
-	debug_record_t *rec = getThreadRecord(pid);
-
-	for (i = 0; i < rec->numItems; i++) {
-		free((void*) rec->items[i]);
-	}
-	setErrorCode(DBG_NO_ERROR);
+    os_pid_t pid = os_getpid();
+    thread_state_t *rec = getThreadState(pid);
+    //FIXME
+    UT_NOTIFY(LV_INFO, "needs fixing");
+	// for (i = 0; i < rec->numItems; i++) {
+	// 	free((void*) rec->items[i]);
+	// }
+	// setErrorCode(DBG_NO_ERROR);
 }
 
