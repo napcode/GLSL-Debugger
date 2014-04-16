@@ -11,8 +11,8 @@ set(SRC
     socket.c
     server.c
     connection.c
-    glenumerants.c
     queue.c    
+    glenumerants.c    
     ${PROJECT_SOURCE_DIR}/proto/protocol.c
     "${PROJECT_SOURCE_DIR}/proto/debugger.pb-c.c"
 )

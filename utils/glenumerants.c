@@ -41,7 +41,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif /* _WIN32 */
 
 #include "glenumerants.h"
-#include "generated/glenumerants.h"
 
 #if (defined(GLSLDB_LINUX) || defined(GLSLDB_OSX))
 #  include "../GL/glx.h"
@@ -50,11 +49,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //#    define GLX_SAMPLE_BUFFERS                 100000
 //#    define GLX_SAMPLES                        100001
 //#  endif
-#include "glenumerants.h"
 #include "DebugLib/generated/glenumerants.h"
 #include "DebugLib/generated/glxenumerants.h"
-#endif
-
 #else
 #  include <windows.h>
 #  include <GL/wglext.h>

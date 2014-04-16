@@ -21,15 +21,13 @@ endif()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${LIBRARY_DIR}/plugins")
 
 include_directories(
-	"${PROJECT_SOURCE_DIR}/glsldb"
-	"${CMAKE_BINARY_DIR}/glsldb/DebugLib"
+	"${PROJECT_SOURCE_DIR}"
 	${GLEND_OS_DEPENDENT_INCLUDES}
 )
 
 add_library(glEnd MODULE ${SRC})
 
 target_link_libraries(glEnd
-	glenumerants
 	utils
 	glsldebug
 	${OPENGL_LIBRARIES}

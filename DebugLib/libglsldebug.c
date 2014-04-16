@@ -1496,8 +1496,6 @@ static void send_response(handlerstate_t *state)
     assert(num_bytes == len);
     free(buffer);
 }
-<<<<<<< HEAD
-=======
 static Proto__FunctionCall *fcall_create(const char *funcname, int num_args)
 {
     Proto__FunctionCall *fc = malloc(sizeof(Proto__FunctionCall));
@@ -1531,4 +1529,3 @@ static void handle_request_execution(handlerstate_t *state)
     Proto__ExecutionRequestDetails *msg = state->request->execution;
     state->response->error_code = PROTO__ERROR_CODE__NONE;
 }
->>>>>>> basic communication should work

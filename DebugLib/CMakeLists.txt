@@ -26,7 +26,6 @@ endif()
 set(GENERATOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generator")
 set(GENERATOR_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${GENERATOR_OUTPUT_DIR}")
-set(ENUMERANTS_SRC glenumerants.c)
 set(BEGINENDTEST_SRC "${GENERATOR_OUTPUT_DIR}/beginEndFunctionTest.c")
 
 set(GLSLDEBUG_GEN_SRC
@@ -57,7 +56,6 @@ set(GLSLDEBUG_SRC
 	postExecution.c
 	${GLSLDEBUG_OS_SRC}
 	${GLSLDEBUG_GEN_SRC}
-    socket.c
 )
 
 
@@ -140,14 +138,10 @@ if(GLSLDB_WIN)
 endif()
 
 include_directories(
-	"${PROJECT_SOURCE_DIR}/glsldb"
-	"${PROJECT_SOURCE_DIR}/glsldb/DebugLib"
-	"${PROJECT_SOURCE_DIR}/glsldb/utils"
+	"${PROJECT_SOURCE_DIR}"
 	"${CMAKE_CURRENT_BINARY_DIR}"
 	${DEBUGLIB_OS_DEPENDENT_INCLUDES}
 )
-
-add_library(glenumerants STATIC ${ENUMERANTS_SRC})
 
 #add_executable(beginEndFunctionTest ${BEGINENDTEST_SRC})
 #target_link_libraries(beginEndFunctionTest ${OPENGL_LIBRARIES} ${GLUT_LIBRARY})
@@ -158,7 +152,6 @@ add_library(glsldebug SHARED ${GLSLDEBUG_SRC})
 
 target_link_libraries(glsldebug 
     utils 
-    glenumerants
     ${DEBUGLIB_OS_DEPENDENT_LIBS}
     ${DL_LIBRARIES} 
     ${CMAKE_THREAD_LIBS_INIT}
