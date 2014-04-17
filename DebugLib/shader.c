@@ -1318,7 +1318,7 @@ void getShaderCode(void)
     int i, j;
 
 	os_pid_t pid = os_getpid();
-	thread_state_t *rec = getThreadState(pid);
+	thread_locals_t *rec = getThreadLocals(pid);
 	// FIXME
 	// /* clear smem */
 	// rec->numItems = 0;
@@ -1807,7 +1807,7 @@ int loadDbgShader(const char* vshader, const char *gshader, const char *fshader,
 void setDbgShader(void)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     // FIXME
 	// const char *vshader = (const char *)rec->items[0];
 	// const char *gshader = (const char *)rec->items[1];

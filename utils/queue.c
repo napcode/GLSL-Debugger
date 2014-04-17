@@ -17,9 +17,9 @@ void queue_destroy(queue_t* queue)
 	free(queue);
 }
 
-void queue_enqueue(queue_t* queue, command_t* cmd)
+void queue_enqueue(queue_t* queue, void* cmd)
 {
-	commandnode_t *cn = malloc(sizeof(commandnode_t));
+	node_t *cn = malloc(sizeof(node_t));
 	assert(cn);
 	if(queue_empty(queue)) {
 		queue->head = cn;
@@ -30,20 +30,20 @@ void queue_enqueue(queue_t* queue, command_t* cmd)
 		queue->tail = cn;
 	}
 	++queue->size;
-	cn->command = cmd;
+	cn->data = cmd;
 }
-command_t* queue_dequeue(queue_t* queue)
+void* queue_dequeue(queue_t* queue)
 {
-	commandnode_t* cn = queue->head;
+	node_t* cn = queue->head;
 	if(!cn)
 		return NULL;
 	queue->head = cn->next;
 	--queue->size;
-	command_t *c = cn->command;
+	void *data = cn->data;
 	free(cn);
-	return c;
+	return data;
 }
-int queue_empty (queue_t* queue)
+int queue_empty(queue_t* queue)
 {
     return queue->size == 0;
 }

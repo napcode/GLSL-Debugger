@@ -49,7 +49,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "streamRecorder.h"
 #include "queries.h"
 #include "utils/hash.h"
-#include "utils/queue.h"
 #include "GL/glx.h"
 
 #include "generated/functionPointerTypes.inc"
@@ -57,16 +56,15 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TRANSFORM_FEEDBACK_BUFFER_SIZE (1<<24)
 
 typedef struct {
-    void (*(*origGlXGetProcAddress)(const GLubyte *))(void);StreamRecorder recordedStream;
+    void (*(*origGlXGetProcAddress)(const GLubyte *))(void);
+    StreamRecorder recordedStream;
     int errorCheckAllowed;
 #ifndef _WIN32
 	pthread_mutex_t lock;
-    pthread_cond_t cond; 
 #else /* _WIN32 */
     CRITICAL_SECTION lock;
 #endif /* _WIN32 */
     Hash queries;
-    queue_t* cmdqueue;
 } Globals;
 
 DBGLIBLOCAL int checkGLVersionSupported(int majorVersion, int minorVersion);
@@ -100,7 +98,7 @@ DBGLIBLOCAL void (*getOrigFunc(const char *fname))(void);
 #define ORIG_GL(fname) ((PFN##fname##PROC)getOrigFunc(#fname))
 #endif /* _WIN32 */
 
-DBGLIBLOCAL thread_state_t* getThreadState(os_pid_t pid);
+DBGLIBLOCAL thread_locals_t* getThreadLocals(os_pid_t pid);
 
 /* check GL error code */
 DBGLIBLOCAL int glError(void);
@@ -126,7 +124,7 @@ DBGLIBLOCAL void storeResult(void *result, int type);
 
 DBGLIBLOCAL void stop(void);
 
-DBGLIBLOCAL enum DBG_OPERATION getDbgOperation(const char* func);
+DBGLIBLOCAL Proto__DebugCommand__Type getDbgOperation(const char* func);
 
 DBGLIBLOCAL void setExecuting(void);
 
@@ -134,7 +132,7 @@ DBGLIBLOCAL int keepExecuting(const char *calledName);
 
 DBGLIBLOCAL int checkGLErrorInExecution(void);
 
-DBGLIBLOCAL void executeDefaultDbgOperation(enum DBG_OPERATION op);
+DBGLIBLOCAL void executeDefaultDbgOperation(Proto__DebugCommand__Type op);
 
 /* work-around for external debug functions */
 /* TODO: do we need debug functions at all? */

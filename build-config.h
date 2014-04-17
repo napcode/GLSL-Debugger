@@ -6,6 +6,7 @@
 #define MAX_BACKTRACE_DEPTH 100
 #define MAX_FUNCNAME 1024
 #define MAX_THREADS	 16
+#define MAX_CONNECTIONS 1
 
 #define MEM_ALIGNMENT 8
 /* timeout in seconds */

@@ -3,29 +3,24 @@
 
 #include <stdint.h>
 
-typedef struct command 
+typedef struct node
 {
-	uint32_t dummy;
-} command_t;
+	struct node *next;
+	void *data;
 
-typedef struct commandnode
-{
-	struct commandnode *next;
-	command_t *command;
-
-} commandnode_t;
+} node_t;
 
 typedef struct queue {
-	commandnode_t* head;
-	commandnode_t* tail;
+	node_t* head;
+	node_t* tail;
 	uint32_t size;
 } queue_t; 
 
 queue_t* queue_create(void);
 void queue_destroy(queue_t* queue);
 
-void queue_enqueue(queue_t* queue, command_t* c);
-command_t* queue_dequeue(queue_t* queue);
+void queue_enqueue(queue_t* queue, void* c);
+void* queue_dequeue(queue_t* queue);
 
 int queue_empty (queue_t* queue);
 

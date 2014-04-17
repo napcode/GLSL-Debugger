@@ -57,12 +57,13 @@ int main(int argc, char** argv)
     std::string line;
     do {
         std::getline(std::cin, line);
-        if(line == std::string("step"))  {
-            CommandPtr c = _proc->step();
-            c->result().get();            
+        if(line == std::string("done"))  {
+            CommandPtr c = _proc->done();
+            c->result().get();
         }
-        else if(line == std::string("info"))  {
-            //cn_send(&c, request);
+        else if(line == std::string("call"))  {
+            CommandPtr c = _proc->call();
+            c->result().get();
         }        
         else if(line == std::string("announce"))  {
             CommandPtr c = _proc->announce();

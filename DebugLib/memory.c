@@ -47,7 +47,7 @@ void allocMem(void)
 {
 	int i;
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     //FIXME
     UT_NOTIFY(LV_INFO, "needs fixing");
 	// for (i = 0; i < rec->numItems; i++) {
@@ -69,7 +69,7 @@ void freeMem(void)
 {
 	int i;
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     //FIXME
     UT_NOTIFY(LV_INFO, "needs fixing");
 	// for (i = 0; i < rec->numItems; i++) {

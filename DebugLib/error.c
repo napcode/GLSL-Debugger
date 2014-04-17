@@ -48,7 +48,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void setErrorCode(int error)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
 
 	UT_NOTIFY(LV_DEBUG, "STORE ERROR: %i", error);
 	//FIXME

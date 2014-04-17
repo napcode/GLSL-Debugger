@@ -1,5 +1,5 @@
-#ifndef RESULTHANDLER_H
-#define RESULTHANDLER_H 1
+#ifndef MESSAGEHANDLER_H
+#define MESSAGEHANDLER_H 1
 
 #include <thread>
 #include <deque>
@@ -7,10 +7,10 @@
 
 #include "Command.qt.h"
 
-class ResultHandler
+class MessageHandler
 {
 public:
-	virtual ~ResultHandler() {};
+	virtual ~MessageHandler() {};
 	virtual void handle(CommandPtr c) = 0;
 };
 
@@ -20,7 +20,7 @@ public:
 	AsyncResultHandler();
 	virtual ~AsyncResultHandler();
 	virtual void handle(CommandPtr c);	
-	virtual void handleSingleResult(CommandPtr c) = 0; 
+	virtual void handleSingleMessage(CommandPtr c) = 0; 
 protected:
 	virtual void run();
 protected:
@@ -29,7 +29,7 @@ private:
 	bool _end;
 	std::thread *_handler;
 	std::mutex _mtx;
-	std::condition_variable _resultCondition;
+	std::condition_variable _messageCondition;
 };
-typedef QSharedPointer<ResultHandler> ResultHandlerPtr;
+typedef QSharedPointer<MessageHandler> MessageHandlerPtr;
 #endif

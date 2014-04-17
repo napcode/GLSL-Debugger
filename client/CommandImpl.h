@@ -9,13 +9,23 @@
 struct AnnounceCommand : public Command
 {
 	AnnounceCommand(Process& p, const std::string& client_name );
-	void result(const proto::ServerResponse& response);
+	void result(const proto::ServerMessage& response);
 	std::string _client_name;
 };
-struct StepCommand : public Command
+struct CallCommand : public Command
 {
-	StepCommand(Process& p, bool trace = true, bool stopOnGlError = true);
-	void result(const proto::ServerResponse& response);
+	CallCommand(Process& p);
+	void result(const proto::ServerMessage& response);
+};
+struct DoneCommand : public Command
+{
+	DoneCommand(Process& p);
+	void result(const proto::ServerMessage& response);
+};
+struct NextCommand : public Command
+{
+	NextCommand(Process& p);
+	void result(const proto::ServerMessage& response);
 };
 struct GetCallCommand : public Command
 {
@@ -27,7 +37,7 @@ struct GetCallCommand : public Command
 		virtual ~Result() {};
 		FunctionCallPtr functionCall;
 	};
-	void result(const proto::ServerResponse& response);
+	void result(const proto::ServerMessage& response);
 };
 
 

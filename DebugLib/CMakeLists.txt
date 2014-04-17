@@ -54,6 +54,7 @@ set(GLSLDEBUG_SRC
 	queries.c
 	preExecution.c
 	postExecution.c
+    connection.c
 	${GLSLDEBUG_OS_SRC}
 	${GLSLDEBUG_GEN_SRC}
 )

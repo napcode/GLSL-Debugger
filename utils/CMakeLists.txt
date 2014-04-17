@@ -10,7 +10,6 @@ set(SRC
 	types.c
     socket.c
     server.c
-    connection.c
     queue.c    
     glenumerants.c    
     ${PROJECT_SOURCE_DIR}/proto/protocol.c

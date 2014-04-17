@@ -35,7 +35,7 @@ public:
 	Command(Process& p, proto::ClientRequest::Type t);
 	virtual ~Command() {};
 
-	virtual void result(const proto::ServerResponse& response) = 0;
+	virtual void result(const proto::ServerMessage& response) = 0;
 
 	bool operator==(uint64_t response_id) { return id() == response_id; }
 

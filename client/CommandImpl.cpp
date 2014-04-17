@@ -12,7 +12,7 @@ AnnounceCommand::AnnounceCommand(Process &p, const std::string& client_name)
     _message.mutable_announce()->mutable_version()->set_minor(PROTO_MINOR);
     _message.mutable_announce()->mutable_version()->set_revision(PROTO_REVISION); 
 }
-void AnnounceCommand::result(const proto::ServerResponse& response)
+void AnnounceCommand::result(const proto::ServerMessage& response)
 {
     ResultPtr res(new Result);
     if(response.error_code() != proto::ErrorCode::NONE) {
@@ -21,14 +21,26 @@ void AnnounceCommand::result(const proto::ServerResponse& response)
     }
     promise().set_value(res);
 }
-StepCommand::StepCommand(Process &p, bool trace, bool stopOnGLError)
-    : Command(p, proto::ClientRequest::EXECUTION)
+CallCommand::CallCommand(Process &p)
+    : Command(p, proto::ClientRequest::DEBUG_COMMAND)
 {
-    _message.mutable_execution()->set_operation(proto::ExecutionRequestDetails_Operation_STEP);
-    _message.mutable_execution()->set_thread_id(0);
+    _message.mutable_command()->set_type(proto::DebugCommand_Type_CALL_ORIGFUNCTION);
+    _message.mutable_command()->set_thread_id(0);
     //_rec->operation = DBG_STOP_EXECUTION;
 }
-void StepCommand::result(const proto::ServerResponse& response)
+void CallCommand::result(const proto::ServerMessage& response)
+{
+    /* parse server response, create a result and store it in the promise */
+    // promise().set_value();
+}
+DoneCommand::DoneCommand(Process &p)
+    : Command(p, proto::ClientRequest::DEBUG_COMMAND)
+{
+    _message.mutable_command()->set_type(proto::DebugCommand_Type_DONE);
+    _message.mutable_command()->set_thread_id(0);
+    //_rec->operation = DBG_STOP_EXECUTION;
+}
+void DoneCommand::result(const proto::ServerMessage& response)
 {
     /* parse server response, create a result and store it in the promise */
     // promise().set_value();

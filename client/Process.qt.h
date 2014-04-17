@@ -10,12 +10,12 @@
 #include "DebugConfig.h"
 #include "FunctionCall.h"
 #include "CommandFactory.h"
-#include "ResultHandler.h"
+#include "MessageHandler.h"
 
 
 class Debugger;
 class CommandFactory;
-typedef QSharedPointer<proto::ServerResponse> ServerResponsePtr;
+typedef QSharedPointer<proto::ServerMessage> ServerMessagePtr;
 
 class Process : public QObject
 {
@@ -49,7 +49,8 @@ public:
 	void advance();
 
 	CommandPtr announce();
-	CommandPtr step();
+	CommandPtr done();
+	CommandPtr call();
 	/* kill the process */
 	CommandPtr kill();
 	/* launches process, applies options if needed & leaves
@@ -87,9 +88,11 @@ public:
     bool isStopped() const { return _state == STOPPED; }
     bool isKilled() const { return _state == KILLED; }
     bool hasExited() const { return _state == EXITED; }
-	ResultHandlerPtr resultHandler() const { return _resultHandler; }
+
+	MessageHandlerPtr messageHandler() const { return _messageHandler; }
 	/* set a ResultHandler. Process takes ownership */
-	void resultHandler(ResultHandler* res) { _resultHandler = ResultHandlerPtr(res); }
+	void messageHandler(MessageHandler* res) { _messageHandler = MessageHandlerPtr(res); }
+
 signals:
 	void stateChanged(Process::State s);
 	void newChild(os_pid_t p);
@@ -100,10 +103,8 @@ private:
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
     void startReceiver();
     void stopReceiver();
-    void receiveResults();
+    void receiveMessages();
     void storeCommand(CommandPtr& cmd);
-    ServerResponsePtr readResponse(QByteArray& ba);
-    //ServerResponsePtr readEvent(QByteArray& ba);
 private:
 	/* variables */
 	os_pid_t _pid;
@@ -117,7 +118,7 @@ private:
     State _state;
 	ConnectionPtr _connection;
     bool _end;
-    ResultHandlerPtr _resultHandler;
+   	MessageHandlerPtr _messageHandler;
 };
 
 typedef QSharedPointer<Process> ProcessPtr;

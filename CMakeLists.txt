@@ -69,8 +69,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 endif()
 
 # Update the documentation string of CMAKE_BUILD_TYPE for GUIs
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug")
+if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
+	add_definitions(-DGLSLDB_DEBUG)
 endif()
 
 set(DISTRIBUTION_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_BUILD_TYPE}/Dist")

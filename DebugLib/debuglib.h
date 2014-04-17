@@ -45,6 +45,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include "utils/os/os.h"
 #include "proto/protocol.h"
+#include "utils/queue.h"
+#include "connection.h"
 
 enum DBG_ERROR_CODE {
 	DBG_NO_ERROR = 0,
@@ -117,8 +119,8 @@ enum DBG_RETURN {
  */
 };
 
-enum DBG_OPERATION {
-	DBG_NONE = 0,
+//enum DBG_OPERATION {
+//	DBG_NONE = 0,
 	/*
 	 No operation; ignored
 	 Parameters:
@@ -126,7 +128,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE (always DBG_NO_ERROR)
 	 */
 
-	DBG_EXECUTE,
+//	DBG_EXECUTE,
 	/*
 	 Go into "no trace" mode, i.e. do not enter command loop but just call
 	 original functions until DBG_STOP_EXECUTION is called or a specified
@@ -145,14 +147,14 @@ enum DBG_OPERATION {
 	 Returns: -
 	 */
 
-	DBG_STOP_EXECUTION,
+//	DBG_STOP_EXECUTION,
 	/*
 	 Leave "no trace" mode and go back to normal command loop mode
 	 Parameters: -
 	 Returns: -
 	 */
 
-	DBG_ALLOC_MEM,
+//	DBG_ALLOC_MEM,
 	/*
 	 Parameters:
 	 numItems      : #n of memory blocks to allocate
@@ -163,7 +165,7 @@ enum DBG_OPERATION {
 	 items[0..n-1] : addresses of allocated memory blocks
 	 */
 
-	DBG_FREE_MEM,
+//	DBG_FREE_MEM,
 	/*
 	 Parameters:
 	 numItems      : #n of memory blocks to free
@@ -172,7 +174,7 @@ enum DBG_OPERATION {
 	 result        : DBG_ERROR_CODE
 	 */
 
-	DBG_CALL_FUNCTION,
+//	DBG_CALL_FUNCTION,
 	/*
 	 Call a debug function provided as a shared object with the function
 	 calls' parameters.
@@ -182,7 +184,7 @@ enum DBG_OPERATION {
 	 depends on called function
 	 */
 
-	DBG_CALL_ORIGFUNCTION,
+//	DBG_CALL_ORIGFUNCTION,
 	/*
 	 Call the original function.
 	 Parameters: -
@@ -190,7 +192,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE
 	 */
 
-	DBG_START_RECORDING,
+//	DBG_START_RECORDING,
 	/*
 	 setup GL state to correctly record and replay a draw call for shader
 	 debugging, i.e. save current GL state and init stream recorder.
@@ -199,7 +201,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE
 	 */
 
-	DBG_RECORD_CALL,
+//	DBG_RECORD_CALL,
 	/*
 	 Store the current function call including all its parameters and execute
 	 the original function afterwards.
@@ -213,7 +215,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE
 	 */
 
-	DBG_REPLAY,
+//	DBG_REPLAY,
 	/*
 	 Replay the previously recorded GL command stream, i.e. set saved GL
 	 state and replay recorded function calls
@@ -222,7 +224,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE
 	 */
 
-	DBG_END_REPLAY,
+//	DBG_END_REPLAY,
 	/*
 	 Cleanup after shader debugging, i.e. restore original output target,
 	 restore GL state, replay the recorded stream alast time, and clear the
@@ -232,7 +234,7 @@ enum DBG_OPERATION {
 	 result : DBG_ERROR_CODE
 	 */
 
-	DBG_SET_DBG_TARGET,
+//	DBG_SET_DBG_TARGET,
 	/*
 	 Initialize the debug output target
 	 Parameters:
@@ -247,7 +249,7 @@ enum DBG_OPERATION {
 	 result: DBG_ERROR_CODE
 	 */
 
-	DBG_RESTORE_RENDER_TARGET,
+//	DBG_RESTORE_RENDER_TARGET,
 	/*
 	 Restore the output target
 	 Parameters:
@@ -256,7 +258,7 @@ enum DBG_OPERATION {
 	 result: DBG_ERROR_CODE
 	 */
 
-	DBG_READ_RENDER_BUFFER,
+//	DBG_READ_RENDER_BUFFER,
 	/*
 	 Readback the currently active render buffer
 	 Parameters:
@@ -269,7 +271,7 @@ enum DBG_OPERATION {
 	 items[2] : image height
 	 */
 
-	DBG_CLEAR_RENDER_BUFFER,
+//	DBG_CLEAR_RENDER_BUFFER,
 	/*
 	 Copy or clear the currently active color buffer, depth buffer, and/or
 	 stencil buffer
@@ -288,7 +290,7 @@ enum DBG_OPERATION {
 	 result: DBG_ERROR_CODE
 	 */
 
-	DBG_GET_SHADER_CODE,
+//	DBG_GET_SHADER_CODE,
 	/*
 	 Return the source code for the currently active GLSL shader
 	 Parameters: -
@@ -307,7 +309,7 @@ enum DBG_OPERATION {
 	 items[8] : pointer to active uniforms (ActiveUniform*), static readonly!
 	 */
 
-	DBG_STORE_ACTIVE_SHADER,
+//	DBG_STORE_ACTIVE_SHADER,
 	/*
 	 Store the currently active GLSL shader including source code, active
 	 uniforms, varyings, etc.
@@ -316,7 +318,7 @@ enum DBG_OPERATION {
 	 result: DBG_ERROR_CODE
 	 */
 
-	DBG_RESTORE_ACTIVE_SHADER,
+//	DBG_RESTORE_ACTIVE_SHADER,
 	/*
 	 Restore the GLSL shader stored by a previously call to
 	 DBG_STORE_ACTIVE_SHADER and free memory used for storing it.
@@ -325,7 +327,7 @@ enum DBG_OPERATION {
 	 result: DBG_ERROR_CODE
 	 */
 
-	DBG_SET_DBG_SHADER,
+//	DBG_SET_DBG_SHADER,
 	/*
 	 Set a new, i.e. compile, link, and activate, a new GLSL shader replacing
 	 the currently active one.
@@ -338,7 +340,7 @@ enum DBG_OPERATION {
 	 result   : DBG_ERROR_CODE
 	 */
 
-	DBG_SHADER_STEP,
+//	DBG_SHADER_STEP,
 	/*
 	 Does all operations necessary to get the result of a given debug shader
 	 back to the caller, i.e. setup the shader and its environment, replay the
@@ -369,7 +371,7 @@ enum DBG_OPERATION {
 	 items[2] : number of primitives
 	 */
 
-	DBG_SAVE_AND_INTERRUPT_QUERIES,
+//	DBG_SAVE_AND_INTERRUPT_QUERIES,
 	/*
 	 Store the current query state and interrupt active queries.
 	 Parameters: -
@@ -377,7 +379,7 @@ enum DBG_OPERATION {
 	 result   : DBG_ERROR_CODE
 	 */
 
-	DBG_RESTART_QUERIES,
+//	DBG_RESTART_QUERIES,
 	/*
 	 Restart interrupted queries.
 	 Parameters: -
@@ -385,14 +387,14 @@ enum DBG_OPERATION {
 	 result   : DBG_ERROR_CODE
 	 */
 
-	DBG_DONE
+//	DBG_DONE
 /*
  Quit command loop for the current call and proceed to next call.
  Parameters: -
  Returns:
  result   : DBG_ERROR_CODE
  */
-};
+//};
 
 
 enum DBG_TARGET {
@@ -448,21 +450,23 @@ enum EXECUTION_HALT
 	EX_HALT_ON_USER_DEFINED = 8
 };
 
-#pragma pack(8)
 typedef struct {
 	os_pid_t threadId;
 	Proto__FunctionCall* current_call;
 	enum EXECUTION_MODE mode;
 	enum EXECUTION_HALT halt_on;
 	char* halt_on_function;
+    queue_t* queue_cmd;
+    pthread_mutex_t mtx_cmd;
+  	pthread_cond_t cond_cmd; 
+
 	//char fname[SHM_MAX_FUNCNAME];
 	//unsigned int numItems;
 	//ALIGNED_DATA items[SHM_MAX_ITEMS];
 #ifdef _WIN32
 	ALIGNED_DATA isRecursing;
 #endif /* _WIN32 */
-} thread_state_t;
-#pragma pack()
+} thread_locals_t;
 
 // typedef struct {
 // 	const char *prefix;
@@ -475,5 +479,7 @@ typedef struct {
 // 	int isFramebufferChange;
 // } gl_func_t;
 
+Proto__ServerMessage* handle_request_debug(connection_t *cn);
+Proto__ServerMessage* handle_request_execution(connection_t *cn);
 
 #endif

@@ -44,7 +44,7 @@ void Process::startReceiver()
 {
     if (!_responseReceiver) {
         _end = false;
-        _responseReceiver = new std::thread(&Process::receiveResults, this);
+        _responseReceiver = new std::thread(&Process::receiveMessages, this);
     }
 }
 void Process::stopReceiver()
@@ -70,7 +70,7 @@ bool Process::init()
     //_connection->write(rq);
     return true;
 }
-void Process::storeCommand(CommandPtr& cmd)
+void Process::storeCommand(CommandPtr &cmd)
 {
     {
         std::lock_guard<std::mutex> lock(_mtxWork);
@@ -87,16 +87,23 @@ CommandPtr Process::announce()
     storeCommand(cmd);
     return cmd;
 }
-CommandPtr Process::step()
+CommandPtr Process::done()
 {
-    CommandPtr cmd(new StepCommand(*this));
+    CommandPtr cmd(new DoneCommand(*this));
+    storeCommand(cmd);
+    connection()->send(cmd);
+    return cmd;
+}
+CommandPtr Process::call()
+{
+    CommandPtr cmd(new CallCommand(*this));
     storeCommand(cmd);
     connection()->send(cmd);
     return cmd;
 }
 CommandPtr Process::kill()
 {
-    CommandPtr cmd(new StepCommand(*this));
+    CommandPtr cmd(new CallCommand(*this));
     //CommandPtr cmd(new KillCommand(*this));
     /* store cmd so we can associate received results with it */
     //enqueue(cmd);
@@ -254,13 +261,12 @@ const QString &Process::strState(State s)
     return m;
 }
 
-void Process::receiveResults()
+void Process::receiveMessages()
 {
     std::unique_lock<std::mutex> lock(_mtxWork, std::defer_lock);
-    CommandPtr receiver;
     QByteArray ba;
     msg_size_t length;
-    ServerResponsePtr response;
+    ServerMessagePtr response;
     while (!_end) {
         lock.lock();
         _workCondition.wait(lock,
@@ -270,13 +276,13 @@ void Process::receiveResults()
             break;
         /* 1) receive size of next message (msg_size_t)
          * 2) receive buffer with previously received size
-         * 3) parse received buffer (usually a ServerResponse)
+         * 3) parse received buffer (usually a ServerMessage)
          * 4) back to 1)
          */
         try {
             QByteArray bas = connection()->receive(sizeof(msg_size_t));
             assert(sizeof(unsigned int) == sizeof(msg_size_t));
-            length = *((msg_size_t*)bas.data());
+            length = *((msg_size_t *)bas.data());
             ba = connection()->receive(length);
         } catch (std::exception &e) {
             /* TODO decide what to do on timeout */
@@ -284,41 +290,29 @@ void Process::receiveResults()
             break;
         }
         try {
-        	response = readResponse(ba);
-    	}
-    	catch (std::exception &e) {
+            ServerMessagePtr response(new proto::ServerMessage);
+            if (!response->ParseFromArray(ba.data(), ba.size())) 
+                throw std::logic_error("Not a valid server response");
+            std::unique_lock<std::mutex> lock(_mtxWork);
+            /* a message might be the result of a previously sent command */
+            /* meh. std:find/qFind won't work with SharedPtrs/Qt stuff */
+            UT_NOTIFY(LV_INFO, "cmd size " << _commands.size() );
+            CommandList::iterator it = _commands.begin();
+            while (it != _commands.end()) {
+                if ((*it)->id() == response->id()) {
+                    (*it)->result(*response);
+                    _commands.erase(it);
+                    break;
+                }
+                ++it;
+            }
+            /* this message is not the result of a command */
+            if (it != _commands.end())
+                throw std::logic_error("We should have search the list by now...");
+            if (messageHandler())
+                messageHandler()->handle(*it);
+        } catch (std::exception &e) {
             UT_NOTIFY(LV_ERROR, "Exception caught: " << e.what());
-            break;
         }
-        //ResultPtr res(new Result(true));
-        //promise().set_value(res);
     }
-}
-ServerResponsePtr Process::readResponse(QByteArray& ba)
-{
-    ServerResponsePtr response(new proto::ServerResponse);
-    if (!response->ParseFromArray(ba.data(), ba.size())) {
-        throw std::logic_error("Not a valid server response");
-    }
-    std::unique_lock<std::mutex> lock(_mtxWork);
-    /* a response is the result of a previously sent command */
-    /* meh. std:find/qFind won't work with SharedPtrs/Qt stuff */
-    UT_NOTIFY(LV_INFO, "cmd size " << _commands.size() );
-    CommandList::iterator it = _commands.begin();
-    while (it != _commands.end()) {
-        if ((*it)->id() == response->id())
-            break;
-        ++it;
-    }
-    if (it == _commands.end())
-        throw std::logic_error("Received reponse does not belong to any command");
-    
-    (*it)->result(*response);
-
-    if (resultHandler())
-        resultHandler()->handle(*it);
-    /* command completed */
-    //emit resultAvailable(*it);
-    _commands.erase(it);
-    return response;
 }

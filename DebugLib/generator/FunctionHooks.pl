@@ -266,10 +266,10 @@ sub createBody
     do {
         op = getDbgOperation(\"$fname\");
         switch (op) {
-        case DBG_DONE:
+        case PROTO__DEBUG_COMMAND__TYPE__DONE:
             end = 1;
             break;
-        case DBG_CALL_FUNCTION:
+        case PROTO__DEBUG_COMMAND__TYPE__CALL_FUNCTION:
             ${retval_assign}(($pfname)getDbgFunction())($argstring);";
     if (not $return_void) {
         $output .= "
@@ -277,7 +277,7 @@ sub createBody
     }
     $output .= sprintf "
             break;
-        case DBG_RECORD_CALL:
+        case PROTO__DEBUG_COMMAND__TYPE__RECORD_CALL:
 #ifdef DBG_STREAM_HINT_$ucfname
 #  if DBG_STREAM_HINT_$ucfname != DBG_NO_RECORD
             recordFunctionCall(&G.recordedStream, \"$fname\", ${argcount}${argsizes});
@@ -288,13 +288,13 @@ sub createBody
             /* FALLTHROUGH!!!! */
 #  endif
 #endif
-        case DBG_CALL_ORIGFUNCTION_AND_PROCEED:
+        case PROTO__DEBUG_COMMAND__TYPE__CALL_ORIGFUNCTION_AND_PROCEED:
             end = 1;
-        case DBG_CALL_ORIGFUNCTION:
+        case PROTO__DEBUG_COMMAND__TYPE__CALL_ORIGFUNCTION:
             ${preexec}${retval_assign}ORIG_GL($fname)($argstring);
 %s
             break;
-        case DBG_EXECUTE:
+        case PROTO__DEBUG_COMMAND__TYPE__EXECUTE:
             setExecuting();
             stop();
             EXIT_CS(&G.lock);

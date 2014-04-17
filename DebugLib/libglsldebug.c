@@ -8,7 +8,7 @@ Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
   * Redistributions of source code must retain the above copyright notice, this
-	list of conditions and the following disclaimer.
+    list of conditions and the following disclaimer.
 
   * Redistributions in binary form must reproduce the above copyright notice, this
     list of conditions and the following disclaimer in the documentation and/or
@@ -44,9 +44,8 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdarg.h>
 #include <signal.h>
-
 #ifdef _WIN32
-//#define _WIN32_WINNT 0x0400
+#define _WIN32_WINNT 0x0400
 #include <windows.h>
 #include <crtdbg.h>
 #include <io.h>
@@ -56,16 +55,13 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #else /* _WIN32 */
 #include <dirent.h>
 #endif /* _WIN32 */
-
 #include "GL/gl.h"
 //#include "../GL/glext.h"
 #ifndef _WIN32
 //#include "../GL/glx.h"
 #else /* _WIN32 */
-
-#include "../GL/WinGDI.h"
-#include "../GL/wglext.h"
-#include "generated/trampolines.h"
+#include "GL/wglext.h"
+#include "trampolines.h"
 #endif /* !_WIN32 */
 
 #include "utils/dlutils.h"
@@ -85,7 +81,6 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "initLib.h"
 #include "queries.h"
 #include "utils/socket.h"
-#include "utils/connection.h"
 #include "utils/server.h"
 #include "utils/queue.h"
 #include "proto/protocol.h"
@@ -93,12 +88,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef _WIN32
 #  define LIBGL "opengl32.dll"
 #  define SO_EXTENSION ".dll"
-#	define SHMEM_NAME_LEN 64
+#define SHMEM_NAME_LEN 64
 #else
 #  define LIBGL "libGL.so"
 #  define SO_EXTENSION ".so"
 #endif
-
 
 #define USE_DLSYM_HARDCODED_LIB
 
@@ -107,7 +101,6 @@ typedef struct {
     const char *fname;
     void (*function)(void);
 } debug_function_t;
-
 
 /* TODO: threads! Should be local to each thread, isn't it? */
 #ifndef _WIN32
@@ -118,11 +111,12 @@ static struct {
 #endif
     void *(*origdlsym)(void *, const char *);
 
-    thread_state_t *thread;
+    thread_locals_t *thread_locals;
     debug_function_t *dbgFunctions;
     int numDbgFunctions;
     Hash origFunctions;
-    socket_t *socket;
+    int num_connections;
+    connection_t *cn_debugger;
 } g = {
     0, /* initialized */
 #ifdef USE_DLSYM_HARDCODED_LIB
@@ -137,49 +131,32 @@ static struct {
         NULL,
         NULL,
         NULL
-    },  /* origFunctions */
-    NULL
+    },   /* origFunctions */
+    0,        /* num_connections */
+    NULL       /* cn_debugger */
 };
 #else /* _WIN32 */
 static struct {
     HANDLE hEvtDebugee; /* wait for debugger */
     HANDLE hEvtDebugger; /* signal debugger */
     HANDLE hShMem; /* shared memory handle */
-    thread_state_t *thread;
+    thread_locals_t *thread_locals;
     debug_function_t *dbgFunctions;
     int numDbgFunctions;
 } g = {NULL, NULL, NULL, NULL, NULL, 0};
 #endif /* _WIN32 */
 
-
-#ifdef _WIN32
-#	define GET_MODULE(h, s) (char *)GetProcAddress(h, s)
-#else /* _WIN32 */
-#	define GET_MODULE(h, s) g.origdlsym(h, s)
-#endif /* _WIN32 */
-
-
-
 /* global data */
 DBGLIBLOCAL Globals G;
-
-typedef struct {
-    socket_t *sock;
-    int end_connection;
-    Proto__ClientRequest *request;
-    Proto__ServerResponse *response;
-} handlerstate_t;
-#define HANDLERSTATE_INIT {NULL, 0, NULL, NULL}
 
 extern Proto__GLFunction glFunctions[];
 
 /* internal functions */
 static int new_connection_callback(socket_t *s);
-static void handle_request_announce(handlerstate_t *state);
-static void handle_request_execution(handlerstate_t *state);
-static void send_response(handlerstate_t *state);
 static Proto__FunctionCall *fcall_create(const char *funcname, int num_args);
 static void fcall_destroy(Proto__FunctionCall *pc);
+static void connection_closed_callback(connection_t *cn, enum CN_CLOSE_REASON r);
+static void send_proc_info();
 
 #ifndef _WIN32
 static int getShmid()
@@ -242,44 +219,50 @@ static void setLogging(void)
 
 static void addDbgFunction(const char *soFile)
 {
-	os_LibraryHandle_t handle = NULL;
-	void (*dbgFunc)(void) = NULL;
-	const char *provides = NULL;
+    os_LibraryHandle_t handle = NULL;
+    void (*dbgFunc)(void) = NULL;
+    const char *provides = NULL;
 
-	if (!(handle = openLibrary(soFile))) {
-		UT_NOTIFY(LV_WARN, "Opening dbgPlugin \"%s\" failed\n", soFile);
-		return;
-	}
-	if (!(provides = GET_MODULE(handle, "provides"))) {
-		UT_NOTIFY(LV_WARN, "Could not determine what \"%s\" provides!\n"
-		"Export the " "\"provides\"-string!\n", soFile);
-		os_dlclose(handle);
-		return;
-	}
+    if (!(handle = openLibrary(soFile))) {
+        UT_NOTIFY(LV_WARN, "Opening dbgPlugin \"%s\" failed\n", soFile);
+        return;
+    }
+#ifdef _WIN32
+    if ((provides = (char *) GetProcAddress(handle, "provides")) == NULL) {
+#else /* _WIN32 */
+    if (!(provides = g.origdlsym(handle, "provides"))) {
+#endif /* _WIN32 */
+        UT_NOTIFY(LV_WARN, "Could not determine what \"%s\" provides!\n"
+                  "Export the " "\"provides\"-string!\n", soFile);
+        os_dlclose(handle);
+        return;
+    }
 
-	if (!(dbgFunc = (void (*)(void)) GET_MODULE(handle, provides))) {
-		os_dlclose(handle);
-		return;
-	}
-	g.numDbgFunctions++;
-	g.dbgFunctions = realloc(g.dbgFunctions,
-			g.numDbgFunctions * sizeof(debug_function_t));
-	if (!g.dbgFunctions) {
-		UT_NOTIFY(LV_ERROR,
-				"Allocating g.dbgFunctions failed: %s (%d)\n", strerror(errno), g.numDbgFunctions*sizeof(debug_function_t));
-		os_dlclose(handle);
-		exit(1);
-	}
-	g.dbgFunctions[g.numDbgFunctions - 1].handle = handle;
-	g.dbgFunctions[g.numDbgFunctions - 1].fname = provides;
-	g.dbgFunctions[g.numDbgFunctions - 1].function = dbgFunc;
+#ifdef _WIN32
+    if ((dbgFunc = (void (*)(void)) GetProcAddress(handle, provides)) == NULL) {
+#else /* _WIN32 */
+    if (!(dbgFunc = (void (*)(void)) g.origdlsym(handle, provides))) {
+#endif /* _WIN32 */
+        os_dlclose(handle);
+        return;
+    }
+    g.numDbgFunctions++;
+    g.dbgFunctions = realloc(g.dbgFunctions,
+                             g.numDbgFunctions * sizeof(debug_function_t));
+    if (!g.dbgFunctions) {
+        UT_NOTIFY(LV_ERROR,
+                  "Allocating g.dbgFunctions failed: %s (%d)\n", strerror(errno), g.numDbgFunctions * sizeof(debug_function_t));
+        os_dlclose(handle);
+        exit(1);
+    }
+    g.dbgFunctions[g.numDbgFunctions - 1].handle = handle;
+    g.dbgFunctions[g.numDbgFunctions - 1].fname = provides;
+    g.dbgFunctions[g.numDbgFunctions - 1].function = dbgFunc;
 }
 
 static void freeDbgFunctions()
 {
-    int i;
-
-    for (i = 0; i < g.numDbgFunctions; i++) {
+    for (int i = 0; i < g.numDbgFunctions; ++i) {
         if (g.dbgFunctions[i].handle != NULL) {
             os_dlclose(g.dbgFunctions[i].handle);
             g.dbgFunctions[i].handle = NULL;
@@ -423,13 +406,13 @@ __declspec(dllexport) BOOL __cdecl uninitialiseDll(void)
         retval = FALSE;
     }
 
-	if (!closeEvents(&g.hEvtDebugee, &g.hEvtDebugger)) {
-		retval = FALSE;
-	}
+    if (!closeEvents(g.hEvtDebugee, g.hEvtDebugger)) {
+        retval = FALSE;
+    }
 
-	if (!closeSharedMemory(&g.hShMem, &g.fcalls)) {
-		retval = FALSE;
-	}
+    if (!closeSharedMemory(g.hShMem, g.fcalls)) {
+        retval = FALSE;
+    }
 
     UTILS_NOTIFY_SHUTDOWN();
 
@@ -441,52 +424,55 @@ BOOL APIENTRY DllMain(HANDLE hModule,
                       DWORD reason_for_call,
                       LPVOID lpReserved)
 {
-<<<<<<< HEAD
-	BOOL retval = TRUE;
-	switch (reason_for_call) {
-		case DLL_PROCESS_ATTACH:
-		setLogging();
-=======
     BOOL retval = TRUE;
     //GlInitContext initCtx;
-    //   thread_state_t *rec = NULL;
+    //   thread_locals_t *rec = NULL;
 
     switch (reason_for_call) {
     case DLL_PROCESS_ATTACH:
 
         setLogging();
->>>>>>> basic communication should work
 
 #ifdef DEBUG
-		//AllocConsole();     /* Force availability of console in debug mode. */
-		UT_NOTIFY(LV_DEBUG, "I am in Debug mode.\n");
+        //AllocConsole();     /* Force availability of console in debug mode. */
+        UT_NOTIFY(LV_DEBUG, "I am in Debug mode.\n");
 
-//		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_WNDW);
-//		if (_CrtDbgReport(_CRT_ERROR, __FILE__, __LINE__, "", "This is the "
-//			  "breakpoint crowbar in DllMain. You should attach to the "
-//			  "debugged process before continuing.")) {
-//			_CrtDbgBreak();
-//		}
+        //_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_WNDW);
+        //      if (_CrtDbgReport(_CRT_ERROR, __FILE__, __LINE__, "", "This is the "
+        //              "breakpoint crowbar in DllMain. You should attach to the "
+        //              "debugged process before continuing.")) {
+        //          _CrtDbgBreak();
+        //      }
 #endif /* DEBUG */
-		/* Open synchronisation events. */
 
-#ifdef GLSLDEBUGLIB_HOST
-		closeEvents(&g.hEvtDebugee, &g.hEvtDebugger);
-		if (!createEvents(&g.hEvtDebugee, &g.hEvtDebugger))
-			return FALSE;
-#else
-		if (!openEvents(&g.hEvtDebugee, &g.hEvtDebugger))
-			return FALSE;
-#endif
+        /* Open synchronisation events. */
+        if (!openEvents(&g.hEvtDebugee, &g.hEvtDebugger)) {
+            return FALSE;
+        }
 
-<<<<<<< HEAD
-		dbgPrint(DBGLVL_DEBUG, "Events opened.\n");
-=======
+        /* Create global crit section. */
+        InitializeCriticalSection(&G.lock);
+
+        /* Attach detours */
+        //if (!createGlInitContext(&initCtx)) {
+        //  return FALSE;
+        //}
+        if (!attachTrampolines()) {
+            return FALSE;
+        } else {
+            UT_NOTIFY(LV_INFO, "attaching has worked!\n");
+        }
+
+        /* Attach to shared mem segment */
+        if (!openSharedMemory(&g.hShMem, &g.fcalls, SHM_SIZE)) {
+            return FALSE;
+        }
+
         // TODO: This is part of the extension detours initialisation
         // (replacing) current lazy initialisation. However, I think this
         // is even unsafer than the current solution.
         //* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-        //rec = getThreadState(GetCurrentProcessId());
+        //rec = getThreadLocals(GetCurrentProcessId());
         //rec->isRecursing = 1;
         //if (!releaseGlInitContext(&initCtx)) {
         //  return FALSE;
@@ -507,77 +493,31 @@ BOOL APIENTRY DllMain(HANDLE hModule,
          * ..."
          */
         loadDbgFunctions();
->>>>>>> basic communication should work
 
+        //g.initialized = 1;
 
-		/* Create global crit section. */
-		InitializeCriticalSection(&G.lock);
+        /*
+         * We do not want to do anything if a thread attaches, so tell
+         * Windows not annoy us with these notifications in the future.
+         */
+        DisableThreadLibraryCalls(hModule);
+        break;
 
-		if (!attachTrampolines())
-			return FALSE;
-	    UT_NOTIFY(LV_INFO, "Trampolines attached");
+    case DLL_THREAD_ATTACH:
+        break;
 
-		/* Attach to shared mem segment */
-#ifdef GLSLDEBUGLIB_HOST
-		closeSharedMemory(&g.hShMem, &g.fcalls);
-		if (!initSharedMemory(&g.hShMem, &g.fcalls, SHM_SIZE))
-			return FALSE;
-#else
-		if (!openSharedMemory(&g.hShMem, &g.fcalls, SHM_SIZE))
-			return FALSE;
-#endif
+    case DLL_THREAD_DETACH:
+        break;
 
+    case DLL_PROCESS_DETACH:
+        UT_NOTIFY(LV_INFO, "DLL_PROCESS_DETACH");
+        EnterCriticalSection(&G.lock);
+        retval = uninitialiseDll();
+        DeleteCriticalSection(&G.lock);
+        break;
+    }
 
-		// TODO: This is part of the extension detours initialisation
-		// (replacing) current lazy initialisation. However, I think this
-		// is even unsafer than the current solution.
-		//* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
-		//rec = getThreadRecord(GetCurrentProcessId());
-		//rec->isRecursing = 1;
-		//if (!releaseGlInitContext(&initCtx)) {
-		//	return FALSE;
-		//}
-		//rec->isRecursing = 0;
-
-		G.errorCheckAllowed = 1;
-		initStreamRecorder(&G.recordedStream);
-
-		initQueryStateTracker();
-
-		/* __asm int 3 FTW! */
-		//__asm int 3
-		/*
-		 * HAZARD: This is dangerous to public safety, we must remove it.
-		 * MSDN says "It [DllMain] must not call the LoadLibrary or
-		 * LoadLibraryEx function (or a function that calls  these functions),
-		 * ..."
-		 */
-		//loadDbgFunctions();
-
-		//g.initialized = 1;
-
-		/*
-		 * We do not want to do anything if a thread attaches, so tell
-		 * Windows not annoy us with these notifications in the future.
-		 */
-		DisableThreadLibraryCalls(hModule);
-		break;
-
-		case DLL_THREAD_ATTACH:
-		break;
-
-		case DLL_THREAD_DETACH:
-		break;
-
-		case DLL_PROCESS_DETACH:
-		UT_NOTIFY(LV_INFO, "DLL_PROCESS_DETACH");
-		EnterCriticalSection(&G.lock);
-		retval = uninitialiseDll();
-		DeleteCriticalSection(&G.lock);
-		break;
-	}
-
-	return retval;
+    return retval;
 }
 #else
 
@@ -604,14 +544,14 @@ void __attribute__ ((constructor)) debuglib_init(void)
         char *strport = getenv("GLSL_DEBUGGER_PORT");
         if (comm && strcmp(comm, "tcp") == 0) {
             int port = (strport == NULL) ? DEFAULT_SERVER_PORT_TCP : atoi(strport);
-            cn_acceptor_start_tcp(port, new_connection_callback);
+            sv_acceptor_start_tcp(port, new_connection_callback);
             UT_NOTIFY(LV_INFO, "Server uses TCP and port %d", port);
         } else if (comm && strcmp(comm, "unix") == 0) {
             char *port = (strport == NULL) ? DEFAULT_SERVER_PORT_UNIX : strport;
-            cn_acceptor_start_unix(port, new_connection_callback);
+            sv_acceptor_start_unix(port, new_connection_callback);
             UT_NOTIFY(LV_INFO, "Server uses Unix domain sockets. Socket is %s", port);
         } else {
-            cn_acceptor_start_tcp(DEFAULT_SERVER_PORT_TCP, new_connection_callback);
+            sv_acceptor_start_tcp(DEFAULT_SERVER_PORT_TCP, new_connection_callback);
             UT_NOTIFY(LV_INFO, "TCP Server started on port %d", DEFAULT_SERVER_PORT_TCP);
         }
     }
@@ -623,9 +563,9 @@ void __attribute__ ((constructor)) debuglib_init(void)
     //  exit(1);
     //}
     // for now:
-    g.thread = malloc(MAX_THREADS * sizeof(thread_state_t));
-    memset(g.thread, 0, MAX_THREADS * sizeof(thread_state_t));
-    thread_state_t *this = getThreadState(os_getpid());
+    g.thread_locals = malloc(MAX_THREADS * sizeof(thread_locals_t));
+    memset(g.thread_locals, 0, MAX_THREADS * sizeof(thread_locals_t));
+    thread_locals_t *this = getThreadLocals(os_getpid());
     if (getenv("GLSL_DEBUGGER_INTERACTIVE")) {
         this->mode = EX_MODE_INTERACTIVE;
         this->halt_on = EX_HALT_ALL;
@@ -636,9 +576,6 @@ void __attribute__ ((constructor)) debuglib_init(void)
     }
 
     pthread_mutex_init(&G.lock, NULL);
-    pthread_cond_init(&G.cond, NULL);
-
-    G.cmdqueue = queue_create();
 
     hash_create(&g.origFunctions, hashString, compString, 512, 0);
 
@@ -686,7 +623,7 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 {
     /* detach shared mem segment */
     //shmdt(g.fcalls);
-    cn_acceptor_stop();
+    sv_acceptor_stop();
 
 #ifdef USE_DLSYM_HARDCODED_LIB
     if (g.libgl) {
@@ -705,27 +642,44 @@ void __attribute__ ((destructor)) debuglib_fini(void)
     UTILS_NOTIFY_SHUTDOWN();
 
     pthread_mutex_destroy(&G.lock);
-
-    free(g.thread);
+    {
+        for(int i = 0; i < MAX_THREADS; ++i) {
+            pthread_mutex_destroy(&g.thread_locals[i].mtx_cmd);
+            pthread_cond_destroy(&g.thread_locals[i].cond_cmd);
+        }
+    }
+    free(g.thread_locals);
 }
 #endif
 
-thread_state_t *getThreadState(os_pid_t pid)
+thread_locals_t *getThreadLocals(os_pid_t pid)
 {
+    static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&mtx);
     int i;
     for (i = 0; i < MAX_THREADS; ++i) {
-        if (g.thread[i].threadId == 0 || g.thread[i].threadId == pid) {
+        if (g.thread_locals[i].threadId == 0 || g.thread_locals[i].threadId == pid) {
             break;
         }
     }
+
     if (i == MAX_THREADS) {
-        /* TODO */
+        /* FIXME that's not cool */
         UT_NOTIFY(LV_ERROR, "Error: max. number of debuggable threads exceeded!");
         exit(1);
     }
-    if (g.thread[i].threadId == 0)
-        g.thread[i].threadId = pid;
-    return &g.thread[i];
+    if (g.thread_locals[i].threadId == 0) {
+        /* FIXME notify the debugger of the new thread */
+        g.thread_locals[i].threadId = pid;
+        pthread_cond_init(&g.thread_locals[i].cond_cmd, NULL);
+        pthread_mutex_init(&g.thread_locals[i].mtx_cmd, NULL);
+        g.thread_locals[i].queue_cmd = queue_create();
+        if(g.cn_debugger) {
+            send_proc_info();
+        }
+    }
+    pthread_mutex_unlock(&mtx);
+    return &g.thread_locals[i];
 }
 
 static void printArgument(void *addr, int type)
@@ -796,7 +750,7 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
     int i;
     va_list argp;
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     fcall_destroy(rec->current_call);
     rec->current_call = fcall_create(fname, numArgs);
     rec->current_call->thread_id = pid; rec->current_call->has_thread_id = 1;
@@ -821,7 +775,7 @@ void storeFunctionCall(const char *fname, int numArgs, ...)
 void storeResult(void *result, int type)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
 
     UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
     printArgument(result, type);
@@ -836,7 +790,7 @@ void storeResult(void *result, int type)
 void storeResultOrError(unsigned int error, void *result, int type)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
 
     if (error) {
         setErrorCode(error);
@@ -854,10 +808,10 @@ void storeResultOrError(unsigned int error, void *result, int type)
 
 void stop(void)
 {
-    pthread_mutex_lock(&G.lock);
-    while (queue_empty(G.cmdqueue))
-        pthread_cond_wait(&G.cond, &G.lock);
-    pthread_mutex_unlock(&G.lock);
+    // FIXME do we still need this? (used in functionHooks)
+    //os_pid_t pid = os_getpid();
+    //thread_locals_t *rec = getThreadLocals(pid);
+    //pthread_cond_wait(&rec->, &G.lock);
 }
 
 static void startRecording(void)
@@ -887,42 +841,42 @@ static void endReplay(void)
     setErrorCode(glError());
 }
 
-/**
- *	Does all operations necessary to get the result of a given debug shader
- *	back to the caller, i.e. setup the shader and its environment, replay the
- *	draw call and readback the result.
- *	Parameters:
- *		items[0] : pointer to vertex shader src
- *		items[1] : pointer to geometry shader src
- *		items[2] : pointer to fragment shader src
- *		items[3] : debug target, see DBG_TARGETS below
- *		if target == DBG_TARGET_FRAGMENT_SHADER:
- *			items[4] : number of components to read (1:R, 3:RGB, 4:RGBA)
- *			items[5] : format of readback (GL_FLOAT, GL_INT, GL_UINT)
- *		if target == DBG_TARGET_VERTEX_SHADER or DBG_TARGET_GEOMETRY_SHADER:
- *			items[4] : primitive mode
- *			items[5] : force primitive mode even for geometry shader target
- *			items[6] : expected size of debugResult (# floats) per vertex
- *	Returns:
- *		if target == DBG_TARGET_FRAGMENT_SHADER:
- *			result   : DBG_READBACK_RESULT_FRAGMENT_DATA or DBG_ERROR_CODE
- *					   on error
- *			items[0] : buffer address
- *			items[1] : image width
- *			items[2] : image height
- *		if target == DBG_TARGET_VERTEX_SHADER or DBG_TARGET_GEOMETRY_SHADER:
- *			result   : DBG_READBACK_RESULT_VERTEX_DATA or DBG_ERROR_CODE on
- *					   error
- *			items[0] : buffer address
- *			items[1] : number of vertices
- *			items[2] : number of primitives
+/*
+ Does all operations necessary to get the result of a given debug shader
+ back to the caller, i.e. setup the shader and its environment, replay the
+ draw call and readback the result.
+ Parameters:
+ items[0] : pointer to vertex shader src
+ items[1] : pointer to geometry shader src
+ items[2] : pointer to fragment shader src
+ items[3] : debug target, see DBG_TARGETS below
+ if target == DBG_TARGET_FRAGMENT_SHADER:
+ items[4] : number of components to read (1:R, 3:RGB, 4:RGBA)
+ items[5] : format of readback (GL_FLOAT, GL_INT, GL_UINT)
+ if target == DBG_TARGET_VERTEX_SHADER or DBG_TARGET_GEOMETRY_SHADER:
+ items[4] : primitive mode
+ items[5] : force primitive mode even for geometry shader target
+ items[6] : expected size of debugResult (# floats) per vertex
+ Returns:
+ if target == DBG_TARGET_FRAGMENT_SHADER:
+ result   : DBG_READBACK_RESULT_FRAGMENT_DATA or DBG_ERROR_CODE
+ on error
+ items[0] : buffer address
+ items[1] : image width
+ items[2] : image height
+ if target == DBG_TARGET_VERTEX_SHADER or DBG_TARGET_GEOMETRY_SHADER:
+ result   : DBG_READBACK_RESULT_VERTEX_DATA or DBG_ERROR_CODE on
+ error
+ items[0] : buffer address
+ items[1] : number of vertices
+ items[2] : number of primitives
  */
 static void shaderStep(void)
 {
     // int error;
 
     // os_pid_t pid = os_getpid();
-    // thread_state_t *rec = getThreadState(pid);
+    // thread_locals_t *rec = getThreadLocals(pid);
     // const char *vshader = (const char *) rec->items[0];
     // const char *gshader = (const char *) rec->items[1];
     // const char *fshader = (const char *) rec->items[2];
@@ -1043,19 +997,24 @@ static void shaderStep(void)
     // }
 }
 
-enum DBG_OPERATION getDbgOperation(const char* func)
+Proto__DebugCommand__Type getDbgOperation(const char* func)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
-    enum DBG_OPERATION ret = DBG_CALL_ORIGFUNCTION_AND_PROCEED;
-    if (!keepExecuting(func)) {
-        stop();
+    thread_locals_t *rec = getThreadLocals(pid);
+    if (keepExecuting(func)) {
+        return PROTO__DEBUG_COMMAND__TYPE__CALL_ORIGFUNCTION_AND_PROCEED;
     }
-    /* read dbg command from queue and return it */
-    UT_NOTIFY(LV_INFO, "OPERATION: %u @ %p", rec->mode, rec);
+    pthread_mutex_lock(&rec->mtx_cmd);
+    while (queue_empty(rec->queue_cmd))
+        pthread_cond_wait(&rec->cond_cmd, &rec->mtx_cmd);
+
+    /* unqueue cmd & handle it */
+    Proto__DebugCommand *cmd = (Proto__DebugCommand*)queue_dequeue(rec->queue_cmd);
+    pthread_mutex_unlock(&rec->mtx_cmd);
+
+    UT_NOTIFY(LV_INFO, "Command dequeued: %u @ %p", rec->mode, rec);
     // FIXME 
-    //return rec->operation;
-    return ret;
+    return cmd->type;
 }
 
 static int isDebuggableDrawCall(const char *name)
@@ -1085,7 +1044,7 @@ static int isShaderSwitch(const char *name)
 int keepExecuting(const char *func)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     if (rec->mode == EX_MODE_UNATTENDED) {
         return 1;
     } else if (rec->mode == EX_MODE_INTERACTIVE) {
@@ -1111,7 +1070,7 @@ int keepExecuting(const char *func)
 int checkGLErrorInExecution(void)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     return *rec->current_call->return_data;
 }
 
@@ -1119,11 +1078,11 @@ void setExecuting(void)
 {
     // FIXME still usefull?
     // os_pid_t pid = os_getpid();
-    // thread_state_t *rec = getThreadState(pid);
+    // thread_locals_t *rec = getThreadLocals(pid);
     // rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
 
-void executeDefaultDbgOperation(enum DBG_OPERATION op)
+void executeDefaultDbgOperation(Proto__DebugCommand__Type op)
 {
     // switch (op) {
     // /* DBG_CALL_FUNCTION, DBG_RECORD_CALL, and DBG_CALL_ORIGFUNCTION handled
@@ -1203,7 +1162,7 @@ static void dbgFunctionNOP(void)
 void (*getDbgFunction(void))(void)
 {
     os_pid_t pid = os_getpid();
-    thread_state_t *rec = getThreadState(pid);
+    thread_locals_t *rec = getThreadLocals(pid);
     int i;
 
     for (i = 0; i < g.numDbgFunctions; ++i) {
@@ -1218,24 +1177,24 @@ void (*getDbgFunction(void))(void)
 
 /* HAZARD: Windows will never set G.errorCheckAllowed for Begin/End as below!!! */
 #ifdef _WIN32
-__declspec(dllexport) PROC APIENTRY HookedwglGetProcAddress(LPCSTR arg0);
+__declspec(dllexport) PROC APIENTRY DetouredwglGetProcAddress(LPCSTR arg0);
 void (*getOrigFunc(const char *fname))(void)
 {
-	return (void (*)(void)) HookedwglGetProcAddress(fname);
+    return (void (*)(void)) DetouredwglGetProcAddress(fname);
 }
 #else /* _WIN32 */
 void (*getOrigFunc(const char *fname))(void)
 {
-	/* glXGetProcAddress and  glXGetProcAddressARB are special cases: we have to
-	 * call our version not the original ones
-	 */
-	if (!strcmp(fname, "glXGetProcAddress") ||
-		!strcmp(fname, "glXGetProcAddressARB")) {
-		return (void (*)(void))glXGetProcAddressHook;
-	} else {
-		void *result = hash_find(&g.origFunctions, (void*)fname);
+    /* glXGetProcAddress and  glXGetProcAddressARB are special cases: we have to
+     * call our version not the original ones
+     */
+    if (!strcmp(fname, "glXGetProcAddress") ||
+            !strcmp(fname, "glXGetProcAddressARB")) {
+        return (void (*)(void))glXGetProcAddressHook;
+    } else {
+        void *result = hash_find(&g.origFunctions, (void *)fname);
 
-		if (!result) {
+        if (!result) {
 #ifdef USE_DLSYM_HARDCODED_LIB
             void *origFunc = g.origdlsym(g.libgl, fname);
 #else
@@ -1275,17 +1234,18 @@ void (*DEBUGLIB_EXTERNAL_getOrigFunc(const char *fname))(void)
 
 int checkGLExtensionSupported(const char *extension)
 {
-	// statics are set to zero
-	static Hash extensions;
-	static int dummy = 1;
+    // statics are set to zero
+    static Hash extensions;
+    static int dummy = 1;
 
-    if(!extensions.table) {
-        int n;
-		UT_NOTIFY(LV_DEBUG, "Creating extension hashes");
+    //dbgPrint(DBGLVL_INFO, "EXTENSION STRING: %s\n", extString);
+    if (!extensions.table) {
+        UT_NOTIFY(LV_DEBUG, "Creating extension hashes");
         hash_create(&extensions, hashString, compString, 512, 0);
+        int i = 0;
+        int n;
         ORIG_GL(glGetIntegerv)(GL_NUM_EXTENSIONS, &n);
-		UT_NOTIFY(LV_INFO, "Extensions found %i", n);
-        for(int i = 0; i < n; ++i) {
+        for (i = 0; i < n; ++i) {
             const GLubyte *name = ORIG_GL(glGetStringi)(GL_EXTENSIONS, i);
             // we don't need to store any relevant data. we just want a quick
             // string lookup.
@@ -1297,7 +1257,8 @@ int checkGLExtensionSupported(const char *extension)
     }
 
     // check support
-    if(!hash_find(&extensions, extension)) {
+    void *data = hash_find(&extensions, extension);
+    if (!data) {
         UT_NOTIFY(LV_INFO, "not found: %s", extension);
         return 0;
     }
@@ -1307,29 +1268,30 @@ int checkGLExtensionSupported(const char *extension)
 
 int checkGLVersionSupported(int majorVersion, int minorVersion)
 {
-	static int major = 0;
-	static int minor = 0;
+    static int major = 0;
+    static int minor = 0;
 
-	UT_NOTIFY(LV_INFO, "GL version %i.%i: ", majorVersion, minorVersion);
-	if (major == 0) {
-		const char *versionString = (char*)ORIG_GL(glGetString)(GL_VERSION);
-		const char *rendererString = (char*)ORIG_GL(glGetString)(GL_RENDERER);
-		const char *vendorString = (char*)ORIG_GL(glGetString)(GL_VENDOR);
-		const char *shadingString = (char*)ORIG_GL(glGetString)(GL_SHADING_LANGUAGE_VERSION);
-		char  *dot = NULL;
-		major = (int)strtol(versionString, &dot, 10);
-		minor = (int)strtol(++dot, NULL, 10);
-		UT_NOTIFY(LV_INFO, "GL VENDOR: %s", vendorString);
-		UT_NOTIFY(LV_INFO, "GL RENDERER: %s", rendererString);
-		UT_NOTIFY(LV_INFO, "GL VERSION: %s", versionString);
-		UT_NOTIFY(LV_INFO, "GL SHADING LANGUAGE: %s: %s", shadingString);
-	}
-	if (majorVersion < major ||
-		(majorVersion == major && minorVersion <= minor)) {
-		return 1;
-	}
-	UT_NOTIFY(LV_INFO, "required GL version supported: NO");
-	return 0;
+    UT_NOTIFY(LV_INFO, "GL version %i.%i: ", majorVersion, minorVersion);
+    if (major == 0) {
+        const char *versionString = (char *)ORIG_GL(glGetString)(GL_VERSION);
+        const char *rendererString = (char *)ORIG_GL(glGetString)(GL_RENDERER);
+        const char *vendorString = (char *)ORIG_GL(glGetString)(GL_VENDOR);
+        const char *shadingString = (char *)ORIG_GL(glGetString)(GL_SHADING_LANGUAGE_VERSION);
+        char  *dot = NULL;
+        major = (int)strtol(versionString, &dot, 10);
+        minor = (int)strtol(++dot, NULL, 10);
+        UT_NOTIFY(LV_INFO, "GL VENDOR: %s", rendererString);
+        UT_NOTIFY(LV_INFO, "GL RENDERER: %s", rendererString);
+        UT_NOTIFY(LV_INFO, "GL VERSION: %s", versionString);
+        UT_NOTIFY(LV_INFO, "GL VENDOR: %s", vendorString);
+        UT_NOTIFY(LV_INFO, "GL SHADING LANGUAGE: %s: %s", shadingString);
+    }
+    if (majorVersion < major ||
+            (majorVersion == major && minorVersion <= minor)) {
+        return 1;
+    }
+    UT_NOTIFY(LV_INFO, "required GL version supported: NO");
+    return 0;
 }
 
 TFBVersion getTFBVersion()
@@ -1384,118 +1346,24 @@ void *dlsym(void *handle, const char *symbol)
     return g.origdlsym(handle, symbol);
 }
 #endif
-static void *connection_handler(void *args)
-{
-    handlerstate_t state = HANDLERSTATE_INIT;
-    state.sock = (socket_t *)args;
-    uint8_t *buf = NULL;
-    size_t num_bytes;
-    msg_size_t length;
-    msg_size_t allocated_length = 0;
-    while (!state.end_connection) {
-        if (sck_recv(state.sock, &length, sizeof(msg_size_t)) == -1) {
-            UT_NOTIFY(LV_ERROR, "Unable to receive message size");
-            break;
-        }
-        if (length > MAX_MESSAGE_SIZE) {
-            UT_NOTIFY(LV_ERROR, "Message size exeeds maximum size");
-            break;
-        }
-        if (allocated_length < length) {
-            buf = realloc(buf, length);
-            assert(buf);
-            allocated_length = length;
-        }
-        num_bytes = 0;
-        do {
-            UT_NOTIFY(LV_DEBUG, "Receiving message of size %d", length);
-            size_t read = sck_recv(state.sock, buf, length);
-            if (read < 0) {
-                UT_NOTIFY(LV_ERROR, "Receiving request failed");
-                goto fail;
-            }
-            num_bytes += read;
-        } while (num_bytes < length);
-        state.request = proto__client_request__unpack(NULL, num_bytes, buf);
-        if (!state.request) {
-            UT_NOTIFY(LV_ERROR, "Unpacking request failed");
-            goto fail;
-        }
 
-        switch (state.request->type) {
-        case PROTO__CLIENT_REQUEST__TYPE__ANNOUNCE:
-            UT_NOTIFY(LV_INFO, "announce received");
-            handle_request_announce(&state);
-            break;
-        case PROTO__CLIENT_REQUEST__TYPE__PROCESS_INFO:
-            UT_NOTIFY(LV_INFO, "process info request received");
-            break;
-        case PROTO__CLIENT_REQUEST__TYPE__FUNCTION_CALL:
-            UT_NOTIFY(LV_WARN, "current function call requested");
-            break;
-        case PROTO__CLIENT_REQUEST__TYPE__EXECUTION:
-            UT_NOTIFY(LV_INFO, "exec details received");
-            handle_request_execution(&state);
-            break;
-        default:
-            UT_NOTIFY(LV_WARN, "Unknown request received");
-        }
-        proto__client_request__free_unpacked(state.request, NULL);
-        if (state.response) {
-            send_response(&state);
-            free(state.response);
-            state.response = NULL;
-        }
-    }
-fail:
-    UT_NOTIFY(LV_DEBUG, "connection handler quits");
-    free(buf);
-    sck_destroy(state.sock);
-    return NULL;
-}
 static int new_connection_callback(socket_t *s)
 {
     UT_NOTIFY(LV_INFO, "New connection request");
-    pthread_t thread;
-    pthread_create(&thread, NULL, connection_handler, s);
-    pthread_detach(thread);
+    if(g.num_connections < MAX_CONNECTIONS) {
+        ++g.num_connections;
+        g.cn_debugger = cn_create(s, connection_closed_callback);
+    }
+    /* a nice guy would tell the other end why we didn't like him...*/
     return 0;
 }
-static void handle_request_announce(handlerstate_t *state)
+static void connection_closed_callback(connection_t *cn, enum CN_CLOSE_REASON r)
 {
-    state->response = malloc(sizeof(Proto__ServerResponse));
-    proto__server_response__init(state->response);
-    state->response->id = state->request->id;
-    Proto__AnnounceRequestDetails *msg = state->request->announce;
-    state->response->error_code = PROTO__ERROR_CODE__NONE;
-    state->response->message = "Welcome dude!";
-    if (msg->id != PROTO_ID) {
-        UT_NOTIFY(LV_ERROR, "header mismatch");
-        state->response->error_code = PROTO__ERROR_CODE__HEADER_MISMATCH;
-        state->response->message = "header mismatch";
-        state->end_connection = 1;
-    }
-    Proto__Version *version = msg->version;
-    if (version->major != PROTO_MAJOR) {
-        UT_NOTIFY(LV_ERROR, "protocol version mismatch");
-        state->response->error_code = PROTO__ERROR_CODE__VERSION_MISMATCH;
-        state->response->message = "protocol version mismatch";
-        state->end_connection = 1;
-    }
+    g.cn_debugger = NULL;
+    --g.num_connections;
+    cn_destroy(cn);
 }
-static void send_response(handlerstate_t *state)
-{
-    UT_NOTIFY(LV_TRACE, "Sending response");
-    msg_size_t len = proto__server_response__get_packed_size(state->response);
-    size_t num_bytes = sck_send(state->sock, &len, sizeof(msg_size_t));
-    assert(num_bytes == sizeof(msg_size_t));
-    uint8_t *buffer = malloc(len);
-    assert(buffer);
-    proto__server_response__pack(state->response, buffer);
-    num_bytes = sck_send(state->sock, buffer, len);
-    assert(num_bytes == len);
-    free(buffer);
-}
+
 static Proto__FunctionCall *fcall_create(const char *funcname, int num_args)
 {
     Proto__FunctionCall *fc = malloc(sizeof(Proto__FunctionCall));
@@ -1520,12 +1388,50 @@ static void fcall_destroy(Proto__FunctionCall *fc)
     free(fc->arguments);
     free(fc);
 }
-static void handle_request_execution(handlerstate_t *state)
+Proto__ServerMessage* handle_request_execution(connection_t *cn)
 {
     /* create response */
-    state->response = malloc(sizeof(Proto__ServerResponse));
-    proto__server_response__init(state->response);
+    Proto__ServerMessage* response = malloc(sizeof(Proto__ServerMessage));
+    proto__server_message__init(response);
 
-    Proto__ExecutionRequestDetails *msg = state->request->execution;
-    state->response->error_code = PROTO__ERROR_CODE__NONE;
+    Proto__ExecutionRequestDetails *msg = cn->request->execution;
+    response->error_code = PROTO__ERROR_CODE__NONE;
+    return response;
+}
+/** 
+ * we received a debug cmd, unpack it and add it to the cmd_queue
+ * the application/client thread does the acutal execution of the cmd
+ */
+Proto__ServerMessage* handle_request_debug(connection_t *cn)
+{
+    Proto__DebugCommand *cmd = cn->request->command;
+    thread_locals_t *thread_locals = getThreadLocals(cmd->thread_id);
+    assert(thread_locals);
+    pthread_mutex_lock(&thread_locals->mtx_cmd);
+    queue_enqueue(thread_locals->queue_cmd, cmd);
+    pthread_mutex_unlock(&thread_locals->mtx_cmd);
+    pthread_cond_signal(&thread_locals->cond_cmd);
+    return NULL;   
+}
+
+static void send_proc_info()
+{
+    int i, j;
+    Proto__ServerMessage* res = malloc(sizeof(Proto__ServerMessage));
+    proto__server_message__init(res);
+    res->proc_info = malloc(sizeof(Proto__ProcessInfo));
+    proto__process_info__init(res->proc_info);
+    res->proc_info->executable = program_invocation_name;
+    res->proc_info->pid = os_getpid();
+    res->proc_info->is64bit = sizeof(void*) == 8 ? 1 : 0;
+    for (i = 0; i < MAX_THREADS; ++i) {
+        if (g.thread_locals[i].threadId == 0) 
+            break;
+    }
+    res->proc_info->n_thread_id = i;
+    res->proc_info->thread_id = malloc(i * sizeof(*res->proc_info->thread_id));
+    for (j = 0; j < i; ++j) {
+       res->proc_info->thread_id[j] = g.thread_locals[j].threadId;
+    }
+    cn_send_message(g.cn_debugger, res);
 }

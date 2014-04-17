@@ -32,7 +32,7 @@ void* acceptor_run(void* args)
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         peer = NULL;
         if(sck_accept(sock, &peer) != 0) {
-            cn_acceptor_stop();
+            sv_acceptor_stop();
             return NULL;
         }
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
@@ -60,9 +60,9 @@ int acceptor_create(socket_t *s, cb_connection_t callback)
     pthread_create(g_server.acceptor_thread, NULL, acceptor_run, (void*)s);
     return 0;
 }
-int cn_acceptor_start_tcp(int port, cb_connection_t callback)
+int sv_acceptor_start_tcp(int port, cb_connection_t callback)
 {
-    if(cn_acceptor_is_running())
+    if(sv_acceptor_is_running())
         return 0;
     sck_begin();
     socket_t *s = sck_create(NULL, port, SCK_INET, SCK_STREAM);
@@ -70,20 +70,20 @@ int cn_acceptor_start_tcp(int port, cb_connection_t callback)
         return -1;
     return acceptor_create(s, callback);
 }
-int cn_acceptor_start_unix(const char* path, cb_connection_t callback)
+int sv_acceptor_start_unix(const char* path, cb_connection_t callback)
 {
-    if(cn_acceptor_is_running())
+    if(sv_acceptor_is_running())
         return 0;
     socket_t *s = sck_create(path, 0, SCK_UNIX, SCK_STREAM);
     if(!s)
         return -1;
     return acceptor_create(s, callback);
 }
-int cn_acceptor_is_running()
+int sv_acceptor_is_running()
 {
     return g_server.acceptor_thread == 0 ? 0 : 1;
 }
-void cn_acceptor_stop()
+void sv_acceptor_stop()
 {
     if(g_server.acceptor_thread) {
         g_server.shutdown = 1;

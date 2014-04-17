@@ -903,7 +903,7 @@ static void setDbgOutputTargetFragmentData(int alphaTestOption,
 void setDbgOutputTarget(void)
 {
 	os_pid_t pid = os_getpid();
-	thread_state_t *rec = getThreadState(pid);
+	thread_locals_t *rec = getThreadLocals(pid);
 
 	DMARK
 	// FIXME
@@ -995,7 +995,7 @@ DMARK	ORIG_GL(glDeleteBuffers)(1, &g.tfbBuffer);
 void restoreOutputTarget(void)
 {
 	os_pid_t pid = os_getpid();
-	thread_state_t *rec = getThreadState(pid);
+	thread_locals_t *rec = getThreadLocals(pid);
 	int error;
 
 	DMARK
@@ -1133,7 +1133,7 @@ DMARK	ORIG_GL(glGetIntegerv)(GL_VIEWPORT, viewport);
 void readRenderBuffer(void)
 {
 	os_pid_t pid = os_getpid();
-	thread_state_t *rec = getThreadState(pid);
+	thread_locals_t *rec = getThreadLocals(pid);
 	// FIXME
 	// int numComponents = (int) rec->items[0];
 	// int width, height, error;
@@ -1392,7 +1392,7 @@ static void setCopyState(copyStateTarget csTarget)
 void clearRenderBuffer(void)
 {
 	os_pid_t pid = os_getpid();
-	thread_state_t *rec = getThreadState(pid);
+	thread_locals_t *rec = getThreadLocals(pid);
 	GLbitfield clearBits = 0;
 
 	GLfloat clearColor[4];
