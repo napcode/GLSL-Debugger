@@ -56,6 +56,7 @@ static void *connection_handler_receiver(void *args)
     msg_size_t length;
     msg_size_t allocated_length = 0;
     while (!cn->end_connection) {
+        UT_NOTIFY(LV_INFO, "receiving...");
         if ((ret = sck_recv(cn->sock, &length, sizeof(msg_size_t))) <= 0) {
             UT_NOTIFY(LV_ERROR, "Unable to receive message size (Client disconnected)", ret);
             break;
@@ -114,7 +115,6 @@ static void *connection_handler_receiver(void *args)
         }
     }
 fail:
-    UT_NOTIFY(LV_DEBUG, "connection handler quits");
     free(buf);
     cn->close_callback(cn, NORMAL);
     return NULL;
@@ -122,7 +122,6 @@ fail:
 static void *connection_handler_sender(void *args)
 {
     connection_t *cn = (connection_t*)args;
-    UT_NOTIFY(LV_DEBUG, "connection handler quits");
     while(!cn->end_connection) {
         pthread_mutex_lock(&cn->mtx_queue);
         while (queue_empty(cn->send_queue))
@@ -130,6 +129,7 @@ static void *connection_handler_sender(void *args)
 
         /* unqueue cmd & handle it */
         Proto__ServerMessage *response = (Proto__ServerMessage*)queue_dequeue(cn->send_queue);
+        UT_NOTIFY(LV_DEBUG, "server sends message(%s) to client", response->message);
         pthread_mutex_unlock(&cn->mtx_queue);
         send_message(cn, response);
         free(response);
@@ -172,6 +172,7 @@ static void send_message(connection_t *cn, Proto__ServerMessage *response)
     num_bytes = sck_send(cn->sock, buffer, len);
     assert(num_bytes == len);
     free(buffer);
+    UT_NOTIFY(LV_TRACE, "message sent");
 }
 void cn_send_message(connection_t *cn, Proto__ServerMessage *msg)
 {

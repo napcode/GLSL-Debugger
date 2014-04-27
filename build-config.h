@@ -10,7 +10,7 @@
 
 #define MEM_ALIGNMENT 8
 /* timeout in seconds */
-#define NETWORK_TIMEOUT 2 
+#define NETWORK_TIMEOUT 5 
 #define DEFAULT_SERVER_PORT_TCP 60123
 #define DEFAULT_SERVER_PORT_UNIX "/tmp/glsldb-unix-sck"
 

@@ -1,4 +1,4 @@
-#include "Connection.h"
+#include "Connection.qt.h"
 #include <iostream>
 #include "utils/notify.h"
 
@@ -7,41 +7,55 @@ Connection::Connection()
 
 Connection::~Connection()
 {}
-
-/*
-void Connection::send(msg_request_t& t)
-{
-}
-*/
 TcpConnection::TcpConnection(const QString &path, int port, int timeout_s) :
     _host(path),
     _port(port),
     _timeout(timeout_s * 1000),
-    _socket(new QTcpSocket)
+    _num_bytes_needed(sizeof(msg_size_t)), 
+    _msg_size(0)
 {
+    QObject::connect(&_socket, SIGNAL(readyRead()), this, SLOT(readyReadSlot()));
+    QObject::connect(&_socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(errorSlot(QAbstractSocket::SocketError)));
 }
-void TcpConnection::connect()
+
+void TcpConnection::establish()
 {
-    _socket->connectToHost(_host, _port);
-    if (!_socket->waitForConnected(_timeout))
-        throw std::runtime_error("Unable to connect to debuggee @ " + _host.toStdString());
-    UT_NOTIFY(LV_INFO, "Connection established");
+    _socket.connectToHost(_host, _port);
+    _socket.waitForConnected(_timeout);
+    if(!isEstablished())
+        throw std::runtime_error(_socket.errorString().toStdString());
 }
-ulong TcpConnection::send(CommandPtr& cmd)
+void TcpConnection::send(CommandPtr& cmd)
 {
     std::string msg_str = cmd->message().SerializeAsString();
     msg_size_t size = msg_str.size();
-    qint64 written = _socket->write((char*)&size, sizeof(msg_size_t));
+    UT_NOTIFY(LV_TRACE, "writing msg size " << size);
+    qint64 written = _socket.write((char*)&size, sizeof(msg_size_t));
     assert(written == sizeof(msg_size_t));
-    written = _socket->write(msg_str.c_str(), size);
+    written = _socket.write(msg_str.c_str(), size);
+    UT_NOTIFY(LV_TRACE, "msg written" << written);
     assert(written == size);
-    return written;
 }
-QByteArray TcpConnection::receive(ulong num_bytes)
+void TcpConnection::readyReadSlot()
 {
-    while(_socket->bytesAvailable() < (qint64)num_bytes) {
-        if(!_socket->waitForReadyRead(_timeout))
-            throw std::runtime_error(_socket->errorString().toStdString());
+    if(_socket.bytesAvailable() < _num_bytes_needed)
+        return;
+    if(haveMessageSize()) {
+        QByteArray buf = _socket.read(sizeof(msg_size_t));
+        assert(sizeof(unsigned int) == sizeof(msg_size_t));
+        _msg_size = *((msg_size_t *)buf.data());
     }
-    return _socket->read(num_bytes);
+    else {
+        QByteArray buf = _socket.read(_msg_size);
+        ServerMessagePtr response(new proto::ServerMessage);
+        if (!response->ParseFromArray(buf.data(), buf.size())) {
+            emit error("erroneous server message received");
+        }
+        emit newServerMessage(response);
+        _msg_size = 0;
+    }
+}
+void TcpConnection::errorSlot(QAbstractSocket::SocketError socketError)
+{
+    emit error(_socket.errorString());
 }

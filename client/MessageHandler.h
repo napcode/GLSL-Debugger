@@ -14,11 +14,11 @@ public:
 	virtual void handle(CommandPtr c) = 0;
 };
 
-class AsyncResultHandler
+class AsyncMessageHandler
 {
 public:
-	AsyncResultHandler();
-	virtual ~AsyncResultHandler();
+	AsyncMessageHandler();
+	virtual ~AsyncMessageHandler();
 	virtual void handle(CommandPtr c);	
 	virtual void handleSingleMessage(CommandPtr c) = 0; 
 protected:

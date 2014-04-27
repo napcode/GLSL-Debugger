@@ -1353,15 +1353,20 @@ static int new_connection_callback(socket_t *s)
     if(g.num_connections < MAX_CONNECTIONS) {
         ++g.num_connections;
         g.cn_debugger = cn_create(s, connection_closed_callback);
+        return 0;
+    }
+    else {
+        UT_NOTIFY(LV_WARN, "Connection limit reached");
     }
     /* a nice guy would tell the other end why we didn't like him...*/
-    return 0;
+    return -1;
 }
 static void connection_closed_callback(connection_t *cn, enum CN_CLOSE_REASON r)
 {
     g.cn_debugger = NULL;
     --g.num_connections;
     cn_destroy(cn);
+    UT_NOTIFY(LV_DEBUG, "connection destroyed");
 }
 
 static Proto__FunctionCall *fcall_create(const char *funcname, int num_args)

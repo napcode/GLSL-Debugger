@@ -15,14 +15,12 @@
 
 Process::Process() :
     _pid(0),
-    _responseReceiver(nullptr),
     _state(INIT)
 {
 }
 
 Process::Process(ConnectionPtr c) :
     _pid(0),
-    _responseReceiver(nullptr),
     _state(INIT),
     _connection(c)
 {
@@ -30,7 +28,6 @@ Process::Process(ConnectionPtr c) :
 }
 Process::Process(const DebugConfig &cfg, os_pid_t pid) :
     _pid(pid),
-    _responseReceiver(nullptr),
     _debugConfig(cfg),
     _state(INIT)
 {
@@ -38,66 +35,43 @@ Process::Process(const DebugConfig &cfg, os_pid_t pid) :
 Process::~Process()
 {
     UT_NOTIFY(LV_TRACE, "~Process");
-    stopReceiver();
 }
-void Process::startReceiver()
+
+void Process::init()
 {
-    if (!_responseReceiver) {
-        _end = false;
-        _responseReceiver = new std::thread(&Process::receiveMessages, this);
-    }
+    if(!connection()->isEstablished())
+        connection()->establish();
+
+    qRegisterMetaType<ServerMessagePtr>("ServerMessagePtr");
+    connect(connection().data(), SIGNAL(newServerMessage(ServerMessagePtr)), this, SLOT(newServerMessageSlot(ServerMessagePtr)));
+    connect(connection().data(), SIGNAL(error(QString)), this, SLOT(errorSlot(QString)));
+    CommandPtr c = announce();
+    // throws exception or is just "OK"
+    UT_NOTIFY(LV_INFO, "ann");
+
+    Command::ResultPtr r = c->result().get();
+    UT_NOTIFY(LV_INFO, r->message);
 }
-void Process::stopReceiver()
-{
-    if (_responseReceiver) {
-        _end = true;
-        if (_state == RUNNING || _state == STOPPED || _state == TRAPPED)
-            kill();
-        if (_responseReceiver->joinable())
-            _responseReceiver->join();
-        delete _responseReceiver;
-        _responseReceiver = nullptr;
-    }
-}
-bool Process::init()
-{
-    if (!connection()->connected())
-        connection()->connect();
-    startReceiver();
-    //announce();
-    //proto::ClientRequest rq;
-    //rq.set_type(proto::ClientRequest::PROCESS_INFO);
-    //_connection->write(rq);
-    return true;
-}
-void Process::storeCommand(CommandPtr &cmd)
-{
-    {
-        std::lock_guard<std::mutex> lock(_mtxWork);
-        _commands.push_back(cmd);
-    }
-    _workCondition.notify_one();
-}
+
 CommandPtr Process::announce()
 {
     std::string client = Debugger::instance().clientName();
     CommandPtr cmd(new AnnounceCommand(*this, client));
-    UT_NOTIFY(LV_INFO, "sending request");
+    _commands.push_back(cmd);
     connection()->send(cmd);
-    storeCommand(cmd);
     return cmd;
 }
 CommandPtr Process::done()
 {
     CommandPtr cmd(new DoneCommand(*this));
-    storeCommand(cmd);
+    _commands.push_back(cmd);
     connection()->send(cmd);
     return cmd;
 }
 CommandPtr Process::call()
 {
     CommandPtr cmd(new CallCommand(*this));
-    storeCommand(cmd);
+    _commands.push_back(cmd);
     connection()->send(cmd);
     return cmd;
 }
@@ -261,58 +235,11 @@ const QString &Process::strState(State s)
     return m;
 }
 
-void Process::receiveMessages()
+void Process::newServerMessageSlot(ServerMessagePtr msg)
 {
-    std::unique_lock<std::mutex> lock(_mtxWork, std::defer_lock);
-    QByteArray ba;
-    msg_size_t length;
-    ServerMessagePtr response;
-    while (!_end) {
-        lock.lock();
-        _workCondition.wait(lock,
-                            [this] { return !_commands.empty() || _end; });
-        lock.unlock();
-        if (_end)
-            break;
-        /* 1) receive size of next message (msg_size_t)
-         * 2) receive buffer with previously received size
-         * 3) parse received buffer (usually a ServerMessage)
-         * 4) back to 1)
-         */
-        try {
-            QByteArray bas = connection()->receive(sizeof(msg_size_t));
-            assert(sizeof(unsigned int) == sizeof(msg_size_t));
-            length = *((msg_size_t *)bas.data());
-            ba = connection()->receive(length);
-        } catch (std::exception &e) {
-            /* TODO decide what to do on timeout */
-            UT_NOTIFY(LV_ERROR, "Exception caught: " << e.what());
-            break;
-        }
-        try {
-            ServerMessagePtr response(new proto::ServerMessage);
-            if (!response->ParseFromArray(ba.data(), ba.size())) 
-                throw std::logic_error("Not a valid server response");
-            std::unique_lock<std::mutex> lock(_mtxWork);
-            /* a message might be the result of a previously sent command */
-            /* meh. std:find/qFind won't work with SharedPtrs/Qt stuff */
-            UT_NOTIFY(LV_INFO, "cmd size " << _commands.size() );
-            CommandList::iterator it = _commands.begin();
-            while (it != _commands.end()) {
-                if ((*it)->id() == response->id()) {
-                    (*it)->result(*response);
-                    _commands.erase(it);
-                    break;
-                }
-                ++it;
-            }
-            /* this message is not the result of a command */
-            if (it != _commands.end())
-                throw std::logic_error("We should have search the list by now...");
-            if (messageHandler())
-                messageHandler()->handle(*it);
-        } catch (std::exception &e) {
-            UT_NOTIFY(LV_ERROR, "Exception caught: " << e.what());
-        }
-    }
+	UT_NOTIFY(LV_INFO, "server message received: " << msg->message());
+}
+void Process::errorSlot(QString msg)
+{
+	UT_NOTIFY(LV_INFO, "error received: " << msg.toStdString());
 }

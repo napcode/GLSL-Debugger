@@ -6,7 +6,7 @@
 #include <QtCore/QSharedPointer>
 
 #include "utils/os/os.h"
-#include "Connection.h"
+#include "Connection.qt.h"
 #include "DebugConfig.h"
 #include "FunctionCall.h"
 #include "CommandFactory.h"
@@ -15,7 +15,6 @@
 
 class Debugger;
 class CommandFactory;
-typedef QSharedPointer<proto::ServerMessage> ServerMessagePtr;
 
 class Process : public QObject
 {
@@ -41,7 +40,7 @@ public:
 	~Process();
 
 	const DebugConfig& config() { return _debugConfig; }
-    bool init();
+    void init();
 
 	/* check if the child is alive */
 	bool isAlive();
@@ -101,22 +100,17 @@ private:
 	/* methods */
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
-    void startReceiver();
-    void stopReceiver();
-    void receiveMessages();
-    void storeCommand(CommandPtr& cmd);
+private slots:
+	void newServerMessageSlot(ServerMessagePtr);
+	void errorSlot(QString);
 private:
 	/* variables */
 	os_pid_t _pid;
-    std::thread *_responseReceiver;
-    std::mutex _mtxWork;
-    std::condition_variable _workCondition;
-
-	CommandList _commands;
 
     DebugConfig _debugConfig;
     State _state;
 	ConnectionPtr _connection;
+	CommandList _commands;
     bool _end;
    	MessageHandlerPtr _messageHandler;
 };

@@ -44,16 +44,7 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
     int read;
-    /* needs to be done first */
-    //if(cn_create_tcp(&c, "127.0.0.1", 12345) != 0)
-    //if(cn_create_unix(&c, "/tmp/glsldb-unixx-sck") != 0)
-    //    return EXIT_FAILURE;
-    CommandPtr c = _proc->announce();
-    Command::ResultPtr r = c->result().get();
-    if(!r->ok) {
-        UT_NOTIFY(LV_ERROR, "announce failed: " << r->message);
-        return EXIT_FAILURE;
-    }
+
     std::string line;
     do {
         std::getline(std::cin, line);
