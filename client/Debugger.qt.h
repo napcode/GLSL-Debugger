@@ -4,7 +4,6 @@
 #include <QtCore/QObject>
 
 #include "Process.qt.h"
-#include "Command.qt.h"
 #include "build-config.h"
 #include <thread>
 

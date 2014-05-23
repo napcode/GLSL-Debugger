@@ -2,29 +2,19 @@
 #define DBG_TYPE_H
 
 #include <stdlib.h>
+#include "proto/protocol.h"
 
-enum DBG_TYPE {
-	DBG_TYPE_CHAR = 0,
-	DBG_TYPE_UNSIGNED_CHAR,
-	DBG_TYPE_SHORT_INT,
-	DBG_TYPE_UNSIGNED_SHORT_INT,
-	DBG_TYPE_INT,
-	DBG_TYPE_UNSIGNED_INT,
-	DBG_TYPE_LONG_INT,
-	DBG_TYPE_UNSIGNED_LONG_INT,
-	DBG_TYPE_LONG_LONG_INT,
-	DBG_TYPE_UNSIGNED_LONG_LONG_INT,
-	DBG_TYPE_FLOAT,
-	DBG_TYPE_DOUBLE,
-	DBG_TYPE_LONG_DOUBLE,
-	DBG_TYPE_POINTER,
-	DBG_TYPE_STRUCT,
-	DBG_TYPE_BITFIELD,
-	DBG_TYPE_ENUM,
-	DBG_TYPE_BOOLEAN
-};
+#if defined(__cplusplus)
+typedef enum proto::DebugType Proto__DebugType;
+extern "C" {
+#endif
 
-size_t sizeof_dbg_type(enum DBG_TYPE d);
-void print_dbg_type(enum DBG_TYPE d, const void* buf);
+
+size_t sizeof_dbg_type(Proto__DebugType d);
+void print_dbg_type(Proto__DebugType d, const void* buf);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

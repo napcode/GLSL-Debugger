@@ -153,10 +153,9 @@ extern Proto__GLFunction glFunctions[];
 
 /* internal functions */
 static int new_connection_callback(socket_t *s);
-static Proto__FunctionCall *fcall_create(const char *funcname, int num_args);
+static Proto__FunctionCall *fcall_create(int num_args);
 static void fcall_destroy(Proto__FunctionCall *pc);
 static void connection_closed_callback(connection_t *cn, enum CN_CLOSE_REASON r);
-static void send_proc_info();
 
 #ifndef _WIN32
 static int getShmid()
@@ -544,15 +543,15 @@ void __attribute__ ((constructor)) debuglib_init(void)
         char *strport = getenv("GLSL_DEBUGGER_PORT");
         if (comm && strcmp(comm, "tcp") == 0) {
             int port = (strport == NULL) ? DEFAULT_SERVER_PORT_TCP : atoi(strport);
-            sv_acceptor_start_tcp(port, new_connection_callback);
-            UT_NOTIFY(LV_INFO, "Server uses TCP and port %d", port);
+            UT_NOTIFY(LV_INFO, "Server is using TCP and port %d", port);
+            assert(sv_acceptor_start_tcp(port, new_connection_callback) == 0);
         } else if (comm && strcmp(comm, "unix") == 0) {
             char *port = (strport == NULL) ? DEFAULT_SERVER_PORT_UNIX : strport;
-            sv_acceptor_start_unix(port, new_connection_callback);
-            UT_NOTIFY(LV_INFO, "Server uses Unix domain sockets. Socket is %s", port);
+            UT_NOTIFY(LV_INFO, "Server is using Unix domain sockets. Socket is %s", port);
+            assert(sv_acceptor_start_unix(port, new_connection_callback) == 0);
         } else {
-            sv_acceptor_start_tcp(DEFAULT_SERVER_PORT_TCP, new_connection_callback);
-            UT_NOTIFY(LV_INFO, "TCP Server started on port %d", DEFAULT_SERVER_PORT_TCP);
+            UT_NOTIFY(LV_INFO, "Server is using TCP and port %d", DEFAULT_SERVER_PORT_TCP);
+            assert(sv_acceptor_start_tcp(DEFAULT_SERVER_PORT_TCP, new_connection_callback) == 0);
         }
     }
 
@@ -565,7 +564,7 @@ void __attribute__ ((constructor)) debuglib_init(void)
     // for now:
     g.thread_locals = malloc(MAX_THREADS * sizeof(thread_locals_t));
     memset(g.thread_locals, 0, MAX_THREADS * sizeof(thread_locals_t));
-    thread_locals_t *this = getThreadLocals(os_getpid());
+    thread_locals_t *this = getThreadLocals(os_gettid());
     if (getenv("GLSL_DEBUGGER_INTERACTIVE")) {
         this->mode = EX_MODE_INTERACTIVE;
         this->halt_on = EX_HALT_ALL;
@@ -652,13 +651,13 @@ void __attribute__ ((destructor)) debuglib_fini(void)
 }
 #endif
 
-thread_locals_t *getThreadLocals(os_pid_t pid)
+thread_locals_t *getThreadLocals(os_tid_t tid)
 {
     static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&mtx);
     int i;
     for (i = 0; i < MAX_THREADS; ++i) {
-        if (g.thread_locals[i].threadId == 0 || g.thread_locals[i].threadId == pid) {
+        if (g.thread_locals[i].thread_id == 0 || g.thread_locals[i].thread_id == tid) {
             break;
         }
     }
@@ -668,129 +667,79 @@ thread_locals_t *getThreadLocals(os_pid_t pid)
         UT_NOTIFY(LV_ERROR, "Error: max. number of debuggable threads exceeded!");
         exit(1);
     }
-    if (g.thread_locals[i].threadId == 0) {
-        /* FIXME notify the debugger of the new thread */
-        g.thread_locals[i].threadId = pid;
+    if (g.thread_locals[i].thread_id == 0) {
+        g.thread_locals[i].thread_id = tid;
         pthread_cond_init(&g.thread_locals[i].cond_cmd, NULL);
         pthread_mutex_init(&g.thread_locals[i].mtx_cmd, NULL);
         g.thread_locals[i].queue_cmd = queue_create();
         if(g.cn_debugger) {
-            send_proc_info();
+            /* TODO notify the debugger of the new thread */
+            UT_NOTIFY(LV_WARN, "hew thread detected! notify debugger?");
+            //handle_message_proc_info();
         }
     }
     pthread_mutex_unlock(&mtx);
     return &g.thread_locals[i];
 }
 
-static void printArgument(void *addr, int type)
-{
-    char *s;
-
-    switch (type) {
-    case DBG_TYPE_CHAR:
-        UT_NOTIFY_NO_PRFX("%i", *(char *)addr);
-        break;
-    case DBG_TYPE_UNSIGNED_CHAR:
-        UT_NOTIFY_NO_PRFX("%i", *(unsigned char *)addr);
-        break;
-    case DBG_TYPE_SHORT_INT:
-        UT_NOTIFY_NO_PRFX("%i", *(short *)addr);
-        break;
-    case DBG_TYPE_UNSIGNED_SHORT_INT:
-        UT_NOTIFY_NO_PRFX("%i", *(unsigned short *)addr);
-        break;
-    case DBG_TYPE_INT:
-        UT_NOTIFY_NO_PRFX("%i", *(int *)addr);
-        break;
-    case DBG_TYPE_UNSIGNED_INT:
-        UT_NOTIFY_NO_PRFX("%u", *(unsigned int *)addr);
-        break;
-    case DBG_TYPE_LONG_INT:
-        UT_NOTIFY_NO_PRFX("%li", *(long *)addr);
-        break;
-    case DBG_TYPE_UNSIGNED_LONG_INT:
-        UT_NOTIFY_NO_PRFX("%lu", *(unsigned long *)addr);
-        break;
-    case DBG_TYPE_LONG_LONG_INT:
-        UT_NOTIFY_NO_PRFX("%lli", *(long long *)addr);
-        break;
-    case DBG_TYPE_UNSIGNED_LONG_LONG_INT:
-        UT_NOTIFY_NO_PRFX("%llu", *(unsigned long long *)addr);
-        break;
-    case DBG_TYPE_FLOAT:
-        UT_NOTIFY_NO_PRFX("%f", *(float *)addr);
-        break;
-    case DBG_TYPE_DOUBLE:
-        UT_NOTIFY_NO_PRFX("%f", *(double *)addr);
-        break;
-    case DBG_TYPE_POINTER:
-        UT_NOTIFY_NO_PRFX("%p", *(void **)addr);
-        break;
-    case DBG_TYPE_BOOLEAN:
-        UT_NOTIFY_NO_PRFX("%s", *(GLboolean *)addr ? "TRUE" : "FALSE");
-        break;
-    case DBG_TYPE_BITFIELD:
-        s = dissectBitfield(*(GLbitfield *) addr);
-        UT_NOTIFY_NO_PRFX("%s", s);
-        free(s);
-        break;
-    case DBG_TYPE_ENUM:
-        UT_NOTIFY_NO_PRFX("%s", lookupEnum(*(GLenum *)addr));
-        break;
-    case DBG_TYPE_STRUCT:
-        UT_NOTIFY_NO_PRFX("STRUCT");
-        break;
-    default:
-        UT_NOTIFY_NO_PRFX("UNKNOWN TYPE [%i]", type);
-    }
-}
-
 void storeFunctionCall(const char *fname, int numArgs, ...)
 {
     int i;
     va_list argp;
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    os_pid_t tid = os_gettid();
+    thread_locals_t *rec = getThreadLocals(tid);
     fcall_destroy(rec->current_call);
-    rec->current_call = fcall_create(fname, numArgs);
-    rec->current_call->thread_id = pid; rec->current_call->has_thread_id = 1;
+
+    Proto__FunctionCall *call = fcall_create(numArgs);
+    call->name = malloc(1 + strlen(fname));
+    assert(call->name);
+    strcpy(call->name, fname);
+    call->thread_id = tid; call->has_thread_id = 1;
     UT_NOTIFY_NL(LV_INFO, "STORE CALL %s(", fname);
     va_start(argp, numArgs);
     for (i = 0; i < numArgs;) {
-        rec->current_call->arguments[i]->data = va_arg(argp, void *);
-        rec->current_call->arguments[i]->type = va_arg(argp, int);
+        call->arguments[i]->address = (uint64_t)va_arg(argp, void *);
+        call->arguments[i]->type = va_arg(argp, int);
+        ProtobufCBinaryData *data = &call->arguments[i]->data;
+        data->len = sizeof_dbg_type(call->arguments[i]->type);
+        data->data = malloc(data->len);
+        assert(data->data);
+        memcpy(data->data, (void*)call->arguments[i]->address, data->len);
 
         //rec->items[2 * i] = (ALIGNED_DATA) va_arg(argp, void *);
         //rec->items[2 * i + 1] = (ALIGNED_DATA) va_arg(argp, int);
-        printArgument((void *) rec->current_call->arguments[i]->data,
-                      rec->current_call->arguments[i]->type);
+        print_dbg_type(call->arguments[i]->type, 
+            (void *) call->arguments[i]->address);
         ++i;
         if (i != numArgs)
             UT_NOTIFY_NO_PRFX(", ");
     }
     va_end(argp);
+    rec->current_call = call;
     UT_NOTIFY_NO_PRFX(")\n");
 }
 
 void storeResult(void *result, int type)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    thread_locals_t *rec = getThreadLocals(os_gettid());
 
     UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
     printArgument(result, type);
     UT_NOTIFY_NO_PRFX("\n");
     rec->current_call->return_type = type;
     rec->current_call->has_return_type = 1;
-    rec->current_call->return_data = result;
+    ProtobufCBinaryData *d = &rec->current_call->return_data;
+    d->len = sizeof_dbg_type(type);
+    d->data = malloc(d->len);
+    assert(d->data);
+    memcpy(d->data, result, d->len);
 }
 
 
 /* FIXME noone actually calls this anymore
 void storeResultOrError(unsigned int error, void *result, int type)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    thread_locals_t *rec = getThreadLocals(os_gettid());
 
     if (error) {
         setErrorCode(error);
@@ -809,8 +758,7 @@ void storeResultOrError(unsigned int error, void *result, int type)
 void stop(void)
 {
     // FIXME do we still need this? (used in functionHooks)
-    //os_pid_t pid = os_getpid();
-    //thread_locals_t *rec = getThreadLocals(pid);
+    //thread_locals_t *rec = getThreadLocals(os_gettid());
     //pthread_cond_wait(&rec->, &G.lock);
 }
 
@@ -875,8 +823,7 @@ static void shaderStep(void)
 {
     // int error;
 
-    // os_pid_t pid = os_getpid();
-    // thread_locals_t *rec = getThreadLocals(pid);
+    // thread_locals_t *rec = getThreadLocals(os_gettid());
     // const char *vshader = (const char *) rec->items[0];
     // const char *gshader = (const char *) rec->items[1];
     // const char *fshader = (const char *) rec->items[2];
@@ -999,8 +946,7 @@ static void shaderStep(void)
 
 Proto__DebugCommand__Type getDbgOperation(const char* func)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    thread_locals_t *rec = getThreadLocals(os_gettid());
     if (keepExecuting(func)) {
         return PROTO__DEBUG_COMMAND__TYPE__CALL_ORIGFUNCTION_AND_PROCEED;
     }
@@ -1043,8 +989,7 @@ static int isShaderSwitch(const char *name)
 
 int keepExecuting(const char *func)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    thread_locals_t *rec = getThreadLocals(os_gettid());
     if (rec->mode == EX_MODE_UNATTENDED) {
         return 1;
     } else if (rec->mode == EX_MODE_INTERACTIVE) {
@@ -1067,18 +1012,16 @@ int keepExecuting(const char *func)
     return 0;
 }
 
-int checkGLErrorInExecution(void)
+uint64_t checkGLErrorInExecution(void)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
-    return *rec->current_call->return_data;
+    thread_locals_t *rec = getThreadLocals(os_gettid());
+    return *(uint64_t*)rec->current_call->return_data.data;
 }
 
 void setExecuting(void)
 {
     // FIXME still usefull?
-    // os_pid_t pid = os_getpid();
-    // thread_locals_t *rec = getThreadLocals(pid);
+    // thread_locals_t *rec = getThreadLocals(os_gettid());
     // rec->result = DBG_EXECUTE_IN_PROGRESS;
 }
 
@@ -1161,8 +1104,7 @@ static void dbgFunctionNOP(void)
 
 void (*getDbgFunction(void))(void)
 {
-    os_pid_t pid = os_getpid();
-    thread_locals_t *rec = getThreadLocals(pid);
+    thread_locals_t *rec = getThreadLocals(os_gettid());
     int i;
 
     for (i = 0; i < g.numDbgFunctions; ++i) {
@@ -1369,10 +1311,11 @@ static void connection_closed_callback(connection_t *cn, enum CN_CLOSE_REASON r)
     UT_NOTIFY(LV_DEBUG, "connection destroyed");
 }
 
-static Proto__FunctionCall *fcall_create(const char *funcname, int num_args)
+static Proto__FunctionCall *fcall_create(int num_args)
 {
     Proto__FunctionCall *fc = malloc(sizeof(Proto__FunctionCall));
     assert(fc);
+    proto__function_call__init(fc);
     fc->n_arguments = num_args;
     fc->arguments = malloc(num_args * sizeof(fc->arguments));
     assert(fc->arguments);
@@ -1393,13 +1336,15 @@ static void fcall_destroy(Proto__FunctionCall *fc)
     free(fc->arguments);
     free(fc);
 }
-Proto__ServerMessage* handle_request_execution(connection_t *cn)
+Proto__ServerMessage* handle_message_execution(connection_t *cn)
 {
+    UT_NOTIFY(LV_TRACE, "execution msg received");
+
     /* create response */
     Proto__ServerMessage* response = malloc(sizeof(Proto__ServerMessage));
     proto__server_message__init(response);
 
-    Proto__ExecutionRequestDetails *msg = cn->request->execution;
+    Proto__ExecutionDetails *msg = cn->request->execution;
     response->error_code = PROTO__ERROR_CODE__NONE;
     return response;
 }
@@ -1407,10 +1352,13 @@ Proto__ServerMessage* handle_request_execution(connection_t *cn)
  * we received a debug cmd, unpack it and add it to the cmd_queue
  * the application/client thread does the acutal execution of the cmd
  */
-Proto__ServerMessage* handle_request_debug(connection_t *cn)
+Proto__ServerMessage* handle_message_debug(connection_t *cn)
 {
+    UT_NOTIFY(LV_TRACE, "debug msg received");
+
     Proto__DebugCommand *cmd = cn->request->command;
-    thread_locals_t *thread_locals = getThreadLocals(cmd->thread_id);
+    /* TODO 0 as thread_id should apply to all threads */
+    thread_locals_t *thread_locals = getThreadLocals(cn->request->thread_id);
     assert(thread_locals);
     pthread_mutex_lock(&thread_locals->mtx_cmd);
     queue_enqueue(thread_locals->queue_cmd, cmd);
@@ -1418,8 +1366,52 @@ Proto__ServerMessage* handle_request_debug(connection_t *cn)
     pthread_cond_signal(&thread_locals->cond_cmd);
     return NULL;   
 }
-
-static void send_proc_info()
+Proto__ServerMessage* handle_message_func_call(connection_t *cn)
+{
+    UT_NOTIFY(LV_TRACE, "func call msg received");
+    Proto__ServerMessage *response = malloc(sizeof(Proto__ServerMessage));
+    proto__server_message__init(response);
+    response->id = cn->request->id;
+    if(cn->request->thread_id)
+    {
+        thread_locals_t *thread_locals = getThreadLocals(cn->request->thread_id);
+        assert(thread_locals);
+        pthread_mutex_lock(&thread_locals->mtx_cmd);
+        if(thread_locals->current_call) {
+            response->error_code = PROTO__ERROR_CODE__NONE;
+            response->n_function_call = 1;
+            response->function_call = malloc(response->n_function_call * sizeof(Proto__FunctionCall*));
+            response->function_call[0] = thread_locals->current_call;
+        }
+        else {
+            response->error_code = PROTO__ERROR_CODE__GENERIC_ERROR;
+            response->message = "No data available";
+        }
+        pthread_mutex_unlock(&thread_locals->mtx_cmd);
+    }
+    else {
+        response->error_code = PROTO__ERROR_CODE__NONE;
+        response->n_function_call = 0;
+        for (int i = 0; i < MAX_THREADS; ++i) {
+            if(g.thread_locals[i].thread_id != 0)
+                ++response->n_function_call;
+            else 
+                break;
+        }
+        response->function_call = malloc(response->n_function_call * sizeof(Proto__FunctionCall*));
+        for (int i = 0; i < response->n_function_call; ++i) {
+            pthread_mutex_lock(&g.thread_locals[i].mtx_cmd);
+            assert(g.thread_locals[i].current_call);
+            UT_NOTIFY(LV_INFO, "Packing %s", g.thread_locals[i].current_call->name);
+            response->function_call[i] = g.thread_locals[i].current_call;
+        }
+        cn_send_message_sync(cn, response);
+        for (int i = 0; i < response->n_function_call; ++i) 
+            pthread_mutex_unlock(&g.thread_locals[i].mtx_cmd);
+    }
+    return NULL;   
+}
+Proto__ServerMessage* handle_message_proc_info(connection_t *cn)
 {
     int i, j;
     Proto__ServerMessage* res = malloc(sizeof(Proto__ServerMessage));
@@ -1430,13 +1422,13 @@ static void send_proc_info()
     res->proc_info->pid = os_getpid();
     res->proc_info->is64bit = sizeof(void*) == 8 ? 1 : 0;
     for (i = 0; i < MAX_THREADS; ++i) {
-        if (g.thread_locals[i].threadId == 0) 
+        if (g.thread_locals[i].thread_id == 0) 
             break;
     }
     res->proc_info->n_thread_id = i;
     res->proc_info->thread_id = malloc(i * sizeof(*res->proc_info->thread_id));
     for (j = 0; j < i; ++j) {
-       res->proc_info->thread_id[j] = g.thread_locals[j].threadId;
+       res->proc_info->thread_id[j] = g.thread_locals[j].thread_id;
     }
-    cn_send_message(g.cn_debugger, res);
+    return res;
 }

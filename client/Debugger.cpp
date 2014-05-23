@@ -69,8 +69,9 @@ void Debugger::init()
 }
 ProcessPtr Debugger::connectTo(QString& path, int port, int timeout)
 {
-    ConnectionPtr con(new TcpConnection(path, port, timeout));
+    IPCConnectionPtr con(new TcpConnection(path, port, timeout));
 	ProcessPtr p(new Process(con));
+    // throws exception or is just "OK"
 	p->init();
 	_processes.push_back(p);
 	return p;

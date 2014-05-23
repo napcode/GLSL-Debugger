@@ -451,7 +451,7 @@ enum EXECUTION_HALT
 };
 
 typedef struct {
-	os_pid_t threadId;
+	os_tid_t thread_id;
 	Proto__FunctionCall* current_call;
 	enum EXECUTION_MODE mode;
 	enum EXECUTION_HALT halt_on;
@@ -478,8 +478,5 @@ typedef struct {
 // 	int isFrameEnd;
 // 	int isFramebufferChange;
 // } gl_func_t;
-
-Proto__ServerMessage* handle_request_debug(connection_t *cn);
-Proto__ServerMessage* handle_request_execution(connection_t *cn);
 
 #endif

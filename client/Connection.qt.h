@@ -1,51 +1,49 @@
 #ifndef CLIENT_CONNECTION_QT_H
 #define CLIENT_CONNECTION_QT_H 1
 
-#include <QtNetwork/QTcpSocket>
+#include <thread>
 #include <QtCore/QSharedPointer>
 #include "build-config.h"
+#include "utils/socket.h"
 #include "proto/protocol.h"
-#include "Command.qt.h"
+#include "MessageBase.qt.h"
 
-typedef QSharedPointer<QTcpSocket> TcpSocketPtr;
-typedef QSharedPointer<proto::ServerMessage> ServerMessagePtr;
-
-class Connection : public QObject
+class IPCConnection : public QObject
 {
 	Q_OBJECT
 public:
-	Connection();
-	~Connection();
+	IPCConnection();
+	~IPCConnection();
+	bool isValid() const { return _verified; };
 	virtual void establish() = 0;
-	virtual bool isEstablished() const = 0;
-	virtual void send(CommandPtr& cmd) = 0;
+	virtual void send(msg::MessagePtr& cmd) = 0;
 signals:
-	void newServerMessage(ServerMessagePtr p);
+	void newResponseAvailable(msg::MessagePtr& cmd);
 	void error(QString message);
-private:
+protected:
+protected:
+	bool _verified;
 };
-typedef QSharedPointer<Connection> ConnectionPtr;
+typedef QSharedPointer<IPCConnection> IPCConnectionPtr;
 
-class TcpConnection : public Connection
+class TcpConnection : public IPCConnection
 {
 	Q_OBJECT
 public:
 	TcpConnection(const QString& host, int port = DEFAULT_SERVER_PORT_TCP, int timeout_s = NETWORK_TIMEOUT);
+	~TcpConnection();
+	void send(msg::MessagePtr& cmd);
 	void establish();
-	bool isEstablished() const { return _socket.state() == QAbstractSocket::ConnectedState; }
-	void send(CommandPtr& cmd);
 protected:
-	bool haveMessageSize() const { return _msg_size > 0; } 
+	void doSend(msg::MessagePtr& cmd);
+	void receive();
 private:
 	QString _host;
 	int _port;
-	int _timeout;
-	QTcpSocket _socket;
-	int _num_bytes_needed;
-	int _msg_size;
-private slots:
-	void readyReadSlot();
-	void errorSlot(QAbstractSocket::SocketError socketError);
+	socket_t *_socket;
+	msg::MessageList _msg_list;
+	std::thread *_th_receiver;
+	std::mutex _mtx;
 };
 
 #endif

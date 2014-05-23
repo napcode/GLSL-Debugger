@@ -9,9 +9,7 @@
 #include "Connection.qt.h"
 #include "DebugConfig.h"
 #include "FunctionCall.h"
-#include "CommandFactory.h"
 #include "MessageHandler.h"
-
 
 class Debugger;
 class CommandFactory;
@@ -35,7 +33,7 @@ public:
 public:
 	/* methods */
 	Process();
-	Process(ConnectionPtr c);
+	Process(IPCConnectionPtr c);
 	Process(const DebugConfig& config, os_pid_t pid = 0);
 	~Process();
 
@@ -47,11 +45,12 @@ public:
 	/* continue the process */
 	void advance();
 
-	CommandPtr announce();
-	CommandPtr done();
-	CommandPtr call();
+	msg::MessagePtr done(void);
+	msg::MessagePtr call(void);
 	/* kill the process */
-	CommandPtr kill();
+	msg::MessagePtr kill(void);
+	/* retrieve the current/last call */
+	msg::MessagePtr currentCall(void);
 	/* launches process, applies options if needed & leaves
 	 * process in STOPPED state if everything went well
 	 */
@@ -65,15 +64,14 @@ public:
 	 */
 	void stop(bool immediately = false);
 
-	/* retrieve the current/last call */
-	FunctionCallPtr currentCall(void);
+
 
 	bool connected() const { return !_connection ? false : true; }
-	void connection(ConnectionPtr c) { _connection = c; }
-	ConnectionPtr connection() const { return _connection; }
+	void connection(IPCConnectionPtr c) { _connection = c; }
+	IPCConnectionPtr connection() const { return _connection; }
 
-	void copyArgumentTo(void *dst, void *src, DBG_TYPE type);
-	void* copyArgumentFrom(void *addr, DBG_TYPE type);
+	//void copyArgumentTo(void *dst, void *src, DBG_TYPE type);
+	//void* copyArgumentFrom(void *addr, DBG_TYPE type);
 
 	/* get a string representation of the state */
 	static const QString& strState(State s);
@@ -88,20 +86,19 @@ public:
     bool isKilled() const { return _state == KILLED; }
     bool hasExited() const { return _state == EXITED; }
 
-	MessageHandlerPtr messageHandler() const { return _messageHandler; }
+	msg::MessageHandlerPtr messageHandler() const { return _messageHandler; }
 	/* set a ResultHandler. Process takes ownership */
-	void messageHandler(MessageHandler* res) { _messageHandler = MessageHandlerPtr(res); }
+	void messageHandler(msg::MessageHandler* res) { _messageHandler = msg::MessageHandlerPtr(res); }
 
 signals:
 	void stateChanged(Process::State s);
 	void newChild(os_pid_t p);
-	void resultAvailable(CommandPtr);
 private:
 	/* methods */
 	void state(State s);
 	void config(const DebugConfig& cfg) { _debugConfig = cfg; }
 private slots:
-	void newServerMessageSlot(ServerMessagePtr);
+	void newResponseSlot(msg::MessagePtr&);
 	void errorSlot(QString);
 private:
 	/* variables */
@@ -109,10 +106,9 @@ private:
 
     DebugConfig _debugConfig;
     State _state;
-	ConnectionPtr _connection;
-	CommandList _commands;
+	IPCConnectionPtr _connection;
     bool _end;
-   	MessageHandlerPtr _messageHandler;
+   	msg::MessageHandlerPtr _messageHandler;
 };
 
 typedef QSharedPointer<Process> ProcessPtr;

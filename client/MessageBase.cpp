@@ -1,5 +1,4 @@
-#include "Command.qt.h"
-#include "DebugCommand.h"
+#include "MessageBase.qt.h"
 #include "Process.qt.h"
 #include "build-config.h"
 #include <cstring>
@@ -7,16 +6,19 @@
 #include <cassert>
 #include <cstdlib>
 
-std::atomic<uint64_t> Command::_seq_number = ATOMIC_VAR_INIT(123);
+using namespace msg;
 
-Command::Command(Process &p,  proto::ClientRequest::Type t) :
-    _proc(p)
+std::atomic<uint64_t> MessageBase::_seq_number = ATOMIC_VAR_INIT(123);
+
+MessageBase::MessageBase(proto::ClientMessage::Type t, uint64_t thread_id) 
 {
     _message.set_type(t);
     _message.set_id(_seq_number++);
+    if(thread_id != 0) 
+        _message.set_thread_id(thread_id);
 }
 /*
-void Command::dbgCommandExecuteToDrawCall(bool stopOnGLError)
+void MessageBase::dbgCommandExecuteToDrawCall(bool stopOnGLError)
 {
     static const QString msg("DBG_EXECUTE (DBG_JUMP_TO_DRAW_CALL)");
     _message = &msg;
@@ -25,7 +27,7 @@ void Command::dbgCommandExecuteToDrawCall(bool stopOnGLError)
     _rec->items[1] = stopOnGLError ? 1 : 0;
 }
 
-void Command::dbgCommandExecuteToShaderSwitch(bool stopOnGLError)
+void MessageBase::dbgCommandExecuteToShaderSwitch(bool stopOnGLError)
 {
     static const QString msg("DBG_EXECUTE (DBG_JUMP_TO_SHADER_SWITCH)");
     _message = &msg;
@@ -34,7 +36,7 @@ void Command::dbgCommandExecuteToShaderSwitch(bool stopOnGLError)
     _rec->items[1] = stopOnGLError ? 1 : 0;
 }
 
-void Command::dbgCommandExecuteToUserDefined(const QString& fname,
+void MessageBase::dbgCommandExecuteToUserDefined(const QString& fname,
         bool stopOnGLError)
 {
     static const QString msg("DBG_EXECUTE (DBG_JUMP_TO_USER_DEFINED)");
@@ -109,14 +111,14 @@ void ProgramControl::dbgCommandEndReplay()
     _rec->operation = DBG_END_REPLAY;
 }
 
-void Command::dbgCommandRecord()
+void MessageBase::dbgCommandRecord()
 {
     static const QString msg("DBG_RECORD_CALL");
     _message = & msg;
     _rec->operation = DBG_RECORD_CALL;
 }
 
-void Command::dbgCommandCallOrig(FunctionCallPtr call)
+void MessageBase::dbgCommandCallOrig(FunctionCallPtr call)
 {
     if (call->name() != _rec->fname) {
         UT_NOTIFY(LV_ERROR, "function name does not match record.");
@@ -147,7 +149,7 @@ void Command::dbgCommandCallOrig(FunctionCallPtr call)
     }
 }
 
-void Command::dbgCommandCallDBGFunction(const QString& fname)
+void MessageBase::dbgCommandCallDBGFunction(const QString& fname)
 {
     static const QString msg("DBG_CALL_FUNCTION");
     _message = & msg;
@@ -155,7 +157,7 @@ void Command::dbgCommandCallDBGFunction(const QString& fname)
     _rec->operation = DBG_CALL_FUNCTION;
 }
 
-void Command::dbgCommandFreeMem(unsigned int numBlocks,
+void MessageBase::dbgCommandFreeMem(unsigned int numBlocks,
         void **addresses)
 {
     static const QString msg("DBG_FREE_MEM");
@@ -174,7 +176,7 @@ void Command::dbgCommandFreeMem(unsigned int numBlocks,
     }
 }
 
-void Command::dbgCommandAllocMem(unsigned int numBlocks,
+void MessageBase::dbgCommandAllocMem(unsigned int numBlocks,
         unsigned int *sizes, void **addresses)
 {
     static const QString msg("DBG_ALLOC_MEM");
@@ -193,7 +195,7 @@ void Command::dbgCommandAllocMem(unsigned int numBlocks,
     }
 }
 
-void Command::dbgCommandClearRenderBuffer(int mode, float r,
+void MessageBase::dbgCommandClearRenderBuffer(int mode, float r,
         float g, float b, float a, float f, int s)
 {
     static const QString msg("DBG_CLEAR_RENDER_BUFFER");
@@ -208,7 +210,7 @@ void Command::dbgCommandClearRenderBuffer(int mode, float r,
     rec->items[6] = (ALIGNED_DATA) s;
 }
 
-void Command::dbgCommandReadRenderBuffer(int numComponents,
+void MessageBase::dbgCommandReadRenderBuffer(int numComponents,
         int *width, int *height, float **image)
 {
     static const QString msg("DBG_READ_RENDER_BUFFER");
@@ -998,7 +1000,7 @@ void Command::dbgCommandReadRenderBuffer(int numComponents,
 // #endif /* _WIN32 */
 // }
 
-// void Command::overwriteFuncArguments(FunctionCallPtr call)
+// void MessageBase::overwriteFuncArguments(FunctionCallPtr call)
 // {
 //  if (call->name() != _rec->fname) {
 //      UT_NOTIFY(LV_ERROR, "function name does not match record");
@@ -1016,7 +1018,7 @@ void Command::dbgCommandReadRenderBuffer(int numComponents,
 //  }
 // }
 
-// void Command::queryResult()
+// void MessageBase::queryResult()
 // {
 //  switch(_rec->result) {
 //      case DBG_RET_ALLOCATED:
@@ -1044,7 +1046,7 @@ void Command::dbgCommandReadRenderBuffer(int numComponents,
 //      break;
 //  }
 // }
-// Process::ErrorCode Command::handleError()
+// Process::ErrorCode MessageBase::handleError()
 // {
 //  ErrorCode r = EC_NONE;
 //  switch (_rec->result == DBG_ERROR_CODE) {

@@ -36,12 +36,14 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QtCore/QString>
 
-#include "FunctionArgument.h"
 #include <QtCore/QSharedPointer>
+#include "MessageBase.qt.h"
+#include "FunctionArgument.h"
 
 class FunctionCall {
 public:
-	FunctionCall(const QString& name = QString());
+	FunctionCall(const QString& name = QString(), uint64_t thread_id = 0);
+	FunctionCall(const proto::FunctionCall& call);
 	FunctionCall(const FunctionCall& rhs);
 	~FunctionCall();
 
@@ -54,7 +56,7 @@ public:
 	ArgumentVector& arguments() { return _arguments; }
 	const ArgumentVector& arguments() const { return _arguments; }
 
-	void addArgument(DBG_TYPE, void*, void*);
+	void addArgument(proto::DebugType, void*, void*);
 	void addArgument(FunctionArgumentPtr arg);
 
 	bool operator==(const FunctionCall&);
@@ -77,10 +79,11 @@ public:
 
 	QString asString() const;
 private:
-
 	QString _name;
 	QString _extension;
 	ArgumentVector _arguments;
+	uint64_t _thread_id;
+	FunctionArgument _return;
 
 };
 

@@ -6,6 +6,10 @@
 #define SCK_BACKLOG 10
 #define SCK_HOSTLEN 256
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum SCK_DOMAIN {
 #ifndef GLSLDB_WIN
     SCK_UNIX, 
@@ -39,5 +43,9 @@ int sck_connect(socket_t* s);
 int sck_send(socket_t* s, const void* msg, uint32_t len);
 int sck_recv(socket_t* s, void* msg, uint32_t len);
 int sck_close(socket_t* s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -3,7 +3,9 @@
 #include "utils/notify.h"
 #include "utils/glsldb_ptrace.h"
 #include "proto/protocol.h"
-#include "CommandImpl.h"
+#include "MessageImpl.h"
+#include <QtCore/QCoreApplication>
+#include <QtCore/QMetaType>
 
 #ifndef GLSLDB_WIN32
 #   include <sys/types.h>
@@ -19,12 +21,14 @@ Process::Process() :
 {
 }
 
-Process::Process(ConnectionPtr c) :
+Process::Process(IPCConnectionPtr c) :
     _pid(0),
     _state(INIT),
     _connection(c)
 {
-
+    qRegisterMetaType<msg::MessagePtr>("msg::MessagePtr&");
+    connect(connection().data(), SIGNAL(newResponseAvailable(msg::MessagePtr&)), this, SLOT(newResponseSlot(msg::MessagePtr&)));
+    connect(connection().data(), SIGNAL(error(QString)), this, SLOT(errorSlot(QString)));
 }
 Process::Process(const DebugConfig &cfg, os_pid_t pid) :
     _pid(pid),
@@ -39,46 +43,32 @@ Process::~Process()
 
 void Process::init()
 {
-    if(!connection()->isEstablished())
+    if(!connection()->isValid())
+    	// throws exception or is just "OK"
         connection()->establish();
-
-    qRegisterMetaType<ServerMessagePtr>("ServerMessagePtr");
-    connect(connection().data(), SIGNAL(newServerMessage(ServerMessagePtr)), this, SLOT(newServerMessageSlot(ServerMessagePtr)));
-    connect(connection().data(), SIGNAL(error(QString)), this, SLOT(errorSlot(QString)));
-    CommandPtr c = announce();
-    // throws exception or is just "OK"
-    UT_NOTIFY(LV_INFO, "ann");
-
-    Command::ResultPtr r = c->result().get();
-    UT_NOTIFY(LV_INFO, r->message);
 }
-
-CommandPtr Process::announce()
+msg::MessagePtr Process::done()
 {
-    std::string client = Debugger::instance().clientName();
-    CommandPtr cmd(new AnnounceCommand(*this, client));
-    _commands.push_back(cmd);
+    msg::MessagePtr cmd(new msg::Done(0));
     connection()->send(cmd);
     return cmd;
 }
-CommandPtr Process::done()
+msg::MessagePtr Process::currentCall()
 {
-    CommandPtr cmd(new DoneCommand(*this));
-    _commands.push_back(cmd);
+    msg::MessagePtr cmd(new msg::FunctionCall());
     connection()->send(cmd);
     return cmd;
 }
-CommandPtr Process::call()
+msg::MessagePtr Process::call()
 {
-    CommandPtr cmd(new CallCommand(*this));
-    _commands.push_back(cmd);
+    msg::MessagePtr cmd(new msg::Call(0));
     connection()->send(cmd);
     return cmd;
 }
-CommandPtr Process::kill()
+msg::MessagePtr Process::kill()
 {
-    CommandPtr cmd(new CallCommand(*this));
-    //CommandPtr cmd(new KillCommand(*this));
+    msg::MessagePtr cmd(new msg::Call(0));
+    //msg::MessagePtr cmd(new KillCommand(*this));
     /* store cmd so we can associate received results with it */
     //enqueue(cmd);
     //cmd->send();
@@ -235,11 +225,13 @@ const QString &Process::strState(State s)
     return m;
 }
 
-void Process::newServerMessageSlot(ServerMessagePtr msg)
+void Process::newResponseSlot(msg::MessagePtr& msg)
 {
-	UT_NOTIFY(LV_INFO, "server message received: " << msg->message());
+	//UT_NOTIFY(LV_INFO, "server message received: " << msg->message());
+    // TODO do something with the result
+
 }
 void Process::errorSlot(QString msg)
 {
-	UT_NOTIFY(LV_INFO, "error received: " << msg.toStdString());
+	UT_NOTIFY(LV_ERROR, msg.toStdString());
 }

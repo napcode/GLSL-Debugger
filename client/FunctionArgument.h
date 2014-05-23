@@ -1,9 +1,7 @@
 #ifndef FUNCTIONARGUMENT_H
 #define FUNCTIONARGUMENT_H
 
-extern "C" {
 #include "utils/types.h"
-}
 #include <QtCore/QVector>
 #include <QtCore/QString>
 #include <QtCore/QSharedPointer>
@@ -11,16 +9,17 @@ extern "C" {
 class FunctionArgument 
 {
 public:
-	FunctionArgument(DBG_TYPE type = DBG_TYPE_CHAR);
-	FunctionArgument(DBG_TYPE type, void *data, void* address);
+	FunctionArgument(proto::DebugType type = proto::DebugType::CHAR);
+	FunctionArgument(proto::DebugType type, void *data, void* address);
 	FunctionArgument(const FunctionArgument& rhs);
+	FunctionArgument(const proto::FunctionArgument& rhs);
 	~FunctionArgument();
 
 	void* data() const { return static_cast<void*>(_data); }
-	/* this assumes DBG_TYPE is correctly set */
-	void data(void *data);
+	/* this assumes proto::DebugType is correctly set */
+	void data(const void *data);
 
-	DBG_TYPE type() const { return _type; }
+	proto::DebugType type() const { return _type; }
 
 	void const * address() const { return static_cast<void*>(_address); }
 	void* address() { return static_cast<void*>(_address); }
@@ -34,7 +33,7 @@ public:
 
 	QString asString() const;
 private:
-	DBG_TYPE _type;
+	proto::DebugType _type;
 	char *_data;
 	char *_address;
 	bool _dirty;

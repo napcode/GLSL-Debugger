@@ -7,6 +7,7 @@
 #endif
 #ifdef GLSLDB_LINUX
 #	include <sys/wait.h>
+#	include <sys/syscall.h>
 #	include <dlfcn.h>
 #	include <unistd.h>
 #endif
@@ -18,10 +19,12 @@
 /* don't define them with the namespace */
 #ifdef GLSLDB_WIN32
 	typedef DWORD os_pid_t;
+	typedef DWORD os_tid_t;
 	typedef HINSTANCE os_LibraryHandle_t;
 #else
 	typedef void* os_LibraryHandle_t;
 	typedef pid_t os_pid_t;
+	typedef pid_t os_tid_t;
 #endif
 
 #ifdef __cplusplus
@@ -36,6 +39,7 @@ namespace os
 	/* functions */
 	/* HAZARD BUG OMGWTF This is plain wrong. Use GetCurrentThreadId() */
 	#define os_getpid GetCurrentProcessId
+	#define os_gettid GetCurrentThreadId
 	#define os_dlclose FreeLibrary
 	#define os_dlsym GetProcAddress
 	#define os_write _write
@@ -46,6 +50,7 @@ namespace os
 
 	/* functions */
 	#define os_getpid getpid
+	#define os_gettid() pthread_self()
 	#define os_dlclose dlclose
 	#define os_dlsym dlsym
 	#define os_write write

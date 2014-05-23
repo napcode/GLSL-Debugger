@@ -6,13 +6,13 @@ message Version
     required int32 minor=2;
     required int32 revision=3;
 }
-message AnnounceRequestDetails
+message AnnounceDetails
 {
     required int32 id=1;
     required string client_name=2;
     required Version version=3;
 }
-message ExecutionRequestDetails
+message ExecutionDetails
 {
     enum Operation {
         CONTINUE = 0;
@@ -54,9 +54,8 @@ message DebugCommand
 
     }
     required Type type = 1;
-    required int32 thread_id = 2;
 }
-message ClientRequest
+message ClientMessage
 {
     enum Type {
         ANNOUNCE = 0;
@@ -68,16 +67,17 @@ message ClientRequest
     } 
     required Type type = 1; 
     required uint64 id = 2;
-    optional AnnounceRequestDetails announce = 3;
-    optional ExecutionRequestDetails execution = 4;
-    optional DebugCommand command = 5;
+    optional uint64 thread_id = 3;
+    optional AnnounceDetails announce = 4;
+    optional ExecutionDetails execution = 5;
+    optional DebugCommand command = 6;
 }
 message ProcessInfo
 {
     required string executable = 1;
     required int32 pid = 2;
     required bool is64bit = 3;
-    repeated int32 thread_id = 4;
+    repeated uint64 thread_id = 4;
 }
 enum DebugType {
     CHAR = 0;
@@ -102,15 +102,15 @@ enum DebugType {
 message FunctionArgument
 {
     required DebugType type = 1;
-    optional uint64 size = 2;
-    required string data = 3;
+    required uint64 address = 2;
+    required bytes data = 3;
 }
 message FunctionCall
 {
     required string name = 1;
-    optional int32 thread_id = 2;
+    optional uint64 thread_id = 2;
     optional DebugType return_type = 3;
-    optional string return_data = 4;
+    optional bytes return_data = 4;
     repeated FunctionArgument arguments = 5;
 }
 enum ErrorCode 
@@ -119,6 +119,7 @@ enum ErrorCode
     HEADER_MISMATCH = 1;
     VERSION_MISMATCH = 2;
     AUTH_FAILED = 3;
+    GENERIC_ERROR = 4;
 }
 message GLFunction
 {
@@ -138,9 +139,9 @@ message GLFunctions
 message ServerMessage
 {
 	required ErrorCode error_code = 1 [default = NONE];
-    optional uint64 id = 2;
+    required uint64 id = 2;
     optional string message = 3;
-    optional FunctionCall function_call = 4;
+    repeated FunctionCall function_call = 4;
     optional GLFunctions gl_functions = 5;
     optional ProcessInfo proc_info = 6;
 }

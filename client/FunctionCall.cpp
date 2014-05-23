@@ -52,14 +52,24 @@ extern "C" {
 #include "utils/types.h"
 }
 
-FunctionCall::FunctionCall(const QString& name)
+FunctionCall::FunctionCall(const QString& name, uint64_t thread_id) :
+	_name(name), 
+	_thread_id(thread_id)
 {
-	FunctionCall::name(name);
 }
 
-FunctionCall::FunctionCall(const FunctionCall& rhs)
+FunctionCall::FunctionCall(const proto::FunctionCall& call) :
+	FunctionCall(QString::fromStdString(call.name()), call.thread_id())
 {
-	name(rhs._name);
+	for(int i = 0; i < call.arguments_size(); ++i) {
+		FunctionArgumentPtr p(new FunctionArgument(call.arguments(i)));
+		_arguments.push_back(p);
+	}
+}
+
+FunctionCall::FunctionCall(const FunctionCall& rhs) :
+	FunctionCall(rhs._name, rhs._thread_id)
+{
 	for(auto &arg : rhs._arguments) {
 		FunctionArgumentPtr p(new FunctionArgument(*arg));
 		_arguments.push_back(p);
@@ -79,7 +89,7 @@ void FunctionCall::name(const QString& name)
 	_extension = QString::fromStdString(f.extname());
 }
 
-void FunctionCall::addArgument(DBG_TYPE type, void *data, void *address)
+void FunctionCall::addArgument(proto::DebugType type, void *data, void *address)
 {
 	FunctionArgumentPtr arg(new FunctionArgument(type, data, address));
 	_arguments.push_back(arg);
