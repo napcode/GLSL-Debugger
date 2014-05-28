@@ -26,7 +26,7 @@ void Announce::response(const msg::ServerMessagePtr& rsp)
         promise().set_exception(make_exception_ptr(std::runtime_error(rsp->message())));
     } 
 }
-msg::FunctionCall::FunctionCall(uint64_t thread_id) :
+msg::FunctionCall::FunctionCall(ThreadID_t thread_id) :
     MessageBase(proto::ClientMessage::FUNCTION_CALL, thread_id)
 {
 }
@@ -48,7 +48,19 @@ void msg::FunctionCall::response(const msg::ServerMessagePtr& rsp)
         promise().set_exception(make_exception_ptr(std::runtime_error(rsp->message())));
     }
 }
-Call::Call(uint64_t thread) : 
+Execute::Execute(ThreadID_t thread_id, proto::ExecutionDetails_Operation op, const QString& param) :
+    MessageBase(proto::ClientMessage::EXECUTION, thread_id)
+{
+    _message.mutable_execution()->set_operation(op);
+    if(param.size())
+        _message.mutable_execution()->mutable_call()->set_name(param.toStdString());
+}
+void Execute::response(const msg::ServerMessagePtr& response)
+{
+
+}
+
+Call::Call(ThreadID_t thread) : 
     DebugCommand(thread)
 {
     _message.mutable_command()->set_type(proto::DebugCommand_Type_CALL_ORIGFUNCTION);
@@ -60,7 +72,7 @@ void Call::response(const msg::ServerMessagePtr& rsp)
    /* parse server response, create a response and store it in the promise */
     // promise().set_value();
 }
-Done::Done(uint64_t thread)
+Done::Done(ThreadID_t thread)
     : DebugCommand(thread)
 {
     _message.mutable_command()->set_type(proto::DebugCommand_Type_DONE);

@@ -51,6 +51,7 @@ public:
 	msg::MessagePtr kill(void);
 	/* retrieve the current/last call */
 	msg::MessagePtr currentCall(void);
+	msg::MessagePtr execute(proto::ExecutionDetails_Operation op = proto::ExecutionDetails_Operation_STEP, const QString& param = QString() );
 	/* launches process, applies options if needed & leaves
 	 * process in STOPPED state if everything went well
 	 */

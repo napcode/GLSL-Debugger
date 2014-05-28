@@ -59,6 +59,12 @@ msg::MessagePtr Process::currentCall()
     connection()->send(cmd);
     return cmd;
 }
+msg::MessagePtr Process::execute(proto::ExecutionDetails_Operation op, const QString& param)
+{
+    msg::MessagePtr cmd(new msg::Execute(0, op, param));
+    connection()->send(cmd);
+    return cmd;   
+}
 msg::MessagePtr Process::call()
 {
     msg::MessagePtr cmd(new msg::Call(0));

@@ -13,6 +13,7 @@ public:
 	void response(const msg::ServerMessagePtr& response);
 	std::string _client_name;
 };
+
 class FunctionCall : public MessageBase
 {
 public:
@@ -23,25 +24,35 @@ public:
 	private:
 		std::list<::FunctionCallPtr> _calls;
 	};
-	FunctionCall(uint64_t thread_id = 0);
+	FunctionCall(ThreadID_t thread_id = 0);
 	void response(const msg::ServerMessagePtr& response);
 };
+
 class Call : public DebugCommand
 {
 public:
-	Call(uint64_t thread_id);
+	Call(ThreadID_t thread_id);
 	void response(const msg::ServerMessagePtr& response);
 };
+
+class Execute : public MessageBase
+{
+public:
+	Execute(ThreadID_t thread_id, proto::ExecutionDetails_Operation op, const QString& param);
+	void response(const msg::ServerMessagePtr& response);
+};
+
 class Done : public DebugCommand
 {
 public:
-	Done(uint64_t thread_id);
+	Done(ThreadID_t thread_id);
 	void response(const msg::ServerMessagePtr& response);
 };
+
 class Next : public DebugCommand
 {
 public:
-	Next(uint64_t thread_id);
+	Next(ThreadID_t thread_id);
 	void response(const msg::ServerMessagePtr& response);
 };
 

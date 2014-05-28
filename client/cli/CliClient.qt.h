@@ -86,12 +86,15 @@ public slots:
                     UT_NOTIFY(LV_INFO, "Current call: " << i->asString().toStdString());
                 //request.type = RQ_STEP;
                 //cn_send(&c, request);
-            } else if (line == QString("continue")) {
-                //request.type = RQ_CONTINUE;
-                //cn_send(&c, request);
-            } else if (line == QString("stop")) {
-                //request.type = RQ_STOP;
-                //cn_send(&c, request);
+            } else if (line == QString("step") || line == QString("s")) {
+                msg::MessagePtr c = _proc->execute(proto::ExecutionDetails_Operation_STEP);
+                msg::ResponsePtr p = c->response().get();
+            } else if (line == QString("continue") || line == QString("c")) {
+                msg::MessagePtr c = _proc->execute(proto::ExecutionDetails_Operation_CONTINUE);
+                msg::ResponsePtr p = c->response().get();
+            } else if (line == QString("stop") || line == QString("halt")) {
+                msg::MessagePtr c = _proc->execute(proto::ExecutionDetails_Operation_HALT);
+                msg::ResponsePtr p = c->response().get();
             } else if (line == QString("quit") || line == QString("q"))  {
                 /* TODO do disconnect */
                 quit();

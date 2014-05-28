@@ -88,10 +88,11 @@ typedef QQueue<MessagePtr> MessageQueue;
 typedef QList<MessagePtr> MessageList;
 typedef std::future<ResponsePtr> FutureResponse;
 
+typedef uint64_t ThreadID_t;
 
 class DebugCommand : public MessageBase {
 public:
-    DebugCommand(uint64_t thread_id = 0) :
+    DebugCommand(ThreadID_t thread_id = 0) :
         MessageBase(proto::ClientMessage::DEBUG_COMMAND, thread_id)
     {
     }
