@@ -1345,6 +1345,19 @@ Proto__ServerMessage* handle_message_execution(connection_t *cn)
     proto__server_message__init(response);
 
     Proto__ExecutionDetails *msg = cn->request->execution;
+    if(cn->request->thread_id)
+    {
+
+    }
+    else {
+        // all threads shall be modified
+        response->error_code = PROTO__ERROR_CODE__NONE;
+        for (int i = 0; i < MAX_THREADS; ++i) {
+            if(g.thread_locals[i].thread_id != 0)
+                ++response->n_function_call;
+            else 
+                break;
+        }
     response->error_code = PROTO__ERROR_CODE__NONE;
     return response;
 }
