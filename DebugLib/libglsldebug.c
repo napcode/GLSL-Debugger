@@ -724,7 +724,7 @@ void storeResult(void *result, int type)
     thread_locals_t *rec = getThreadLocals(os_gettid());
 
     UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
-    printArgument(result, type);
+    print_dbg_type(type, result);
     UT_NOTIFY_NO_PRFX("\n");
     rec->current_call->return_type = type;
     rec->current_call->has_return_type = 1;
@@ -746,7 +746,7 @@ void storeResultOrError(unsigned int error, void *result, int type)
         UT_NOTIFY(LV_WARN, "NO RESULT STORED: %u", error);
     } else {
         UT_NOTIFY_NL(LV_INFO, "STORE RESULT: ");
-        printArgument(result, type);
+        print_dbg_type(type, result);
         UT_NOTIFY_NO_PRFX("\n");
         rec->result = DBG_RETURN_VALUE;
         rec->items[0] = (ALIGNED_DATA) result;
@@ -1358,6 +1358,7 @@ Proto__ServerMessage* handle_message_execution(connection_t *cn)
             else 
                 break;
         }
+    }
     response->error_code = PROTO__ERROR_CODE__NONE;
     return response;
 }
