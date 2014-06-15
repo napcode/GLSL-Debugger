@@ -55,9 +55,15 @@ Execute::Execute(ThreadID_t thread_id, proto::ExecutionDetails_Operation op, con
     if(param.size())
         _message.mutable_execution()->mutable_call()->set_name(param.toStdString());
 }
-void Execute::response(const msg::ServerMessagePtr& response)
+void Execute::response(const msg::ServerMessagePtr& rsp)
 {
-
+    if(rsp->error_code() == proto::ErrorCode::NONE) {
+        ResponsePtr res(new ResponseBase);
+        promise().set_value(res);
+    }
+    else {
+        promise().set_exception(make_exception_ptr(std::runtime_error(rsp->message())));
+    }
 }
 
 Call::Call(ThreadID_t thread) : 

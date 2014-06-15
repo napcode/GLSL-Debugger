@@ -490,13 +490,6 @@ class ExecutionDetails : public ::google::protobuf::Message {
   inline ::proto::ExecutionDetails_Operation operation() const;
   inline void set_operation(::proto::ExecutionDetails_Operation value);
 
-  // required int32 thread_id = 2;
-  inline bool has_thread_id() const;
-  inline void clear_thread_id();
-  static const int kThreadIdFieldNumber = 2;
-  inline ::google::protobuf::int32 thread_id() const;
-  inline void set_thread_id(::google::protobuf::int32 value);
-
   // optional .proto.FunctionCall call = 3;
   inline bool has_call() const;
   inline void clear_call();
@@ -510,19 +503,16 @@ class ExecutionDetails : public ::google::protobuf::Message {
  private:
   inline void set_has_operation();
   inline void clear_has_operation();
-  inline void set_has_thread_id();
-  inline void clear_has_thread_id();
   inline void set_has_call();
   inline void clear_has_call();
 
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
 
-  int operation_;
-  ::google::protobuf::int32 thread_id_;
   ::proto::FunctionCall* call_;
+  int operation_;
 
   mutable int _cached_size_;
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(2 + 31) / 32];
 
   friend void  protobuf_AddDesc_debugger_2eproto();
   friend void protobuf_AssignDesc_debugger_2eproto();
@@ -1815,37 +1805,15 @@ inline void ExecutionDetails::set_operation(::proto::ExecutionDetails_Operation 
   operation_ = value;
 }
 
-// required int32 thread_id = 2;
-inline bool ExecutionDetails::has_thread_id() const {
-  return (_has_bits_[0] & 0x00000002u) != 0;
-}
-inline void ExecutionDetails::set_has_thread_id() {
-  _has_bits_[0] |= 0x00000002u;
-}
-inline void ExecutionDetails::clear_has_thread_id() {
-  _has_bits_[0] &= ~0x00000002u;
-}
-inline void ExecutionDetails::clear_thread_id() {
-  thread_id_ = 0;
-  clear_has_thread_id();
-}
-inline ::google::protobuf::int32 ExecutionDetails::thread_id() const {
-  return thread_id_;
-}
-inline void ExecutionDetails::set_thread_id(::google::protobuf::int32 value) {
-  set_has_thread_id();
-  thread_id_ = value;
-}
-
 // optional .proto.FunctionCall call = 3;
 inline bool ExecutionDetails::has_call() const {
-  return (_has_bits_[0] & 0x00000004u) != 0;
+  return (_has_bits_[0] & 0x00000002u) != 0;
 }
 inline void ExecutionDetails::set_has_call() {
-  _has_bits_[0] |= 0x00000004u;
+  _has_bits_[0] |= 0x00000002u;
 }
 inline void ExecutionDetails::clear_has_call() {
-  _has_bits_[0] &= ~0x00000004u;
+  _has_bits_[0] &= ~0x00000002u;
 }
 inline void ExecutionDetails::clear_call() {
   if (call_ != NULL) call_->::proto::FunctionCall::Clear();

@@ -23,7 +23,6 @@ message ExecutionDetails
         TO_USER_DEFINED = 5;
     }
     required Operation operation = 1;
-    required int32 thread_id = 2;
     optional FunctionCall call = 3;
 }
 message DebugCommand

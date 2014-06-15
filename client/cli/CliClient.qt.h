@@ -56,7 +56,7 @@ public:
         _thread.start();
 
         QTextStream strout(stdout);
-        strout << "Current commands: connect, func, quit\n";
+        strout << "Current commands: connect(c), func(f), step(s) & quit(q)\n";
         emit requestInput();
     }
 public slots:
@@ -89,7 +89,7 @@ public slots:
             } else if (line == QString("step") || line == QString("s")) {
                 msg::MessagePtr c = _proc->execute(proto::ExecutionDetails_Operation_STEP);
                 msg::ResponsePtr p = c->response().get();
-            } else if (line == QString("continue") || line == QString("c")) {
+            } else if (line == QString("continue") || line == QString("cont")) {
                 msg::MessagePtr c = _proc->execute(proto::ExecutionDetails_Operation_CONTINUE);
                 msg::ResponsePtr p = c->response().get();
             } else if (line == QString("stop") || line == QString("halt")) {

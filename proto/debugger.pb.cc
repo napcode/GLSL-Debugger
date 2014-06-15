@@ -103,9 +103,8 @@ void protobuf_AssignDesc_debugger_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(AnnounceDetails));
   ExecutionDetails_descriptor_ = file->message_type(2);
-  static const int ExecutionDetails_offsets_[3] = {
+  static const int ExecutionDetails_offsets_[2] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ExecutionDetails, operation_),
-    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ExecutionDetails, thread_id_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ExecutionDetails, call_),
   };
   ExecutionDetails_reflection_ =
@@ -344,63 +343,62 @@ void protobuf_AddDesc_debugger_2eproto() {
     "jor\030\001 \002(\005\022\r\n\005minor\030\002 \002(\005\022\020\n\010revision\030\003 \002"
     "(\005\"S\n\017AnnounceDetails\022\n\n\002id\030\001 \002(\005\022\023\n\013cli"
     "ent_name\030\002 \002(\t\022\037\n\007version\030\003 \002(\0132\016.proto."
-    "Version\"\352\001\n\020ExecutionDetails\0224\n\toperatio"
+    "Version\"\327\001\n\020ExecutionDetails\0224\n\toperatio"
     "n\030\001 \002(\0162!.proto.ExecutionDetails.Operati"
-    "on\022\021\n\tthread_id\030\002 \002(\005\022!\n\004call\030\003 \001(\0132\023.pr"
-    "oto.FunctionCall\"j\n\tOperation\022\014\n\010CONTINU"
-    "E\020\000\022\010\n\004HALT\020\001\022\010\n\004STEP\020\002\022\024\n\020TO_SHADER_SWI"
-    "TCH\020\003\022\020\n\014TO_DRAW_CALL\020\004\022\023\n\017TO_USER_DEFIN"
-    "ED\020\005\"\205\004\n\014DebugCommand\022&\n\004type\030\001 \002(\0162\030.pr"
-    "oto.DebugCommand.Type\"\314\003\n\004Type\022\010\n\004DONE\020\001"
-    "\022\021\n\rCALL_FUNCTION\020\002\022\017\n\013RECORD_CALL\020\003\022\025\n\021"
-    "CALL_ORIGFUNCTION\020\004\022\013\n\007EXECUTE\020\005\022\r\n\tALLO"
-    "C_MEM\020\006\022\014\n\010FREE_MEM\020\007\022\026\n\022READ_RENDER_BUF"
-    "FER\020\010\022\027\n\023CLEAR_RENDER_BUFFER\020\t\022\022\n\016SET_DB"
-    "G_TARGET\020\n\022\031\n\025RESTORE_RENDER_TARGET\020\013\022\023\n"
-    "\017START_RECORDING\020\014\022\n\n\006REPLAY\020\r\022\016\n\nEND_RE"
-    "PLAY\020\016\022\027\n\023STORE_ACTIVE_SHADER\020\017\022\031\n\025RESTO"
-    "RE_ACTIVE_SHADER\020\020\022\022\n\016SET_DBG_SHADER\020\021\022\023"
-    "\n\017GET_SHADER_CODE\020\022\022\017\n\013SHADER_STEP\020\023\022\036\n\032"
-    "SAVE_AND_INTERRUPT_QUERIES\020\024\022\023\n\017RESTART_"
-    "QUERIES\020\025\022!\n\035CALL_ORIGFUNCTION_AND_PROCE"
-    "ED\020\026\"\302\002\n\rClientMessage\022\'\n\004type\030\001 \002(\0162\031.p"
-    "roto.ClientMessage.Type\022\n\n\002id\030\002 \002(\004\022\021\n\tt"
-    "hread_id\030\003 \001(\004\022(\n\010announce\030\004 \001(\0132\026.proto"
-    ".AnnounceDetails\022*\n\texecution\030\005 \001(\0132\027.pr"
-    "oto.ExecutionDetails\022$\n\007command\030\006 \001(\0132\023."
-    "proto.DebugCommand\"m\n\004Type\022\014\n\010ANNOUNCE\020\000"
-    "\022\020\n\014PROCESS_INFO\020\001\022\020\n\014GL_FUNCTIONS\020\002\022\021\n\r"
-    "FUNCTION_CALL\020\003\022\r\n\tEXECUTION\020\004\022\021\n\rDEBUG_"
-    "COMMAND\020\005\"R\n\013ProcessInfo\022\022\n\nexecutable\030\001"
-    " \002(\t\022\013\n\003pid\030\002 \002(\005\022\017\n\007is64bit\030\003 \002(\010\022\021\n\tth"
-    "read_id\030\004 \003(\004\"Q\n\020FunctionArgument\022\036\n\004typ"
-    "e\030\001 \002(\0162\020.proto.DebugType\022\017\n\007address\030\002 \002"
-    "(\004\022\014\n\004data\030\003 \002(\014\"\227\001\n\014FunctionCall\022\014\n\004nam"
-    "e\030\001 \002(\t\022\021\n\tthread_id\030\002 \001(\004\022%\n\013return_typ"
-    "e\030\003 \001(\0162\020.proto.DebugType\022\023\n\013return_data"
-    "\030\004 \001(\014\022*\n\targuments\030\005 \003(\0132\027.proto.Functi"
-    "onArgument\"\277\001\n\nGLFunction\022\016\n\006prefix\030\001 \002("
-    "\t\022\017\n\007extname\030\002 \002(\t\022\014\n\004name\030\003 \002(\t\022\025\n\ris_d"
-    "ebuggable\030\004 \002(\010\022\034\n\024primitive_mode_index\030"
-    "\005 \002(\005\022\030\n\020is_shader_switch\030\006 \002(\010\022\024\n\014is_fr"
-    "ame_end\030\007 \002(\010\022\035\n\025is_framebuffer_change\030\010"
-    " \002(\010\"2\n\013GLFunctions\022#\n\010function\030\001 \003(\0132\021."
-    "proto.GLFunction\"\325\001\n\rServerMessage\022*\n\ner"
-    "ror_code\030\001 \002(\0162\020.proto.ErrorCode:\004NONE\022\n"
-    "\n\002id\030\002 \002(\004\022\017\n\007message\030\003 \001(\t\022*\n\rfunction_"
-    "call\030\004 \003(\0132\023.proto.FunctionCall\022(\n\014gl_fu"
-    "nctions\030\005 \001(\0132\022.proto.GLFunctions\022%\n\tpro"
-    "c_info\030\006 \001(\0132\022.proto.ProcessInfo*\230\002\n\tDeb"
-    "ugType\022\010\n\004CHAR\020\000\022\021\n\rUNSIGNED_CHAR\020\001\022\t\n\005S"
-    "HORT\020\002\022\022\n\016UNSIGNED_SHORT\020\003\022\007\n\003INT\020\004\022\020\n\014U"
-    "NSIGNED_INT\020\005\022\014\n\010LONG_INT\020\006\022\025\n\021UNSIGNED_"
-    "LONG_INT\020\007\022\021\n\rLONG_LONG_INT\020\010\022\032\n\026UNSIGNE"
-    "D_LONG_LONG_INT\020\t\022\t\n\005FLOAT\020\n\022\n\n\006DOUBLE\020\013"
-    "\022\016\n\nLONGDOUBLE\020\014\022\013\n\007POINTER\020\r\022\n\n\006STRUCT\020"
-    "\016\022\014\n\010BITFIELD\020\017\022\010\n\004ENUM\020\020\022\010\n\004BOOL\020\021*d\n\tE"
-    "rrorCode\022\010\n\004NONE\020\000\022\023\n\017HEADER_MISMATCH\020\001\022"
-    "\024\n\020VERSION_MISMATCH\020\002\022\017\n\013AUTH_FAILED\020\003\022\021"
-    "\n\rGENERIC_ERROR\020\004", 2417);
+    "on\022!\n\004call\030\003 \001(\0132\023.proto.FunctionCall\"j\n"
+    "\tOperation\022\014\n\010CONTINUE\020\000\022\010\n\004HALT\020\001\022\010\n\004ST"
+    "EP\020\002\022\024\n\020TO_SHADER_SWITCH\020\003\022\020\n\014TO_DRAW_CA"
+    "LL\020\004\022\023\n\017TO_USER_DEFINED\020\005\"\205\004\n\014DebugComma"
+    "nd\022&\n\004type\030\001 \002(\0162\030.proto.DebugCommand.Ty"
+    "pe\"\314\003\n\004Type\022\010\n\004DONE\020\001\022\021\n\rCALL_FUNCTION\020\002"
+    "\022\017\n\013RECORD_CALL\020\003\022\025\n\021CALL_ORIGFUNCTION\020\004"
+    "\022\013\n\007EXECUTE\020\005\022\r\n\tALLOC_MEM\020\006\022\014\n\010FREE_MEM"
+    "\020\007\022\026\n\022READ_RENDER_BUFFER\020\010\022\027\n\023CLEAR_REND"
+    "ER_BUFFER\020\t\022\022\n\016SET_DBG_TARGET\020\n\022\031\n\025RESTO"
+    "RE_RENDER_TARGET\020\013\022\023\n\017START_RECORDING\020\014\022"
+    "\n\n\006REPLAY\020\r\022\016\n\nEND_REPLAY\020\016\022\027\n\023STORE_ACT"
+    "IVE_SHADER\020\017\022\031\n\025RESTORE_ACTIVE_SHADER\020\020\022"
+    "\022\n\016SET_DBG_SHADER\020\021\022\023\n\017GET_SHADER_CODE\020\022"
+    "\022\017\n\013SHADER_STEP\020\023\022\036\n\032SAVE_AND_INTERRUPT_"
+    "QUERIES\020\024\022\023\n\017RESTART_QUERIES\020\025\022!\n\035CALL_O"
+    "RIGFUNCTION_AND_PROCEED\020\026\"\302\002\n\rClientMess"
+    "age\022\'\n\004type\030\001 \002(\0162\031.proto.ClientMessage."
+    "Type\022\n\n\002id\030\002 \002(\004\022\021\n\tthread_id\030\003 \001(\004\022(\n\010a"
+    "nnounce\030\004 \001(\0132\026.proto.AnnounceDetails\022*\n"
+    "\texecution\030\005 \001(\0132\027.proto.ExecutionDetail"
+    "s\022$\n\007command\030\006 \001(\0132\023.proto.DebugCommand\""
+    "m\n\004Type\022\014\n\010ANNOUNCE\020\000\022\020\n\014PROCESS_INFO\020\001\022"
+    "\020\n\014GL_FUNCTIONS\020\002\022\021\n\rFUNCTION_CALL\020\003\022\r\n\t"
+    "EXECUTION\020\004\022\021\n\rDEBUG_COMMAND\020\005\"R\n\013Proces"
+    "sInfo\022\022\n\nexecutable\030\001 \002(\t\022\013\n\003pid\030\002 \002(\005\022\017"
+    "\n\007is64bit\030\003 \002(\010\022\021\n\tthread_id\030\004 \003(\004\"Q\n\020Fu"
+    "nctionArgument\022\036\n\004type\030\001 \002(\0162\020.proto.Deb"
+    "ugType\022\017\n\007address\030\002 \002(\004\022\014\n\004data\030\003 \002(\014\"\227\001"
+    "\n\014FunctionCall\022\014\n\004name\030\001 \002(\t\022\021\n\tthread_i"
+    "d\030\002 \001(\004\022%\n\013return_type\030\003 \001(\0162\020.proto.Deb"
+    "ugType\022\023\n\013return_data\030\004 \001(\014\022*\n\targuments"
+    "\030\005 \003(\0132\027.proto.FunctionArgument\"\277\001\n\nGLFu"
+    "nction\022\016\n\006prefix\030\001 \002(\t\022\017\n\007extname\030\002 \002(\t\022"
+    "\014\n\004name\030\003 \002(\t\022\025\n\ris_debuggable\030\004 \002(\010\022\034\n\024"
+    "primitive_mode_index\030\005 \002(\005\022\030\n\020is_shader_"
+    "switch\030\006 \002(\010\022\024\n\014is_frame_end\030\007 \002(\010\022\035\n\025is"
+    "_framebuffer_change\030\010 \002(\010\"2\n\013GLFunctions"
+    "\022#\n\010function\030\001 \003(\0132\021.proto.GLFunction\"\325\001"
+    "\n\rServerMessage\022*\n\nerror_code\030\001 \002(\0162\020.pr"
+    "oto.ErrorCode:\004NONE\022\n\n\002id\030\002 \002(\004\022\017\n\007messa"
+    "ge\030\003 \001(\t\022*\n\rfunction_call\030\004 \003(\0132\023.proto."
+    "FunctionCall\022(\n\014gl_functions\030\005 \001(\0132\022.pro"
+    "to.GLFunctions\022%\n\tproc_info\030\006 \001(\0132\022.prot"
+    "o.ProcessInfo*\230\002\n\tDebugType\022\010\n\004CHAR\020\000\022\021\n"
+    "\rUNSIGNED_CHAR\020\001\022\t\n\005SHORT\020\002\022\022\n\016UNSIGNED_"
+    "SHORT\020\003\022\007\n\003INT\020\004\022\020\n\014UNSIGNED_INT\020\005\022\014\n\010LO"
+    "NG_INT\020\006\022\025\n\021UNSIGNED_LONG_INT\020\007\022\021\n\rLONG_"
+    "LONG_INT\020\010\022\032\n\026UNSIGNED_LONG_LONG_INT\020\t\022\t"
+    "\n\005FLOAT\020\n\022\n\n\006DOUBLE\020\013\022\016\n\nLONGDOUBLE\020\014\022\013\n"
+    "\007POINTER\020\r\022\n\n\006STRUCT\020\016\022\014\n\010BITFIELD\020\017\022\010\n\004"
+    "ENUM\020\020\022\010\n\004BOOL\020\021*d\n\tErrorCode\022\010\n\004NONE\020\000\022"
+    "\023\n\017HEADER_MISMATCH\020\001\022\024\n\020VERSION_MISMATCH"
+    "\020\002\022\017\n\013AUTH_FAILED\020\003\022\021\n\rGENERIC_ERROR\020\004", 2398);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "debugger.proto", &protobuf_RegisterTypes);
   Version::default_instance_ = new Version();
@@ -1118,7 +1116,6 @@ const int ExecutionDetails::Operation_ARRAYSIZE;
 #endif  // _MSC_VER
 #ifndef _MSC_VER
 const int ExecutionDetails::kOperationFieldNumber;
-const int ExecutionDetails::kThreadIdFieldNumber;
 const int ExecutionDetails::kCallFieldNumber;
 #endif  // !_MSC_VER
 
@@ -1140,7 +1137,6 @@ ExecutionDetails::ExecutionDetails(const ExecutionDetails& from)
 void ExecutionDetails::SharedCtor() {
   _cached_size_ = 0;
   operation_ = 0;
-  thread_id_ = 0;
   call_ = NULL;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
@@ -1179,7 +1175,6 @@ ExecutionDetails* ExecutionDetails::New() const {
 void ExecutionDetails::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     operation_ = 0;
-    thread_id_ = 0;
     if (has_call()) {
       if (call_ != NULL) call_->::proto::FunctionCall::Clear();
     }
@@ -1207,22 +1202,6 @@ bool ExecutionDetails::MergePartialFromCodedStream(
           } else {
             mutable_unknown_fields()->AddVarint(1, value);
           }
-        } else {
-          goto handle_uninterpreted;
-        }
-        if (input->ExpectTag(16)) goto parse_thread_id;
-        break;
-      }
-
-      // required int32 thread_id = 2;
-      case 2: {
-        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
-            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
-         parse_thread_id:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
-                 input, &thread_id_)));
-          set_has_thread_id();
         } else {
           goto handle_uninterpreted;
         }
@@ -1268,11 +1247,6 @@ void ExecutionDetails::SerializeWithCachedSizes(
       1, this->operation(), output);
   }
 
-  // required int32 thread_id = 2;
-  if (has_thread_id()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->thread_id(), output);
-  }
-
   // optional .proto.FunctionCall call = 3;
   if (has_call()) {
     ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
@@ -1291,11 +1265,6 @@ void ExecutionDetails::SerializeWithCachedSizes(
   if (has_operation()) {
     target = ::google::protobuf::internal::WireFormatLite::WriteEnumToArray(
       1, this->operation(), target);
-  }
-
-  // required int32 thread_id = 2;
-  if (has_thread_id()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->thread_id(), target);
   }
 
   // optional .proto.FunctionCall call = 3;
@@ -1320,13 +1289,6 @@ int ExecutionDetails::ByteSize() const {
     if (has_operation()) {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::EnumSize(this->operation());
-    }
-
-    // required int32 thread_id = 2;
-    if (has_thread_id()) {
-      total_size += 1 +
-        ::google::protobuf::internal::WireFormatLite::Int32Size(
-          this->thread_id());
     }
 
     // optional .proto.FunctionCall call = 3;
@@ -1366,9 +1328,6 @@ void ExecutionDetails::MergeFrom(const ExecutionDetails& from) {
     if (from.has_operation()) {
       set_operation(from.operation());
     }
-    if (from.has_thread_id()) {
-      set_thread_id(from.thread_id());
-    }
     if (from.has_call()) {
       mutable_call()->::proto::FunctionCall::MergeFrom(from.call());
     }
@@ -1389,7 +1348,7 @@ void ExecutionDetails::CopyFrom(const ExecutionDetails& from) {
 }
 
 bool ExecutionDetails::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000003) != 0x00000003) return false;
+  if ((_has_bits_[0] & 0x00000001) != 0x00000001) return false;
 
   if (has_call()) {
     if (!this->call().IsInitialized()) return false;
@@ -1400,7 +1359,6 @@ bool ExecutionDetails::IsInitialized() const {
 void ExecutionDetails::Swap(ExecutionDetails* other) {
   if (other != this) {
     std::swap(operation_, other->operation_);
-    std::swap(thread_id_, other->thread_id_);
     std::swap(call_, other->call_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     _unknown_fields_.Swap(&other->_unknown_fields_);

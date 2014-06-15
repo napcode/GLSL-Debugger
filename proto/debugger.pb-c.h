@@ -121,12 +121,11 @@ struct  _Proto__ExecutionDetails
 {
   ProtobufCMessage base;
   Proto__ExecutionDetails__Operation operation;
-  int32_t thread_id;
   Proto__FunctionCall *call;
 };
 #define PROTO__EXECUTION_DETAILS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&proto__execution_details__descriptor) \
-    , 0, 0, NULL }
+    , 0, NULL }
 
 
 struct  _Proto__DebugCommand

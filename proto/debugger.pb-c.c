@@ -643,7 +643,7 @@ const ProtobufCEnumDescriptor proto__execution_details__operation__descriptor =
   proto__execution_details__operation__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCFieldDescriptor proto__execution_details__field_descriptors[3] =
+static const ProtobufCFieldDescriptor proto__execution_details__field_descriptors[2] =
 {
   {
     "operation",
@@ -653,18 +653,6 @@ static const ProtobufCFieldDescriptor proto__execution_details__field_descriptor
     0,   /* quantifier_offset */
     PROTOBUF_C_OFFSETOF(Proto__ExecutionDetails, operation),
     &proto__execution_details__operation__descriptor,
-    NULL,
-    0,            /* packed */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "thread_id",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_INT32,
-    0,   /* quantifier_offset */
-    PROTOBUF_C_OFFSETOF(Proto__ExecutionDetails, thread_id),
-    NULL,
     NULL,
     0,            /* packed */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -683,14 +671,14 @@ static const ProtobufCFieldDescriptor proto__execution_details__field_descriptor
   },
 };
 static const unsigned proto__execution_details__field_indices_by_name[] = {
-  2,   /* field[2] = call */
+  1,   /* field[1] = call */
   0,   /* field[0] = operation */
-  1,   /* field[1] = thread_id */
 };
-static const ProtobufCIntRange proto__execution_details__number_ranges[1 + 1] =
+static const ProtobufCIntRange proto__execution_details__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 3, 1 },
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor proto__execution_details__descriptor =
 {
@@ -700,10 +688,10 @@ const ProtobufCMessageDescriptor proto__execution_details__descriptor =
   "Proto__ExecutionDetails",
   "proto",
   sizeof(Proto__ExecutionDetails),
-  3,
+  2,
   proto__execution_details__field_descriptors,
   proto__execution_details__field_indices_by_name,
-  1,  proto__execution_details__number_ranges,
+  2,  proto__execution_details__number_ranges,
   (ProtobufCMessageInit) proto__execution_details__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
